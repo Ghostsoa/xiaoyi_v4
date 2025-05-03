@@ -52,6 +52,7 @@ dependencies:
   flutter_markdown: ^0.6.20
   markdown: ^7.2.1
   flutter_launcher_icons: ^0.13.1
+  permission_handler: ^11.3.0  # 用于权限管理
 
 
 flutter_launcher_icons:

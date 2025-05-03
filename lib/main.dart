@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'pages/login/login_page.dart';
 import 'theme/theme_controller.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +13,12 @@ import 'theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppTheme.initialize(); // 初始化主题配置
+
+  // 请求必要的权限
+  await Permission.storage.request();
+  await Permission.photos.request();
+  await Permission.camera.request();
+  await Permission.microphone.request();
 
   // 强制竖屏
   SystemChrome.setPreferredOrientations([
