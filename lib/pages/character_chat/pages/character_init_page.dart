@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/character_service.dart';
 import '../../../services/file_service.dart';
 import 'dart:typed_data';
-import '../pages/character_chat_page.dart';
+import 'character_chat_page.dart';
 import '../../../theme/app_theme.dart';
 
 class CharacterInitPage extends StatefulWidget {

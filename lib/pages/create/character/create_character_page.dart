@@ -30,10 +30,6 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   bool _isLoading = false;
   int _currentPage = 0;
 
-  // 添加临时缓存变量
-  Uint8List? _coverImageCache;
-  Uint8List? _backgroundImageCache;
-
   // 图片缓存Map
   final Map<String, Uint8List> _imageCache = {};
 

@@ -317,7 +317,12 @@ class _MyCreationPageState extends State<MyCreationPage> {
                                         isEdit: true,
                                       ),
                                     ),
-                                  );
+                                  ).then((result) {
+                                    // 如果返回的结果为true，表示编辑成功，刷新列表
+                                    if (result == true) {
+                                      _loadData();
+                                    }
+                                  });
                                 },
                                 child: Container(
                                   padding: EdgeInsets.all(4.w),

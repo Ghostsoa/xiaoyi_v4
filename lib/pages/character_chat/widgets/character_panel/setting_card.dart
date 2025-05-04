@@ -36,7 +36,7 @@ class SettingCard extends StatelessWidget {
         ),
         _buildEditableInfoItem(
           '用户设定',
-          'userSetting',
+          'user_setting',
           userSettingController,
           enabled: true,
           suffix: '可编辑',
@@ -44,7 +44,7 @@ class SettingCard extends StatelessWidget {
         ),
         _buildEditableInfoItem(
           '状态栏',
-          'statusBar',
+          'status_bar',
           statusBarController,
           enabled: true,
           suffix: '可编辑',

@@ -615,11 +615,23 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         setState(() {
           _messages.removeLast(); // 删除AI回复
           if (_messages.isNotEmpty && _messages.last['isUser']) {
+            // 将用户消息内容放回输入框
+            _messageController.text = _messages.last['content'];
+            // 将光标移到文本末尾
+            _messageController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _messageController.text.length),
+            );
             _messages.removeLast(); // 删除用户提问
           }
         });
       } else {
         setState(() {
+          // 将用户消息内容放回输入框
+          _messageController.text = _messages.last['content'];
+          // 将光标移到文本末尾
+          _messageController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _messageController.text.length),
+          );
           _messages.removeLast(); // 只删除用户消息
         });
       }
