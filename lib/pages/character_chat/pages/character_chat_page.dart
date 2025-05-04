@@ -170,10 +170,15 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       final pagination = result['pagination'] ?? {};
 
       if (isLoadMore && messageList.isNotEmpty) {
-        // 记录当前滚动位置
+        // 记录当前滚动位置和内容高度
         final double currentScrollPosition = _scrollController.position.pixels;
         final double maxScrollExtent =
             _scrollController.position.maxScrollExtent;
+        final double viewportHeight =
+            _scrollController.position.viewportDimension;
+
+        // 记录页面高度，用于后续计算
+        final double oldContentHeight = maxScrollExtent + viewportHeight;
 
         // 将新消息一个个添加到列表顶部
         final newMessages = <Map<String, dynamic>>[];
@@ -194,20 +199,22 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           _messages.insertAll(0, newMessages);
         });
 
-        // 保持滚动位置，但使用更平滑的动画而不是跳转
+        // 保持滚动位置
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
+            // 计算新的内容高度和滚动位置偏移量
             final double newMaxScrollExtent =
                 _scrollController.position.maxScrollExtent;
-            final double newPosition =
-                newMaxScrollExtent - (maxScrollExtent - currentScrollPosition);
+            final double newContentHeight = newMaxScrollExtent + viewportHeight;
 
-            // 使用动画滚动到新位置
-            _scrollController.animateTo(
-              newPosition,
-              duration: const Duration(milliseconds: 100),
-              curve: Curves.easeOut,
-            );
+            // 计算高度差，即新增内容的高度
+            final double heightDifference = newContentHeight - oldContentHeight;
+
+            // 新的滚动位置应该是：当前位置 + 新增的内容高度
+            final double newPosition = currentScrollPosition + heightDifference;
+
+            // 使用延迟和减缓动画效果，让滚动更加平滑
+            _scrollController.jumpTo(newPosition);
           }
         });
       } else if (!isLoadMore) {
