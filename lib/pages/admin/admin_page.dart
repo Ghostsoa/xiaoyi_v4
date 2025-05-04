@@ -6,6 +6,8 @@ import 'user_management/user_management_page.dart';
 import 'card_management/card_management_page.dart';
 import 'notification_management/notification_management_page.dart';
 import 'model_management/model_management_page.dart';
+import 'material_management/material_management_page.dart';
+import 'character_management/character_management_page.dart';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -43,6 +45,16 @@ class _AdminPageState extends State<AdminPage> {
       'title': '大模型管理',
       'icon': Icons.smart_toy_outlined,
       'page': const ModelManagementPage(),
+    },
+    {
+      'title': '素材库管理',
+      'icon': Icons.image_outlined,
+      'page': const MaterialManagementPage(),
+    },
+    {
+      'title': '角色卡管理',
+      'icon': Icons.face_outlined,
+      'page': const CharacterManagementPage(),
     },
   ];
 

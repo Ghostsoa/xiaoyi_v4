@@ -41,10 +41,12 @@ class _SelectImagePageState extends State<SelectImagePage> {
   final int _pageSize = 20;
   List<Map<String, dynamic>> _materials = [];
   int _total = 0;
+  late ImageSelectSource _currentSource;
 
   @override
   void initState() {
     super.initState();
+    _currentSource = widget.source;
     _scrollController.addListener(_handleScroll);
     _loadData(refresh: true);
   }
@@ -65,9 +67,80 @@ class _SelectImagePageState extends State<SelectImagePage> {
   }
 
   String _getTitle() {
-    String source = widget.source == ImageSelectSource.myMaterial ? '我的' : '公共';
     String type = widget.type == ImageSelectType.cover ? '封面图片' : '背景图片';
-    return '选择$type - $source素材库';
+    return '选择$type';
+  }
+
+  Widget _buildSourceSelector() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 8.h),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildSourceButton(
+              title: '我的素材',
+              icon: Icons.folder_outlined,
+              source: ImageSelectSource.myMaterial,
+            ),
+          ),
+          SizedBox(width: 16.w),
+          Expanded(
+            child: _buildSourceButton(
+              title: '公开素材',
+              icon: Icons.folder_shared_outlined,
+              source: ImageSelectSource.publicMaterial,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSourceButton({
+    required String title,
+    required IconData icon,
+    required ImageSelectSource source,
+  }) {
+    final bool isSelected = _currentSource == source;
+    return GestureDetector(
+      onTap: () {
+        if (_currentSource != source) {
+          setState(() {
+            _currentSource = source;
+            _loadData(refresh: true);
+          });
+        }
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 12.h),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryColor : AppTheme.border,
+          ),
+          borderRadius: BorderRadius.circular(8.r),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 20.sp,
+              color: isSelected ? Colors.white : AppTheme.textSecondary,
+            ),
+            SizedBox(width: 8.w),
+            Text(
+              title,
+              style: TextStyle(
+                color: isSelected ? Colors.white : AppTheme.textSecondary,
+                fontSize: AppTheme.bodySize,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _loadData({bool refresh = false}) async {
@@ -83,7 +156,7 @@ class _SelectImagePageState extends State<SelectImagePage> {
     });
 
     try {
-      final response = widget.source == ImageSelectSource.myMaterial
+      final response = _currentSource == ImageSelectSource.myMaterial
           ? await _materialService.getMaterials(
               page: _currentPage,
               pageSize: _pageSize,
@@ -360,6 +433,7 @@ class _SelectImagePageState extends State<SelectImagePage> {
                 ],
               ),
             ),
+            _buildSourceSelector(),
             Expanded(
               child: _buildMaterialList(),
             ),

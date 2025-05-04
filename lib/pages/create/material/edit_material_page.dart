@@ -5,6 +5,7 @@ import '../services/material_service.dart';
 import '../../../services/file_service.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/custom_toast.dart';
 
 class EditMaterialPage extends StatefulWidget {
   final Map<String, dynamic>? material;
@@ -70,9 +71,7 @@ class _EditMaterialPageState extends State<EditMaterialPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('选择图片失败: $e')),
-        );
+        _showToast('选择图片失败: $e', ToastType.error);
       }
     }
   }
@@ -89,9 +88,7 @@ class _EditMaterialPageState extends State<EditMaterialPage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('上传图片失败: $e')),
-        );
+        _showToast('上传图片失败，请检查网络或文件大小', ToastType.error);
       }
     } finally {
       if (mounted) {
@@ -102,23 +99,17 @@ class _EditMaterialPageState extends State<EditMaterialPage> {
 
   Future<void> _save() async {
     if (_descriptionController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入描述')),
-      );
+      _showToast('请输入描述', ToastType.warning);
       return;
     }
 
     if (_type == 'image' && _uploadedImageUri == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请选择并上传图片')),
-      );
+      _showToast('请选择并上传图片', ToastType.warning);
       return;
     }
 
     if (_type != 'image' && _contentController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入内容')),
-      );
+      _showToast('请输入内容', ToastType.warning);
       return;
     }
 
@@ -140,19 +131,27 @@ class _EditMaterialPageState extends State<EditMaterialPage> {
       }
 
       if (mounted) {
+        _showToast('保存成功', ToastType.success);
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
+        _showToast('保存失败: ${e.toString()}', ToastType.error);
       }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _showToast(String message, ToastType type) {
+    if (!mounted) return;
+    CustomToast.show(
+      context,
+      message: message,
+      type: type,
+    );
   }
 
   Widget _buildContentSection() {

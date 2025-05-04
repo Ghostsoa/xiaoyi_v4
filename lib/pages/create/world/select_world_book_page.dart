@@ -35,10 +35,12 @@ class _SelectWorldBookPageState extends State<SelectWorldBookPage> {
   bool _isLoading = false;
   bool _hasMore = true;
   String? _keyword;
+  late WorldBookSelectSource _currentSource;
 
   @override
   void initState() {
     super.initState();
+    _currentSource = widget.source;
     if (widget.initialSelected != null) {
       for (var book in widget.initialSelected!) {
         final id = book['id'].toString();
@@ -57,6 +59,78 @@ class _SelectWorldBookPageState extends State<SelectWorldBookPage> {
     super.dispose();
   }
 
+  Widget _buildSourceSelector() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 8.h),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildSourceButton(
+              title: '我的世界书',
+              icon: Icons.folder_outlined,
+              source: WorldBookSelectSource.myWorldBook,
+            ),
+          ),
+          SizedBox(width: 16.w),
+          Expanded(
+            child: _buildSourceButton(
+              title: '公开世界书',
+              icon: Icons.folder_shared_outlined,
+              source: WorldBookSelectSource.publicWorldBook,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSourceButton({
+    required String title,
+    required IconData icon,
+    required WorldBookSelectSource source,
+  }) {
+    final bool isSelected = _currentSource == source;
+    return GestureDetector(
+      onTap: () {
+        if (_currentSource != source) {
+          setState(() {
+            _currentSource = source;
+            _loadData(refresh: true);
+          });
+        }
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 12.h),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryColor : AppTheme.border,
+          ),
+          borderRadius: BorderRadius.circular(8.r),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 20.sp,
+              color: isSelected ? Colors.white : AppTheme.textSecondary,
+            ),
+            SizedBox(width: 8.w),
+            Text(
+              title,
+              style: TextStyle(
+                color: isSelected ? Colors.white : AppTheme.textSecondary,
+                fontSize: AppTheme.bodySize,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _loadData({bool refresh = false}) async {
     if (_isLoading) return;
     if (refresh) {
@@ -70,7 +144,7 @@ class _SelectWorldBookPageState extends State<SelectWorldBookPage> {
     setState(() => _isLoading = true);
 
     try {
-      final result = widget.source == WorldBookSelectSource.myWorldBook
+      final result = _currentSource == WorldBookSelectSource.myWorldBook
           ? await _service.getMyWorldBooks(
               page: _currentPage,
               pageSize: 10,
@@ -136,9 +210,7 @@ class _SelectWorldBookPageState extends State<SelectWorldBookPage> {
         backgroundColor: AppTheme.background,
         elevation: 0,
         title: Text(
-          widget.source == WorldBookSelectSource.myWorldBook
-              ? '选择我的世界书'
-              : '选择公开世界书',
+          '选择世界书',
           style: TextStyle(
             fontSize: AppTheme.titleSize,
             fontWeight: FontWeight.w600,
@@ -169,6 +241,7 @@ class _SelectWorldBookPageState extends State<SelectWorldBookPage> {
       ),
       body: Column(
         children: [
+          _buildSourceSelector(),
           Padding(
             padding: EdgeInsets.all(16.w),
             child: TextField(

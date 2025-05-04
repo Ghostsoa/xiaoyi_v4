@@ -33,25 +33,30 @@ class CharacterChatStreamService {
       // 设置请求体
       request.body = jsonEncode({'input': input});
 
-      // 发送请求并获取响应流
-      final response = await http.Client().send(request);
+      // 发送请求并获取响应流，设置90秒超时
+      final client = http.Client();
+      final response = await client.send(request).timeout(
+        const Duration(seconds: 90),
+        onTimeout: () {
+          client.close();
+          throw TimeoutException('请求超时（90秒）');
+        },
+      );
 
       if (response.statusCode != 200) {
-        final error = await response.stream.bytesToString();
-
-        // 检查是否包含 error 字段
-        if (error.contains('"error"')) {
-          yield SseResponse(
-              id: '0',
-              event: 'error',
-              timestamp: DateTime.now().millisecondsSinceEpoch,
-              data: {
-                'error': {'message': 'MODEL_OVERLOADED'}
-              });
+        final errorStr = await response.stream.bytesToString();
+        Map<String, dynamic> errorData;
+        try {
+          errorData = jsonDecode(errorStr);
+        } catch (e) {
+          yield* Stream.error('请求失败: $errorStr');
           return;
         }
 
-        yield* Stream.error('请求失败: $error');
+        if (errorData['code'] == 1019) {
+          await _userDao.clearUserInfo();
+        }
+        yield* Stream.error(errorData['msg'] ?? '未知错误');
         return;
       }
 
@@ -59,6 +64,7 @@ class CharacterChatStreamService {
 
       // 处理SSE流
       await for (final chunk in response.stream.transform(utf8.decoder)) {
+        debugPrint('Received chunk: $chunk');
         buffer += chunk;
 
         // 处理完整的数据行
@@ -72,13 +78,8 @@ class CharacterChatStreamService {
 
           try {
             final data = line.substring(5).trim();
+            debugPrint('Processing SSE data: $data');
             final sseResponse = SseResponse.fromSseData(data);
-
-            if (sseResponse.isError) {
-              yield* Stream.error(sseResponse.errorMsg ?? '未知错误');
-              return;
-            }
-
             yield sseResponse;
 
             if (sseResponse.isDone) {
@@ -104,6 +105,9 @@ class CharacterChatStreamService {
           }
         }
       }
+    } on TimeoutException catch (e) {
+      debugPrint('请求超时: $e');
+      yield* Stream.error('请求超时（90秒）');
     } catch (e) {
       debugPrint('发送消息错误: $e');
       yield* Stream.error('发送消息失败: $e');

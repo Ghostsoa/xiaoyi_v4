@@ -21,21 +21,21 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   int _unreadCount = 0;
   Timer? _notificationTimer;
 
+  // 页面控制器
+  final homeKey = GlobalKey<HomePageState>();
+  final messageKey = GlobalKey<MessagePageState>();
+  final profileKey = GlobalKey<ProfilePageState>();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _fetchUnreadCount();
-
-    // 启动定时器，每15秒获取一次未读通知数量
     _startNotificationTimer();
   }
 
   void _startNotificationTimer() {
-    // 取消已有的定时器
     _notificationTimer?.cancel();
-
-    // 创建新的定时器，每15秒执行一次
     _notificationTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
       if (mounted) {
         _fetchUnreadCount();
@@ -45,10 +45,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    // 取消定时器
     _notificationTimer?.cancel();
     _notificationTimer = null;
-
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -56,18 +54,15 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // 应用回到前台时刷新未读消息
       _fetchUnreadCount();
-      // 重新启动定时器
       _startNotificationTimer();
+      _refreshCurrentPage();
     } else if (state == AppLifecycleState.paused) {
-      // 应用进入后台时暂停定时器，减少资源消耗
       _notificationTimer?.cancel();
       _notificationTimer = null;
     }
   }
 
-  // 获取未读通知数量并更新消息页面
   Future<void> _fetchUnreadCount() async {
     try {
       final count = await _notificationService.getUnreadCount();
@@ -77,28 +72,37 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         });
       }
     } catch (e) {
-      // 忽略错误，避免因网络问题而崩溃
       debugPrint('获取未读通知数量失败: $e');
+    }
+  }
+
+  void _refreshCurrentPage() {
+    switch (_currentIndex) {
+      case 0:
+        homeKey.currentState?.refresh();
+        break;
+      case 1:
+        messageKey.currentState?.refresh();
+        break;
+      case 4:
+        profileKey.currentState?.refresh();
+        break;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // 在build时构建页面列表，确保_unreadCount是最新的
     final List<Widget> pages = [
-      const HomePage(),
-      MessagePage(unreadCount: _unreadCount),
-      const SizedBox(), // 占位，不会显示
-      const SizedBox(), // 待定页面，暂时不实现
-      const ProfilePage(),
+      HomePage(key: homeKey),
+      MessagePage(key: messageKey, unreadCount: _unreadCount),
+      const SizedBox(),
+      const SizedBox(),
+      ProfilePage(key: profileKey),
     ];
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: pages,
-      ),
+      body: pages[_currentIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppTheme.cardBackground,
@@ -129,21 +133,26 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     );
   }
 
-  // 构建导航项
   Widget _buildNavItem(String title, int index) {
     final isSelected = _currentIndex == index;
-    final bool showBadge = index == 1 && _unreadCount > 0; // 消息页面且有未读消息时显示角标
+    final bool showBadge = index == 1 && _unreadCount > 0;
 
     return GestureDetector(
       onTap: () {
-        // 如果当前已选中该项，不做任何操作
-        if (_currentIndex == index) return;
+        // 如果点击当前页面，不做任何操作
+        if (_currentIndex == index) {
+          return;
+        }
 
         setState(() {
           _currentIndex = index;
         });
 
-        // 切换到消息页时获取未读通知数量
+        // 切换页面后，刷新新页面
+        Future.microtask(() {
+          _refreshCurrentPage();
+        });
+
         if (index == 1) {
           _fetchUnreadCount();
         }
@@ -162,7 +171,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                     isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
               ),
             ),
-            // 添加角标
             if (showBadge)
               Positioned(
                 right: -8.w,
@@ -195,11 +203,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     );
   }
 
-  // 构建中间的添加按钮 - 渐变样式，点击跳转到创作中心
   Widget _buildAddButton() {
     return GestureDetector(
       onTap: () {
-        // 跳转到创作中心页面
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => const CreateCenterPage(),

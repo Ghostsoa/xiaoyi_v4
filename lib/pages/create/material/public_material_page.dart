@@ -703,6 +703,20 @@ class _PublicMaterialPageState extends State<PublicMaterialPage>
               padding: EdgeInsets.all(24.w),
               child: Row(
                 children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.arrow_back,
+                      color: AppTheme.textPrimary,
+                      size: 24.sp,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: 24.w,
+                      minHeight: 24.w,
+                    ),
+                  ),
+                  SizedBox(width: 16.w),
                   Expanded(
                     child: Text(
                       '公共素材库',

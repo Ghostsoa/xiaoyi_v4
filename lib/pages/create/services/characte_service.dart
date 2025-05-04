@@ -11,7 +11,7 @@ class CharacterService {
     } catch (e) {
       return {
         'code': -1,
-        'message': e.toString(),
+        'msg': e.toString(),
       };
     }
   }
@@ -41,7 +41,7 @@ class CharacterService {
     } catch (e) {
       return {
         'code': -1,
-        'message': e.toString(),
+        'msg': e.toString(),
         'data': {
           'items': [],
           'total': 0,
@@ -58,7 +58,7 @@ class CharacterService {
     } catch (e) {
       return {
         'code': -1,
-        'message': e.toString(),
+        'msg': e.toString(),
       };
     }
   }
@@ -70,7 +70,7 @@ class CharacterService {
     } catch (e) {
       return {
         'code': -1,
-        'message': e.toString(),
+        'msg': e.toString(),
       };
     }
   }

@@ -120,13 +120,31 @@ class _PublicWorldBookPageState extends State<PublicWorldBookPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '公共世界书',
-                    style: TextStyle(
-                      fontSize: AppTheme.headingSize,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(
+                          Icons.arrow_back,
+                          color: AppTheme.textPrimary,
+                          size: 24.sp,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(
+                          minWidth: 24.w,
+                          minHeight: 24.w,
+                        ),
+                      ),
+                      SizedBox(width: 16.w),
+                      Text(
+                        '公共世界书',
+                        style: TextStyle(
+                          fontSize: AppTheme.headingSize,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
                   ),
                   SizedBox(height: 24.h),
                   SizedBox(

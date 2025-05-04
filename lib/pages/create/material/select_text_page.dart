@@ -39,10 +39,12 @@ class _SelectTextPageState extends State<SelectTextPage> {
   final int _pageSize = 20;
   List<Map<String, dynamic>> _materials = [];
   int _total = 0;
+  late TextSelectSource _currentSource;
 
   @override
   void initState() {
     super.initState();
+    _currentSource = widget.source;
     _scrollController.addListener(_handleScroll);
     _loadData(refresh: true);
   }
@@ -63,13 +65,84 @@ class _SelectTextPageState extends State<SelectTextPage> {
   }
 
   String _getTitle() {
-    String source = widget.source == TextSelectSource.myMaterial ? '我的' : '公共';
     String type = switch (widget.type) {
       TextSelectType.setting => '角色设定',
       TextSelectType.prefix => '前缀词',
       TextSelectType.suffix => '后缀词',
     };
-    return '选择$type - $source素材库';
+    return '选择$type';
+  }
+
+  Widget _buildSourceSelector() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 8.h),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildSourceButton(
+              title: '我的素材',
+              icon: Icons.folder_outlined,
+              source: TextSelectSource.myMaterial,
+            ),
+          ),
+          SizedBox(width: 16.w),
+          Expanded(
+            child: _buildSourceButton(
+              title: '公开素材',
+              icon: Icons.folder_shared_outlined,
+              source: TextSelectSource.publicMaterial,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSourceButton({
+    required String title,
+    required IconData icon,
+    required TextSelectSource source,
+  }) {
+    final bool isSelected = _currentSource == source;
+    return GestureDetector(
+      onTap: () {
+        if (_currentSource != source) {
+          setState(() {
+            _currentSource = source;
+            _loadData(refresh: true);
+          });
+        }
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 12.h),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryColor : AppTheme.border,
+          ),
+          borderRadius: BorderRadius.circular(8.r),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 20.sp,
+              color: isSelected ? Colors.white : AppTheme.textSecondary,
+            ),
+            SizedBox(width: 8.w),
+            Text(
+              title,
+              style: TextStyle(
+                color: isSelected ? Colors.white : AppTheme.textSecondary,
+                fontSize: AppTheme.bodySize,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String _getMaterialType() {
@@ -93,7 +166,7 @@ class _SelectTextPageState extends State<SelectTextPage> {
     });
 
     try {
-      final response = widget.source == TextSelectSource.myMaterial
+      final response = _currentSource == TextSelectSource.myMaterial
           ? await _materialService.getMaterials(
               page: _currentPage,
               pageSize: _pageSize,
@@ -198,7 +271,10 @@ class _SelectTextPageState extends State<SelectTextPage> {
             child: Padding(
               padding: EdgeInsets.all(16.w),
               child: _isLoading
-                  ? const CircularProgressIndicator()
+                  ? CircularProgressIndicator(
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                    )
                   : Text(
                       '到底了',
                       style: TextStyle(
@@ -250,7 +326,7 @@ class _SelectTextPageState extends State<SelectTextPage> {
                         ),
                       ),
                       SizedBox(width: 8.w),
-                      if (widget.source == TextSelectSource.publicMaterial)
+                      if (_currentSource == TextSelectSource.publicMaterial)
                         Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: 6.w,
@@ -370,6 +446,7 @@ class _SelectTextPageState extends State<SelectTextPage> {
                 ],
               ),
             ),
+            _buildSourceSelector(),
             Expanded(
               child: _buildMaterialList(),
             ),

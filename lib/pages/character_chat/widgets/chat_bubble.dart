@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../theme/app_theme.dart';
+import 'formatters/base_formatter.dart';
+import 'formatters/status_formatter.dart';
+import 'formatters/markdown_formatter.dart';
+import 'formatters/custom_formatter.dart';
 
 class ChatBubble extends StatefulWidget {
   final String message;
@@ -14,9 +16,9 @@ class ChatBubble extends StatefulWidget {
   final Color bubbleColor;
   final double bubbleOpacity;
   final Color textColor;
-  final bool enableMarkdown;
   final int? messageId;
   final Function(int messageId, String newContent)? onEdit;
+  final String formatMode;
 
   const ChatBubble({
     super.key,
@@ -28,9 +30,9 @@ class ChatBubble extends StatefulWidget {
     required this.bubbleColor,
     required this.bubbleOpacity,
     required this.textColor,
-    this.enableMarkdown = true,
     this.messageId,
     this.onEdit,
+    this.formatMode = 'none',
   });
 
   @override
@@ -219,113 +221,37 @@ class _ChatBubbleState extends State<ChatBubble> {
       );
     }
 
-    if (widget.enableMarkdown) {
-      return MarkdownBody(
-        data: widget.message,
-        selectable: false,
-        styleSheet: MarkdownStyleSheet(
-          p: TextStyle(
-            color: widget.textColor,
-            fontSize: 16.sp,
-            height: 1.5,
-          ),
-          code: TextStyle(
-            color: widget.textColor,
-            fontSize: 16.sp,
-            fontFamily: 'monospace',
-            backgroundColor: Colors.black.withOpacity(0.1),
-          ),
-          codeblockDecoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(4.r),
-          ),
-          blockquote: TextStyle(
-            color: widget.textColor.withOpacity(0.8),
-            fontSize: 16.sp,
-            height: 1.5,
-            fontStyle: FontStyle.italic,
-          ),
-          blockquoteDecoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                color: widget.textColor.withOpacity(0.5),
-                width: 4.w,
-              ),
-            ),
-          ),
-          h1: TextStyle(
-            color: widget.textColor,
-            fontSize: 22.sp,
-            fontWeight: FontWeight.bold,
-          ),
-          h2: TextStyle(
-            color: widget.textColor,
-            fontSize: 20.sp,
-            fontWeight: FontWeight.bold,
-          ),
-          h3: TextStyle(
-            color: widget.textColor,
-            fontSize: 18.sp,
-            fontWeight: FontWeight.bold,
-          ),
-          h4: TextStyle(
-            color: widget.textColor,
-            fontSize: 17.sp,
-            fontWeight: FontWeight.bold,
-          ),
-          h5: TextStyle(
-            color: widget.textColor,
-            fontSize: 16.sp,
-            fontWeight: FontWeight.bold,
-          ),
-          h6: TextStyle(
-            color: widget.textColor,
-            fontSize: 16.sp,
-            fontWeight: FontWeight.bold,
-          ),
-          listBullet: TextStyle(
-            color: widget.textColor,
-            fontSize: 16.sp,
-          ),
-          tableBody: TextStyle(
-            color: widget.textColor,
-            fontSize: 16.sp,
-          ),
-          tableHead: TextStyle(
-            color: widget.textColor,
-            fontSize: 16.sp,
-            fontWeight: FontWeight.bold,
-          ),
-          tableHeadAlign: TextAlign.center,
-          tableBorder: TableBorder.all(
-            color: widget.textColor.withOpacity(0.3),
-            width: 1,
-          ),
-          tableCellsPadding: EdgeInsets.all(8.w),
-          a: TextStyle(
-            color: AppTheme.primaryColor,
-            fontSize: 16.sp,
-            decoration: TextDecoration.underline,
-          ),
-        ),
-        onTapLink: (text, href, title) async {
-          if (href != null) {
-            final url = Uri.parse(href);
-            if (await canLaunchUrl(url)) {
-              await launchUrl(url);
-            }
-          }
-        },
+    final baseStyle = TextStyle(
+      color: widget.textColor,
+      fontSize: 14.sp,
+      height: 1.5,
+    );
+
+    if (widget.formatMode == 'none') {
+      return Text(
+        widget.message,
+        style: baseStyle,
       );
     }
 
-    return Text(
-      widget.message,
-      style: TextStyle(
-        color: widget.textColor,
-        fontSize: 14.sp,
-        height: 1.5,
-      ),
+    BaseFormatter formatter;
+    switch (widget.formatMode) {
+      case 'old':
+        formatter = StatusFormatter();
+        break;
+      case 'markdown':
+        formatter = MarkdownFormatter();
+        break;
+      case 'custom':
+        formatter = CustomFormatter();
+        break;
+      default:
+        formatter = StatusFormatter();
+    }
+
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      child: formatter.format(context, widget.message, baseStyle),
     );
   }
 

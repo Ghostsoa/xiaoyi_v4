@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class ChatSettingsDao {
   static final ChatSettingsDao _instance = ChatSettingsDao._internal();
@@ -14,6 +15,12 @@ class ChatSettingsDao {
   static const String _keyUserBubbleColor = 'chat_user_bubble_color';
   static const String _keyUserBubbleOpacity = 'chat_user_bubble_opacity';
   static const String _keyUserTextColor = 'chat_user_text_color';
+
+  // UI设置相关的key
+  static const String _keyUiMode = 'ui_mode';
+  static const String _keyFormatOptions = 'format_options';
+  static const String _keyCustomFormats = 'custom_formats';
+  static const String _keyCodeBlockFormat = 'code_block_format';
 
   // 默认值
   static const double defaultBackgroundOpacity = 0.5;
@@ -123,7 +130,6 @@ class ChatSettingsDao {
   // 保存所有设置
   Future<void> saveAllSettings(Map<String, dynamic> settings) async {
     await saveBackgroundOpacity(settings['backgroundOpacity']);
-    await saveMarkdownEnabled(settings['markdownEnabled']);
     await saveBubbleColor(settings['bubbleColor']);
     await saveBubbleOpacity(settings['bubbleOpacity']);
     await saveTextColor(settings['textColor']);
@@ -136,7 +142,6 @@ class ChatSettingsDao {
   Future<Map<String, dynamic>> getAllSettings() async {
     return {
       'backgroundOpacity': await getBackgroundOpacity(),
-      'markdownEnabled': await getMarkdownEnabled(),
       'bubbleColor': await getBubbleColor(),
       'bubbleOpacity': await getBubbleOpacity(),
       'textColor': await getTextColor(),
@@ -144,5 +149,49 @@ class ChatSettingsDao {
       'userBubbleOpacity': await getUserBubbleOpacity(),
       'userTextColor': await getUserTextColor(),
     };
+  }
+
+  // 保存UI模式
+  Future<void> saveUiMode(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyUiMode, mode);
+  }
+
+  // 获取UI模式
+  Future<String> getUiMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyUiMode) ?? 'none';
+  }
+
+  // 保存格式化选项
+  Future<void> saveFormatOptions(
+      Map<String, Map<String, dynamic>> options) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = json.encode(options);
+    await prefs.setString(_keyFormatOptions, jsonString);
+  }
+
+  // 获取格式化选项
+  Future<Map<String, Map<String, dynamic>>> getFormatOptions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_keyFormatOptions);
+    if (jsonString == null) {
+      return {};
+    }
+    final Map<String, dynamic> decoded = json.decode(jsonString);
+    return decoded
+        .map((key, value) => MapEntry(key, Map<String, dynamic>.from(value)));
+  }
+
+  // 保存代码块格式设置
+  Future<void> saveCodeBlockFormat(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyCodeBlockFormat, enabled);
+  }
+
+  // 获取代码块格式设置
+  Future<bool> getCodeBlockFormat() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyCodeBlockFormat) ?? false;
   }
 }

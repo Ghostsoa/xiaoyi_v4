@@ -19,10 +19,10 @@ class MessagePage extends StatefulWidget {
   });
 
   @override
-  State<MessagePage> createState() => _MessagePageState();
+  State<MessagePage> createState() => MessagePageState();
 }
 
-class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
+class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
   final MessageService _messageService = MessageService();
   final FileService _fileService = FileService();
   final RefreshController _refreshController = RefreshController();
@@ -90,7 +90,7 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
 
         // 预加载头像
         for (var session in _sessions) {
-          _loadAvatar(session['coverUri']);
+          _loadAvatar(session['cover_uri']);
         }
       }
     } catch (e) {
@@ -125,7 +125,7 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
 
         // 预加载新加载的会话的头像
         for (var session in newSessions) {
-          _loadAvatar(session['coverUri']);
+          _loadAvatar(session['cover_uri']);
         }
       }
     } catch (e) {
@@ -441,7 +441,7 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
     BuildContext context,
     Map<String, dynamic> session,
   ) {
-    final String? coverUri = session['coverUri'];
+    final String? coverUri = session['cover_uri'];
     final bool hasAvatar = coverUri != null &&
         coverUri.isNotEmpty &&
         _avatarCache.containsKey(coverUri);
@@ -469,7 +469,9 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                   sessionData: session,
                   characterData: {
                     'name': session['name'],
-                    // 其他角色相关数据...
+                    'id': session['id'],
+                    'cover_uri': session['cover_uri'],
+                    'ui_settings': session['ui_settings'] ?? 'markdown',
                   },
                 ),
               ),
@@ -512,21 +514,30 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                 ),
               ],
               // 头像
-              hasAvatar
-                  ? Container(
-                      width: 40.w,
-                      height: 40.w,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                      ),
-                      child: ClipOval(
-                        child: Image.memory(
-                          _avatarCache[coverUri]!,
-                          fit: BoxFit.cover,
+              if (coverUri != null && coverUri.isNotEmpty)
+                FutureBuilder(
+                  future: _fileService.getFile(coverUri),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) {
+                      return Container(
+                        width: 40.w,
+                        height: 40.w,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
                         ),
-                      ),
-                    )
-                  : _buildAvatarSkeleton(session['name']),
+                        child: ClipOval(
+                          child: Image.memory(
+                            snapshot.data!.data,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      );
+                    }
+                    return _buildAvatarSkeleton(session['name']);
+                  },
+                )
+              else
+                _buildAvatarSkeleton(session['name']),
               SizedBox(width: 12.w),
               Expanded(
                 child: Column(
@@ -544,14 +555,14 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                           ),
                         ),
                         Text(
-                          _formatTime(session['updatedAt']),
+                          _formatTime(session['updated_at']),
                           style: AppTheme.hintStyle.copyWith(fontSize: 13.sp),
                         ),
                       ],
                     ),
                     SizedBox(height: 4.h),
                     Text(
-                      session['lastMessage'] ?? '开始对话',
+                      session['last_message'] ?? '开始对话',
                       style: AppTheme.secondaryStyle.copyWith(fontSize: 14.sp),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -716,7 +727,7 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
 
         // 预加载头像
         for (var session in _sessions) {
-          _loadAvatar(session['coverUri']);
+          _loadAvatar(session['cover_uri']);
         }
       }
       _refreshController.refreshCompleted();
@@ -752,7 +763,7 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
 
         // 预加载新加载的会话的头像
         for (var session in newSessions) {
-          _loadAvatar(session['coverUri']);
+          _loadAvatar(session['cover_uri']);
         }
 
         if (_hasMore) {
@@ -828,6 +839,13 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  // 添加refresh方法供外部调用
+  void refresh() {
+    if (mounted) {
+      _onRefresh();
     }
   }
 }

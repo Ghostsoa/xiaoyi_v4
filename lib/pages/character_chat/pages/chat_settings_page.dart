@@ -24,7 +24,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
 
   // 设置状态
   double _backgroundOpacity = 0.5;
-  bool _enableMarkdown = true;
   Color _bubbleColor = AppTheme.cardBackground;
   double _bubbleOpacity = 0.8;
   Color _textColor = AppTheme.textPrimary;
@@ -42,7 +41,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
     final settings = await _settingsDao.getAllSettings();
     setState(() {
       _backgroundOpacity = settings['backgroundOpacity'];
-      _enableMarkdown = settings['markdownEnabled'];
       _bubbleColor = _hexToColor(settings['bubbleColor']);
       _bubbleOpacity = settings['bubbleOpacity'];
       _textColor = _hexToColor(settings['textColor']);
@@ -68,7 +66,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
     try {
       await _settingsDao.saveAllSettings({
         'backgroundOpacity': _backgroundOpacity,
-        'markdownEnabled': _enableMarkdown,
         'bubbleColor': _colorToHex(_bubbleColor),
         'bubbleOpacity': _bubbleOpacity,
         'textColor': _colorToHex(_textColor),
@@ -222,14 +219,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                         setState(() => _backgroundOpacity = value);
                       },
                     ),
-                    _buildSwitchItem(
-                      title: 'Markdown 格式化',
-                      subtitle: '启用 Markdown 格式化显示',
-                      value: _enableMarkdown,
-                      onChanged: (value) {
-                        setState(() => _enableMarkdown = value);
-                      },
-                    ),
                   ],
                 ),
                 SizedBox(height: 20.h),
@@ -345,38 +334,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildSwitchItem({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: SwitchListTile(
-        title: Text(
-          title,
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 16.sp,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 12.sp,
-          ),
-        ),
-        value: value,
-        onChanged: onChanged,
-        activeColor: AppTheme.primaryColor,
-        inactiveThumbColor: Colors.grey[600],
-        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      ),
     );
   }
 

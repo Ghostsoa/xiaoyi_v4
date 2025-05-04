@@ -17,16 +17,16 @@ class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePage> createState() => HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class HomePageState extends State<HomePage> {
   final HomeService _homeService = HomeService();
   final FileService _fileService = FileService();
   final RefreshController _refreshController = RefreshController();
 
   bool _isLoading = true;
-  final bool _showAllTags = false;
+  bool _showAllTags = false;
 
   List<dynamic> _hotItems = [];
   List<dynamic> _recommendItems = [];
@@ -132,6 +132,13 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // 添加refresh方法供外部调用
+  void refresh() {
+    if (mounted) {
+      _onRefresh();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -213,43 +220,6 @@ class _HomePageState extends State<HomePage> {
                       },
                     ),
                   ),
-                  SizedBox(width: 12.w),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AllItemsPage(),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      height: 40.h,
-                      width: 40.h,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: AppTheme.buttonGradient,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          transform: const GradientRotation(0.4),
-                        ),
-                        borderRadius: BorderRadius.circular(8.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color:
-                                AppTheme.buttonGradient.first.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.grid_view_rounded,
-                        color: Colors.white,
-                        size: 20.sp,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -273,41 +243,71 @@ class _HomePageState extends State<HomePage> {
                   slivers: [
                     // 欢迎标语
                     SliverToBoxAdapter(
-                      child: Container(
-                        margin: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 16.h),
-                        padding: EdgeInsets.all(16.w),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: AppTheme.primaryGradient,
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            transform: GradientRotation(0.4),
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AllItemsPage(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          margin: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 16.h),
+                          padding: EdgeInsets.all(16.w),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: AppTheme.primaryGradient,
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              transform: GradientRotation(0.4),
+                            ),
+                            borderRadius: BorderRadius.circular(12.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryGradient.first
+                                    .withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.auto_awesome,
-                                  color: AppTheme.primaryColor,
-                                  size: 24.sp,
-                                ),
-                                SizedBox(width: 8.w),
-                                Text(
-                                  '发现AI伙伴的无限可能',
-                                  style: AppTheme.gradientMediumHeadingStyle,
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 4.h),
-                            Text(
-                              '探索各种角色，找到最适合你的对话伙伴',
-                              style: AppTheme.gradientSubtitleStyle,
-                            ),
-                          ],
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.auto_awesome,
+                                        color: AppTheme.primaryColor,
+                                        size: 24.sp,
+                                      ),
+                                      SizedBox(width: 8.w),
+                                      Text(
+                                        '发现更多AI角色',
+                                        style:
+                                            AppTheme.gradientMediumHeadingStyle,
+                                      ),
+                                    ],
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: Colors.white,
+                                    size: 24.sp,
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 4.h),
+                              Text(
+                                '点击查看全部角色，找到你的专属AI伙伴',
+                                style: AppTheme.gradientSubtitleStyle,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -405,36 +405,44 @@ class _HomePageState extends State<HomePage> {
                                                 ),
                                               )),
                                       if (_hotTags.length > 8)
-                                        Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 12.w,
-                                            vertical: 6.h,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.primaryColor,
-                                            borderRadius:
-                                                BorderRadius.circular(6.r),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                _showAllTags ? '收起' : '更多标签',
-                                                style: TextStyle(
-                                                  fontSize: 12.sp,
-                                                  fontWeight: FontWeight.w500,
+                                        GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              _showAllTags = !_showAllTags;
+                                            });
+                                          },
+                                          child: Container(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 12.w,
+                                              vertical: 6.h,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.primaryColor,
+                                              borderRadius:
+                                                  BorderRadius.circular(6.r),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  _showAllTags ? '收起' : '更多标签',
+                                                  style: TextStyle(
+                                                    fontSize: 12.sp,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                                SizedBox(width: 2.w),
+                                                Icon(
+                                                  _showAllTags
+                                                      ? Icons.keyboard_arrow_up
+                                                      : Icons
+                                                          .keyboard_arrow_down,
+                                                  size: 12.sp,
                                                   color: Colors.white,
                                                 ),
-                                              ),
-                                              SizedBox(width: 2.w),
-                                              Icon(
-                                                _showAllTags
-                                                    ? Icons.keyboard_arrow_up
-                                                    : Icons.keyboard_arrow_down,
-                                                size: 12.sp,
-                                                color: Colors.white,
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         ),
                                     ],

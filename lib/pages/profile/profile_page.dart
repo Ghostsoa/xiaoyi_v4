@@ -20,10 +20,10 @@ class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  State<ProfilePage> createState() => _ProfilePageState();
+  State<ProfilePage> createState() => ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class ProfilePageState extends State<ProfilePage> {
   final UserDao _userDao = UserDao();
   final ProfileServer _profileServer = ProfileServer();
 
@@ -340,6 +340,15 @@ class _ProfilePageState extends State<ProfilePage> {
       message: message,
       type: ToastType.info,
     );
+  }
+
+  // 添加refresh方法供外部调用
+  void refresh() {
+    if (mounted) {
+      setState(() {
+        // 重新加载个人资料数据
+      });
+    }
   }
 
   @override

@@ -146,7 +146,7 @@ class _MyCreationPageState extends State<MyCreationPage> {
             // 内容区域
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? _buildSkeletonList()
                   : _selectedIndex == 0
                       ? _buildCharacterList()
                       : _buildNovelList(),
@@ -445,12 +445,12 @@ class _MyCreationPageState extends State<MyCreationPage> {
 
   Widget _buildShimmerImage() {
     return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
+      baseColor: AppTheme.cardBackground,
+      highlightColor: AppTheme.cardBackground.withOpacity(0.2),
       child: Container(
         width: 96.h,
         height: 96.h,
-        color: Colors.white,
+        color: AppTheme.cardBackground,
       ),
     );
   }
@@ -500,6 +500,179 @@ class _MyCreationPageState extends State<MyCreationPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSkeletonList() {
+    return ListView.builder(
+      padding: EdgeInsets.symmetric(horizontal: 24.w),
+      itemCount: 5,
+      itemBuilder: (context, index) {
+        return Container(
+          padding: EdgeInsets.symmetric(vertical: 12.h),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: AppTheme.cardBackground.withOpacity(0.1),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 封面图片骨架
+              Shimmer.fromColors(
+                baseColor: AppTheme.cardBackground,
+                highlightColor: AppTheme.cardBackground.withOpacity(0.2),
+                child: Container(
+                  width: 96.h,
+                  height: 96.h,
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardBackground,
+                    borderRadius: BorderRadius.circular(4.r),
+                  ),
+                ),
+              ),
+              SizedBox(width: 12.w),
+              // 内容区域骨架
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 标题和按钮行
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Shimmer.fromColors(
+                            baseColor: AppTheme.cardBackground,
+                            highlightColor:
+                                AppTheme.cardBackground.withOpacity(0.2),
+                            child: Container(
+                              height: 20.h,
+                              decoration: BoxDecoration(
+                                color: AppTheme.cardBackground,
+                                borderRadius: BorderRadius.circular(4.r),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        // 按钮骨架
+                        Row(
+                          children: [
+                            Shimmer.fromColors(
+                              baseColor: AppTheme.cardBackground,
+                              highlightColor:
+                                  AppTheme.cardBackground.withOpacity(0.2),
+                              child: Container(
+                                width: 24.w,
+                                height: 24.w,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cardBackground,
+                                  borderRadius: BorderRadius.circular(4.r),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 12.w),
+                            Shimmer.fromColors(
+                              baseColor: AppTheme.cardBackground,
+                              highlightColor:
+                                  AppTheme.cardBackground.withOpacity(0.2),
+                              child: Container(
+                                width: 24.w,
+                                height: 24.w,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cardBackground,
+                                  borderRadius: BorderRadius.circular(4.r),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 12.w),
+                            Shimmer.fromColors(
+                              baseColor: AppTheme.cardBackground,
+                              highlightColor:
+                                  AppTheme.cardBackground.withOpacity(0.2),
+                              child: Container(
+                                width: 24.w,
+                                height: 24.w,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cardBackground,
+                                  borderRadius: BorderRadius.circular(4.r),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8.h),
+                    // 简介骨架
+                    Column(
+                      children: [
+                        Shimmer.fromColors(
+                          baseColor: AppTheme.cardBackground,
+                          highlightColor:
+                              AppTheme.cardBackground.withOpacity(0.2),
+                          child: Container(
+                            height: 16.h,
+                            decoration: BoxDecoration(
+                              color: AppTheme.cardBackground,
+                              borderRadius: BorderRadius.circular(4.r),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Shimmer.fromColors(
+                          baseColor: AppTheme.cardBackground,
+                          highlightColor:
+                              AppTheme.cardBackground.withOpacity(0.2),
+                          child: Container(
+                            height: 16.h,
+                            width: 200.w,
+                            decoration: BoxDecoration(
+                              color: AppTheme.cardBackground,
+                              borderRadius: BorderRadius.circular(4.r),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8.h),
+                    // 标签骨架
+                    Shimmer.fromColors(
+                      baseColor: AppTheme.cardBackground,
+                      highlightColor: AppTheme.cardBackground.withOpacity(0.2),
+                      child: Container(
+                        height: 14.h,
+                        width: 150.w,
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardBackground,
+                          borderRadius: BorderRadius.circular(4.r),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    // 作者和时间骨架
+                    Shimmer.fromColors(
+                      baseColor: AppTheme.cardBackground,
+                      highlightColor: AppTheme.cardBackground.withOpacity(0.2),
+                      child: Container(
+                        height: 12.h,
+                        width: 120.w,
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardBackground,
+                          borderRadius: BorderRadius.circular(4.r),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

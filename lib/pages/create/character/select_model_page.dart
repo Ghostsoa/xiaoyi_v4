@@ -84,7 +84,7 @@ class _SelectModelPageState extends State<SelectModelPage> {
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: AppTheme.cardBackground,
+        backgroundColor: AppTheme.background,
         automaticallyImplyLeading: false,
         titleSpacing: 0,
         title: Container(
@@ -99,7 +99,6 @@ class _SelectModelPageState extends State<SelectModelPage> {
                   decoration: BoxDecoration(
                     color: AppTheme.cardBackground,
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                    border: Border.all(color: AppTheme.border),
                   ),
                   child: Icon(
                     Icons.arrow_back_ios_new,
@@ -156,37 +155,27 @@ class _SelectModelPageState extends State<SelectModelPage> {
                   decoration: BoxDecoration(
                     color: AppTheme.cardBackground,
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                    border: Border.all(color: AppTheme.border),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
                         padding: EdgeInsets.all(16.w),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              series['displayName'] ?? '未命名模型',
-                              style: AppTheme.titleStyle,
-                            ),
-                            if (series['endpoint']?.isNotEmpty == true)
-                              Padding(
-                                padding: EdgeInsets.only(top: 4.h),
-                                child: Text(
-                                  series['endpoint'],
-                                  style: AppTheme.secondaryStyle,
-                                ),
-                              ),
-                          ],
+                        child: Text(
+                          series['displayName'] ?? '未命名模型',
+                          style: AppTheme.titleStyle,
                         ),
                       ),
                       Divider(
                         height: 1,
-                        color: AppTheme.border,
+                        color: AppTheme.border.withOpacity(0.1),
                       ),
                       ...models.map((model) {
                         return ListTile(
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16.w,
+                            vertical: 8.h,
+                          ),
                           title: Text(
                             model['displayName'] ?? '未命名',
                             style: AppTheme.bodyStyle,

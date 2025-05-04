@@ -152,6 +152,15 @@ class _MyMaterialPageState extends State<MyMaterialPage>
     if (!mounted) return;
 
     try {
+      // 如果是公开状态的素材，显示提示
+      if (material['status'] == 'published') {
+        _showToast(
+          '已公开的素材不能删除，请先设为私有',
+          type: ToastType.warning,
+        );
+        return;
+      }
+
       await _materialService.deleteMaterial(
         material['id'].toString(),
       );
@@ -1038,6 +1047,20 @@ class _MyMaterialPageState extends State<MyMaterialPage>
               padding: EdgeInsets.all(24.w),
               child: Row(
                 children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.arrow_back,
+                      color: AppTheme.textPrimary,
+                      size: 24.sp,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: 24.w,
+                      minHeight: 24.w,
+                    ),
+                  ),
+                  SizedBox(width: 16.w),
                   Expanded(
                     child: Text(
                       '我的素材库',

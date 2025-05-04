@@ -26,8 +26,6 @@ class HttpClient {
       responseType: ResponseType.json,
     ));
 
-    _initializeSSLCertificate();
-
     // 添加缓存拦截器
     final cacheOptions = CacheOptions(
       store: MemCacheStore(),
@@ -72,41 +70,6 @@ class HttpClient {
         return handler.next(error);
       },
     ));
-  }
-
-  // 初始化SSL证书
-  Future<void> _initializeSSLCertificate() async {
-    try {
-      // 读取证书文件
-      ByteData certData = await rootBundle.load('assets/certificates/cert.pem');
-
-      // 配置Dio的HttpClientAdapter
-      (_dio.httpClientAdapter as IOHttpClientAdapter).onHttpClientCreate =
-          (client) {
-        // 设置证书验证
-        client.badCertificateCallback = (cert, host, port) {
-          // 这里可以添加自定义的证书验证逻辑
-          // 例如：验证证书指纹、域名等
-
-          // 如果需要完全信任自签名证书，可以返回true
-          // 如果需要验证证书，返回false
-          return true; // 在开发环境可以设置为true，生产环境建议设置为false并进行proper验证
-        };
-
-        return client;
-      };
-
-      // 如果需要，可以设置自定义证书
-      (_dio.httpClientAdapter as IOHttpClientAdapter).validateCertificate =
-          (cert, host, port) {
-        // 这里可以实现自定义的证书验证逻辑
-        // 例如：验证证书内容、过期时间等
-        return true; // 同样，生产环境建议实现proper验证
-      };
-    } catch (e) {
-      debugPrint('SSL证书初始化失败: $e');
-      // 可以在这里添加错误处理逻辑
-    }
   }
 
   // 处理令牌失效

@@ -453,7 +453,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                             ),
                             SizedBox(height: 4.h),
                             Text(
-                              '故事、星念、群聊',
+                              '角色卡、小说',
                               style: TextStyle(
                                 fontSize: AppTheme.smallSize,
                                 color: textSecondary,

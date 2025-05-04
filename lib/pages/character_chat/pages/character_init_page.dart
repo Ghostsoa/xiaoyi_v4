@@ -146,9 +146,9 @@ class _CharacterInitPageState extends State<CharacterInitPage>
       if (mounted) {
         // 预加载背景图
         final sessionData = result['data'] as Map<String, dynamic>;
-        if (sessionData['backgroundUri'] != null) {
+        if (sessionData['background_uri'] != null) {
           try {
-            await _fileService.getFile(sessionData['backgroundUri']);
+            await _fileService.getFile(sessionData['background_uri']);
           } catch (e) {
             // 背景图加载失败不阻止页面跳转
             debugPrint('背景图加载失败: $e');

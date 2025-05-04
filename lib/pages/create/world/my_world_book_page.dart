@@ -220,6 +220,20 @@ class _MyWorldBookPageState extends State<MyWorldBookPage> {
                 children: [
                   Row(
                     children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(
+                          Icons.arrow_back,
+                          color: AppTheme.textPrimary,
+                          size: 24.sp,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(
+                          minWidth: 24.w,
+                          minHeight: 24.w,
+                        ),
+                      ),
+                      SizedBox(width: 16.w),
                       Text(
                         '我的世界书',
                         style: TextStyle(
