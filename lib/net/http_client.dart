@@ -1,9 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:dio/io.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../dao/user_dao.dart';
 import '../pages/login/login_page.dart';
 
@@ -18,7 +16,7 @@ class HttpClient {
 
   HttpClient._internal() {
     _dio = Dio(BaseOptions(
-      baseUrl: 'https://hk1.xiaoyi.ink/api/v1', // 替换为实际的API基础URL
+      baseUrl: 'https://hk2.xiaoyi.ink/api/v1', // 替换为实际的API基础URL
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 15),
       sendTimeout: const Duration(seconds: 15),

@@ -96,13 +96,12 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       vsync: this,
     );
 
-    _menuHeightAnimation = Tween<double>(
-      begin: 0,
-      end: 100,
-    ).animate(CurvedAnimation(
-      parent: _menuAnimationController,
-      curve: Curves.easeInOut,
-    ));
+    _menuHeightAnimation = Tween<double>(begin: 0, end: 100).animate(
+      CurvedAnimation(
+        parent: _menuAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
 
     _menuAnimationController.addListener(() => setState(() {}));
 
@@ -169,181 +168,94 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       final List<dynamic> messageList = result['list'] ?? [];
       final pagination = result['pagination'] ?? {};
 
-      if (isLoadMore && messageList.isNotEmpty) {
-        // 记录当前滚动位置和内容高度
-        final double currentScrollPosition = _scrollController.position.pixels;
-        final double maxScrollExtent =
-            _scrollController.position.maxScrollExtent;
-        final double viewportHeight =
-            _scrollController.position.viewportDimension;
-
-        // 记录页面高度，用于后续计算
-        final double oldContentHeight = maxScrollExtent + viewportHeight;
-
-        // 将新消息一个个添加到列表顶部
-        final newMessages = <Map<String, dynamic>>[];
-        for (var i = messageList.length - 1; i >= 0; i--) {
-          final msg = messageList[i];
-          newMessages.add({
-            'content': msg['content'] ?? '',
-            'isUser': msg['role'] == 'user',
-            'timestamp': DateTime.now().millisecondsSinceEpoch,
-            'tokenCount': msg['tokenCount'] ?? 0,
-            'opacity': 1.0,
-            'messageId': msg['id'],
-            'animationDelay': 0, // 不为历史消息添加动画
-          });
-        }
-
+      if (mounted) {
         setState(() {
-          _messages.insertAll(0, newMessages);
-        });
-
-        // 保持滚动位置
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scrollController.hasClients) {
-            // 计算新的内容高度和滚动位置偏移量
-            final double newMaxScrollExtent =
-                _scrollController.position.maxScrollExtent;
-            final double newContentHeight = newMaxScrollExtent + viewportHeight;
-
-            // 计算高度差，即新增内容的高度
-            final double heightDifference = newContentHeight - oldContentHeight;
-
-            // 新的滚动位置应该是：当前位置 + 新增的内容高度
-            final double newPosition = currentScrollPosition + heightDifference;
-
-            // 使用延迟和减缓动画效果，让滚动更加平滑
-            _scrollController.jumpTo(newPosition);
+          if (!isLoadMore) {
+            _messages.clear();
           }
+
+          // 直接使用服务器返回的顺序
+          _messages.addAll(messageList.map((msg) => {
+                'content': msg['content'] ?? '',
+                'isUser': msg['role'] == 'user',
+                'timestamp': DateTime.now().millisecondsSinceEpoch,
+                'tokenCount': msg['tokenCount'] ?? 0,
+                'messageId': msg['id'],
+              }));
+
+          _totalPages = pagination['total_pages'] ?? 1;
+          _totalTokens = _messages.fold<int>(
+            0,
+            (sum, msg) => sum + ((msg['tokenCount'] ?? 0) as int),
+          );
         });
-      } else if (!isLoadMore) {
-        // 首次加载时使用级联动画效果
-        final List<Map<String, dynamic>> newMessages = [];
-
-        // 反转列表以便按顺序显示，后面的消息先出现
-        int delayIncrement = 40; // 减小每条消息的延迟增量
-        int baseDelay = 0; // 基础延迟
-        int maxDelay = 600; // 减小最大延迟限制
-
-        // 为每条消息设置递增的延迟
-        for (var i = messageList.length - 1; i >= 0; i--) {
-          final msg = messageList[i];
-          // 减小延迟，让动画更流畅
-          int delay = baseDelay + (messageList.length - 1 - i) * delayIncrement;
-          if (delay > maxDelay) delay = maxDelay; // 限制最大延迟
-
-          newMessages.add({
-            'content': msg['content'] ?? '',
-            'isUser': msg['role'] == 'user',
-            'timestamp': DateTime.now().millisecondsSinceEpoch,
-            'tokenCount': msg['tokenCount'] ?? 0,
-            'opacity': 1.0,
-            'messageId': msg['id'],
-            'animationDelay': delay, // 添加延迟属性
-          });
-        }
-
-        setState(() {
-          _messages.clear();
-          _messages.addAll(newMessages);
-        });
-
-        // 滚动到底部
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollToBottom(animated: false);
-
-          // 等待所有消息渲染完成后，再次确保滚动到底部
-          Future.delayed(Duration(milliseconds: maxDelay + 300), () {
-            if (mounted) {
-              _scrollToBottom(animated: true);
-            }
-          });
-        });
-      }
-
-      setState(() {
-        _totalPages = pagination['total_pages'] ?? 1;
-        _totalTokens = messageList.fold<int>(
-            0, (sum, msg) => sum + ((msg['tokenCount'] ?? 0) as int));
-      });
-
-      // 如果还有下一页，预加载
-      if (_currentPage < _totalPages && !isLoadMore) {
-        _preloadNextPage();
       }
     } catch (e) {
       debugPrint('加载消息历史失败: $e');
       if (mounted) {
-        CustomToast.show(
-          context,
-          message: e.toString(),
-          type: ToastType.error,
-        );
+        CustomToast.show(context, message: e.toString(), type: ToastType.error);
       }
     } finally {
-      setState(() => _isLoadingHistory = false);
-    }
-  }
-
-  // 优化滚动方法，改用动画滚动而不是跳转
-  void _scrollToBottom({bool animated = true}) {
-    if (_scrollController.hasClients) {
-      if (animated) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-        );
-      } else {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      if (mounted) {
+        setState(() => _isLoadingHistory = false);
       }
     }
   }
 
-  // 修改onScroll方法，增加预加载逻辑
+  // 修改滚动监听方法
   void _onScroll() {
-    // 检测是否到顶部，加载更多历史消息
-    if (_scrollController.position.pixels <=
-            _scrollController.position.minScrollExtent + 100 &&
+    // 当滚动到底部时加载更多历史消息
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 100 &&
         _currentPage < _totalPages &&
         !_isLoadingHistory) {
       _currentPage++;
-      _loadMessageHistory(isLoadMore: true);
-    }
-
-    // 添加预加载逻辑 - 当用户滚动到接近下一页的时候预加载
-    if (_currentPage < _totalPages &&
-        !_isLoadingHistory &&
-        _scrollController.position.pixels <=
-            _scrollController.position.minScrollExtent + 300) {
-      // 预加载下一页，但不更新UI
-      _preloadNextPage();
+      _loadMoreMessages();
     }
   }
 
-  // 新增预加载方法
-  Future<void> _preloadNextPage() async {
+  // 添加加载更多消息的方法
+  Future<void> _loadMoreMessages() async {
     if (_isLoadingHistory) return;
+    setState(() => _isLoadingHistory = true);
 
-    // 静默加载下一页数据
     try {
-      final nextPage = _currentPage + 1;
-      if (nextPage > _totalPages) return;
-
-      // 这里不设置loading状态，用户不会看到加载指示器
       final result = await _characterService.getSessionMessages(
         widget.sessionData['id'],
-        page: nextPage,
+        page: _currentPage,
         pageSize: _pageSize,
       );
 
-      // 数据已预加载完成，但不处理结果
-      // 这样当用户真正滚动到顶部时，可以更快地显示内容
-      debugPrint('预加载了第 $nextPage 页消息');
+      final List<dynamic> messageList = result['list'] ?? [];
+      final pagination = result['pagination'] ?? {};
+
+      if (mounted) {
+        setState(() {
+          // 直接添加到列表末尾,保持服务器返回的顺序
+          _messages.addAll(messageList.map((msg) => {
+                'content': msg['content'] ?? '',
+                'isUser': msg['role'] == 'user',
+                'timestamp': DateTime.now().millisecondsSinceEpoch,
+                'tokenCount': msg['tokenCount'] ?? 0,
+                'messageId': msg['id'],
+              }));
+
+          _totalPages = pagination['total_pages'] ?? 1;
+          _totalTokens = _messages.fold<int>(
+            0,
+            (sum, msg) => sum + ((msg['tokenCount'] ?? 0) as int),
+          );
+        });
+      }
     } catch (e) {
-      // 预加载失败不需要告知用户
-      debugPrint('预加载消息失败: $e');
+      debugPrint('加载更多消息失败: $e');
+      if (mounted) {
+        CustomToast.show(context, message: e.toString(), type: ToastType.error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingHistory = false);
+      }
     }
   }
 
@@ -356,8 +268,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
     _isLoadingBackground = true;
     try {
-      final result =
-          await _fileService.getFile(widget.sessionData['background_uri']);
+      final result = await _fileService.getFile(
+        widget.sessionData['background_uri'],
+      );
       if (mounted) {
         setState(() {
           _backgroundImage = result.data;
@@ -367,11 +280,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     } catch (e) {
       debugPrint('背景图加载失败: $e');
       if (mounted) {
-        CustomToast.show(
-          context,
-          message: e.toString(),
-          type: ToastType.error,
-        );
+        CustomToast.show(context, message: e.toString(), type: ToastType.error);
         setState(() => _isLoadingBackground = false);
       }
     }
@@ -381,9 +290,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     final message = _messageController.text.trim();
     if (message.isEmpty || _isSending) return;
 
-    // 添加用户消息
+    // 添加用户消息到列表开头
     setState(() {
-      _messages.add({
+      _messages.insert(0, {
         'content': message,
         'isUser': true,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
@@ -397,12 +306,11 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     // 清空输入框并收起键盘
     _messageController.clear();
     FocusScope.of(context).unfocus();
-    _scrollToBottom();
 
     try {
-      // 添加一个AI消息占位
+      // 添加AI消息占位
       setState(() {
-        _messages.add({
+        _messages.insert(0, {
           'content': '',
           'isUser': false,
           'isLoading': true,
@@ -410,7 +318,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           'messageId': null,
         });
       });
-      _scrollToBottom();
 
       // 订阅消息流
       await for (final SseResponse response in _chatService.sendMessage(
@@ -419,63 +326,48 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       )) {
         if (!mounted || _shouldStopStream) break;
 
-        debugPrint('Received response event: ${response.event}');
-
         setState(() {
           if (response.isMessage) {
             final newContent = response.content ?? '';
-            debugPrint('新增内容: "$newContent"');
-            debugPrint(
-                '当前总内容长度: ${_currentMessage.length + newContent.length}');
             _currentMessage += newContent;
-            _messages.last['content'] = _currentMessage;
-            _messages.last['isLoading'] = false;
-            _messages.last['status'] = response.status;
+            _messages[0]['content'] = _currentMessage;
+            _messages[0]['isLoading'] = false;
+            _messages[0]['status'] = response.status;
             if (response.messageId != null) {
-              _messages.last['messageId'] = response.messageId;
+              _messages[0]['messageId'] = response.messageId;
             }
           } else if (response.isTokens) {
             _totalTokens += response.tokens ?? 0;
-            debugPrint('当前总Token数: $_totalTokens');
           } else if (response.isDone) {
-            debugPrint('Stream completed');
-            _messages.last['status'] = 'done';
-            _messages.last['isLoading'] = false;
+            _messages[0]['status'] = 'done';
+            _messages[0]['isLoading'] = false;
           }
         });
-        _scrollToBottom();
       }
 
       if (_shouldStopStream) {
         setState(() {
-          _messages.last['content'] += '\n[已终止生成]';
-          _messages.last['status'] = 'done';
-          _messages.last['isLoading'] = false;
+          _messages[0]['content'] += '\n[已终止生成]';
+          _messages[0]['status'] = 'done';
+          _messages[0]['isLoading'] = false;
         });
       }
     } catch (e) {
       debugPrint('发送消息错误: $e');
       if (mounted) {
-        // 删除最后两条消息（用户消息和AI回复）
         setState(() {
-          _messages.removeLast();
-          final userMessage = _messages.removeLast();
+          // 删除AI回复和用户消息
+          _messages.removeAt(0);
+          final userMessage = _messages.removeAt(0);
           // 将用户消息放回输入框
           _messageController.text = userMessage['content'];
-          // 将光标移到文本末尾
           _messageController.selection = TextSelection.fromPosition(
             TextPosition(offset: _messageController.text.length),
           );
         });
 
-        // 显示错误提示
-        CustomToast.show(
-          context,
-          message: e.toString(),
-          type: ToastType.error,
-        );
+        CustomToast.show(context, message: e.toString(), type: ToastType.error);
 
-        // 如果是token失效，跳转到登录页面
         if (e.toString().contains('令牌失效')) {
           Navigator.pushAndRemoveUntil(
             context,
@@ -490,7 +382,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           _isSending = false;
           _shouldStopStream = false;
         });
-        _scrollToBottom();
       }
     }
   }
@@ -525,10 +416,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
               onPressed: () => Navigator.of(context).pop(false),
             ),
             TextButton(
-              child: Text(
-                '确定',
-                style: TextStyle(color: Colors.red),
-              ),
+              child: Text('确定', style: TextStyle(color: Colors.red)),
               onPressed: () => Navigator.of(context).pop(true),
             ),
           ],
@@ -565,15 +453,18 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           final List<dynamic> messageList = result['list'] ?? [];
           final pagination = result['pagination'] ?? {};
 
-          final newMessages = messageList.reversed
-              .map((msg) => {
-                    'content': msg['content'] ?? '',
-                    'isUser': msg['role'] == 'user',
-                    'timestamp': DateTime.now().millisecondsSinceEpoch,
-                    'tokenCount': msg['tokenCount'] ?? 0,
-                    'opacity': 1.0,
-                    'messageId': msg['id'],
-                  })
+          // 直接使用服务器返回的顺序，不需要反转
+          final newMessages = messageList
+              .map(
+                (msg) => {
+                  'content': msg['content'] ?? '',
+                  'isUser': msg['role'] == 'user',
+                  'timestamp': DateTime.now().millisecondsSinceEpoch,
+                  'tokenCount': msg['tokenCount'] ?? 0,
+                  'opacity': 1.0,
+                  'messageId': msg['id'],
+                },
+              )
               .toList();
 
           setState(() {
@@ -581,15 +472,17 @@ class _CharacterChatPageState extends State<CharacterChatPage>
             _messages.addAll(newMessages);
             _totalPages = pagination['total_pages'] ?? 1;
             _totalTokens = messageList.fold<int>(
-                0, (sum, msg) => sum + ((msg['tokenCount'] ?? 0) as int));
+              0,
+              (sum, msg) => sum + ((msg['tokenCount'] ?? 0) as int),
+            );
+            _currentPage = 1;
           });
 
+          // 滚动到底部
+          _scrollToBottom();
+
           // 显示成功提示
-          CustomToast.show(
-            context,
-            message: '对话已重置',
-            type: ToastType.success,
-          );
+          CustomToast.show(context, message: '对话已重置', type: ToastType.success);
         } catch (e) {
           debugPrint('刷新消息失败: $e');
         } finally {
@@ -600,11 +493,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       }
     } catch (e) {
       if (mounted) {
-        CustomToast.show(
-          context,
-          message: '重置失败: $e',
-          type: ToastType.error,
-        );
+        CustomToast.show(context, message: '重置失败: $e', type: ToastType.error);
       }
     }
   }
@@ -645,11 +534,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     } catch (e) {
       debugPrint('撤回消息失败: $e');
       if (mounted) {
-        CustomToast.show(
-          context,
-          message: e.toString(),
-          type: ToastType.error,
-        );
+        CustomToast.show(context, message: e.toString(), type: ToastType.error);
       }
     }
   }
@@ -665,8 +550,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
       // 更新本地消息
       setState(() {
-        final index =
-            _messages.indexWhere((msg) => msg['messageId'] == messageId);
+        final index = _messages.indexWhere(
+          (msg) => msg['messageId'] == messageId,
+        );
         if (index != -1) {
           _messages[index]['content'] = newContent;
         }
@@ -688,14 +574,16 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           final pagination = result['pagination'] ?? {};
 
           final newMessages = messageList.reversed
-              .map((msg) => {
-                    'content': msg['content'] ?? '',
-                    'isUser': msg['role'] == 'user',
-                    'timestamp': DateTime.now().millisecondsSinceEpoch,
-                    'tokenCount': msg['tokenCount'] ?? 0,
-                    'opacity': 1.0,
-                    'messageId': msg['id'],
-                  })
+              .map(
+                (msg) => {
+                  'content': msg['content'] ?? '',
+                  'isUser': msg['role'] == 'user',
+                  'timestamp': DateTime.now().millisecondsSinceEpoch,
+                  'tokenCount': msg['tokenCount'] ?? 0,
+                  'opacity': 1.0,
+                  'messageId': msg['id'],
+                },
+              )
               .toList();
 
           // 对比并更新消息
@@ -719,9 +607,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           if (newMessages.length > _messages.length) {
             hasNewMessages = true;
             setState(() {
-              _messages.addAll(
-                newMessages.sublist(_messages.length),
-              );
+              _messages.addAll(newMessages.sublist(_messages.length));
             });
           }
 
@@ -729,13 +615,13 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           setState(() {
             _totalPages = pagination['total_pages'] ?? 1;
             _totalTokens = messageList.fold<int>(
-                0, (sum, msg) => sum + ((msg['tokenCount'] ?? 0) as int));
+              0,
+              (sum, msg) => sum + ((msg['tokenCount'] ?? 0) as int),
+            );
           });
 
           // 如果有新消息，滚动到底部
-          if (hasNewMessages) {
-            _scrollToBottom();
-          }
+          if (hasNewMessages) {}
         } catch (e) {
           debugPrint('刷新消息失败: $e');
         } finally {
@@ -747,11 +633,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     } catch (e) {
       debugPrint('更新消息失败: $e');
       if (mounted) {
-        CustomToast.show(
-          context,
-          message: e.toString(),
-          type: ToastType.error,
-        );
+        CustomToast.show(context, message: e.toString(), type: ToastType.error);
       }
     }
   }
@@ -809,11 +691,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: Colors.white.withOpacity(0.8),
-              size: 24.sp,
-            ),
+            Icon(icon, color: Colors.white.withOpacity(0.8), size: 24.sp),
             SizedBox(height: 2.h),
             Text(
               label,
@@ -829,48 +707,28 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   }
 
   Widget _buildMessageItem(Map<String, dynamic> message) {
-    final status = message['status'] as String?;
-    final isError = message['isError'] == true;
-    final opacity = message['opacity'] ?? 1.0;
-    final isUser = message['isUser'] as bool;
-    final messageId = message['messageId'] as int?;
-    final int animationDelay = message['animationDelay'] as int? ?? 0;
+    return ChatBubble(
+      key: ValueKey(message['messageId'] ?? message['timestamp']),
+      message: message['content'],
+      isUser: message['isUser'],
+      isLoading: message['isLoading'] ?? false,
+      isError: message['isError'] ?? false,
+      status: message['status'],
+      bubbleColor: message['isUser'] ? _userBubbleColor : _bubbleColor,
+      bubbleOpacity: message['isUser'] ? _userBubbleOpacity : _bubbleOpacity,
+      textColor: message['isUser'] ? _userTextColor : _textColor,
+      messageId: message['messageId'],
+      onEdit: !message['isUser'] && message['messageId'] != null
+          ? _handleMessageEdit
+          : null,
+      formatMode: _formatMode,
+    );
+  }
 
-    // 使用TweenAnimationBuilder实现更平滑的动画效果
-    if (animationDelay > 0) {
-      // 改为使用更安全的实现方式
-      return _DelayedAnimationMessage(
-        message: message,
-        status: status,
-        isError: isError,
-        isUser: isUser,
-        messageId: messageId,
-        animationDelay: animationDelay,
-        bubbleColor: isUser ? _userBubbleColor : _bubbleColor,
-        bubbleOpacity: isUser ? _userBubbleOpacity : _bubbleOpacity,
-        textColor: isUser ? _userTextColor : _textColor,
-        onEdit: !isUser && messageId != null ? _handleMessageEdit : null,
-        formatMode: _formatMode,
-      );
-    } else {
-      // 已经加载完成的消息或新增消息使用普通显示
-      return AnimatedOpacity(
-        opacity: opacity,
-        duration: const Duration(milliseconds: 200),
-        child: ChatBubble(
-          message: message['content'],
-          isUser: isUser,
-          isLoading: message['isLoading'] ?? false,
-          isError: isError,
-          status: status,
-          bubbleColor: isUser ? _userBubbleColor : _bubbleColor,
-          bubbleOpacity: isUser ? _userBubbleOpacity : _bubbleOpacity,
-          textColor: isUser ? _userTextColor : _textColor,
-          messageId: messageId,
-          onEdit: !isUser && messageId != null ? _handleMessageEdit : null,
-          formatMode: _formatMode,
-        ),
-      );
+  // 添加简单的滚动到底部方法
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0); // 因为列表是反向的,所以滚动到0就是底部
     }
   }
 
@@ -889,10 +747,10 @@ class _CharacterChatPageState extends State<CharacterChatPage>
             Image.memory(
               _backgroundImage!,
               fit: BoxFit.cover,
+              cacheWidth:
+                  MediaQuery.of(context).size.width.toInt(), // 添加缓存宽度提高性能
             ),
-          Container(
-            color: Colors.black.withOpacity(_backgroundOpacity),
-          ),
+          Container(color: Colors.black.withOpacity(_backgroundOpacity)),
           Column(
             children: [
               SizedBox(height: padding.top),
@@ -957,18 +815,19 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                       result['list'] ?? [];
                                   final pagination = result['pagination'] ?? {};
 
-                                  // 直接用服务器返回的数据替换当前消息列表
-                                  final newMessages = messageList.reversed
-                                      .map((msg) => {
-                                            'content': msg['content'] ?? '',
-                                            'isUser': msg['role'] == 'user',
-                                            'timestamp': DateTime.now()
-                                                .millisecondsSinceEpoch,
-                                            'tokenCount':
-                                                msg['tokenCount'] ?? 0,
-                                            'opacity': 1.0,
-                                            'messageId': msg['id'],
-                                          })
+                                  // 直接使用服务器返回的顺序，不需要反转
+                                  final newMessages = messageList
+                                      .map(
+                                        (msg) => {
+                                          'content': msg['content'] ?? '',
+                                          'isUser': msg['role'] == 'user',
+                                          'timestamp': DateTime.now()
+                                              .millisecondsSinceEpoch,
+                                          'tokenCount': msg['tokenCount'] ?? 0,
+                                          'opacity': 1.0,
+                                          'messageId': msg['id'],
+                                        },
+                                      )
                                       .toList();
 
                                   setState(() {
@@ -977,10 +836,11 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                     _totalPages =
                                         pagination['total_pages'] ?? 1;
                                     _totalTokens = messageList.fold<int>(
-                                        0,
-                                        (sum, msg) =>
-                                            sum +
-                                            ((msg['tokenCount'] ?? 0) as int));
+                                      0,
+                                      (sum, msg) =>
+                                          sum +
+                                          ((msg['tokenCount'] ?? 0) as int),
+                                    );
                                     _currentPage = 1;
                                   });
 
@@ -1014,7 +874,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                     strokeWidth: 2.w,
                                     valueColor:
                                         const AlwaysStoppedAnimation<Color>(
-                                            Colors.white),
+                                      Colors.white,
+                                    ),
                                   ),
                                 )
                               : Icon(
@@ -1030,6 +891,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
               ),
               Expanded(
                 child: ListView.builder(
+                  reverse: true, // 反转列表,新消息在底部
                   controller: _scrollController,
                   padding: EdgeInsets.only(
                     top: 16.h,
@@ -1040,8 +902,32 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                   itemCount: _messages.length,
                   itemBuilder: (context, index) {
                     final message = _messages[index];
-                    return _buildMessageItem(message);
+                    return ChatBubble(
+                      key: ValueKey(
+                          message['messageId'] ?? message['timestamp']),
+                      message: message['content'],
+                      isUser: message['isUser'],
+                      isLoading: message['isLoading'] ?? false,
+                      isError: message['isError'] ?? false,
+                      status: message['status'],
+                      bubbleColor:
+                          message['isUser'] ? _userBubbleColor : _bubbleColor,
+                      bubbleOpacity: message['isUser']
+                          ? _userBubbleOpacity
+                          : _bubbleOpacity,
+                      textColor:
+                          message['isUser'] ? _userTextColor : _textColor,
+                      messageId: message['messageId'],
+                      onEdit: !message['isUser'] && message['messageId'] != null
+                          ? _handleMessageEdit
+                          : null,
+                      formatMode: _formatMode,
+                    );
                   },
+                  // 性能优化选项
+                  addAutomaticKeepAlives: false,
+                  addRepaintBoundaries: true,
+                  clipBehavior: Clip.hardEdge,
                 ),
               ),
             ],
@@ -1260,122 +1146,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// 添加一个专门的StatefulWidget来处理延迟动画，避免在回调中使用外部的State
-class _DelayedAnimationMessage extends StatefulWidget {
-  final Map<String, dynamic> message;
-  final String? status;
-  final bool isError;
-  final bool isUser;
-  final int? messageId;
-  final int animationDelay;
-  final Color bubbleColor;
-  final double bubbleOpacity;
-  final Color textColor;
-  final Function(int, String)? onEdit;
-  final String formatMode;
-
-  const _DelayedAnimationMessage({
-    Key? key,
-    required this.message,
-    required this.status,
-    required this.isError,
-    required this.isUser,
-    required this.messageId,
-    required this.animationDelay,
-    required this.bubbleColor,
-    required this.bubbleOpacity,
-    required this.textColor,
-    required this.onEdit,
-    required this.formatMode,
-  }) : super(key: key);
-
-  @override
-  State<_DelayedAnimationMessage> createState() =>
-      _DelayedAnimationMessageState();
-}
-
-class _DelayedAnimationMessageState extends State<_DelayedAnimationMessage> {
-  bool _showAnimation = false;
-  bool _isDisposed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // 使用计时器来延迟开始动画
-    Future.delayed(Duration(milliseconds: widget.animationDelay), () {
-      if (!_isDisposed) {
-        setState(() {
-          _showAnimation = true;
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _isDisposed = true;
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_showAnimation) {
-      // 未开始动画前，显示一个占位
-      return Opacity(
-        opacity: 0.0,
-        child: ChatBubble(
-          message: widget.message['content'],
-          isUser: widget.isUser,
-          isLoading: widget.message['isLoading'] ?? false,
-          isError: widget.isError,
-          status: widget.status,
-          bubbleColor: widget.bubbleColor,
-          bubbleOpacity: widget.bubbleOpacity,
-          textColor: widget.textColor,
-          messageId: widget.messageId,
-          onEdit: widget.onEdit,
-          formatMode: widget.formatMode,
-        ),
-      );
-    }
-
-    // 开始动画后，显示TweenAnimationBuilder
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      onEnd: () {
-        // 动画结束后清除delay标记，避免重新构建时再次触发
-        if (mounted) {
-          widget.message['animationDelay'] = 0;
-        }
-      },
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(0, 15 * (1 - value)),
-            child: child,
-          ),
-        );
-      },
-      child: ChatBubble(
-        message: widget.message['content'],
-        isUser: widget.isUser,
-        isLoading: widget.message['isLoading'] ?? false,
-        isError: widget.isError,
-        status: widget.status,
-        bubbleColor: widget.bubbleColor,
-        bubbleOpacity: widget.bubbleOpacity,
-        textColor: widget.textColor,
-        messageId: widget.messageId,
-        onEdit: widget.onEdit,
-        formatMode: widget.formatMode,
       ),
     );
   }

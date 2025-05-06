@@ -6,7 +6,7 @@ import '../../../dao/user_dao.dart';
 import '../models/sse_response.dart';
 
 class CharacterChatStreamService {
-  static const String baseUrl = 'https://hk1.xiaoyi.ink/api/v1';
+  static const String baseUrl = 'https://hk2.xiaoyi.ink/api/v1';
   final UserDao _userDao = UserDao();
 
   /// 发送对话消息并获取流式响应

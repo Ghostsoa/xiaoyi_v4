@@ -1,0 +1,2 @@
+C:/Users/13308/Desktop/xiaoyi_v4/android/app/.cxx/RelWithDebInfo/3b2k2a5n/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/13308/Desktop/xiaoyi_v4/android/app/.cxx/RelWithDebInfo/3b2k2a5n/armeabi-v7a/CMakeFiles/rebuild_cache.dir
