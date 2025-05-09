@@ -288,7 +288,7 @@ class _MaterialManagementPageState extends State<MaterialManagementPage> {
                     future: FileService().getFile(item['metadata']),
                     builder: (context, snapshot) {
                       if (snapshot.hasData) {
-                        return Container(
+                        return SizedBox(
                           width: double.infinity,
                           height: double.infinity,
                           child: Image.memory(

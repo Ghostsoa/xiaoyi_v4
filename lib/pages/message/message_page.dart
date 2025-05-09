@@ -515,11 +515,8 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
               ],
               // 头像
               if (coverUri != null && coverUri.isNotEmpty)
-                FutureBuilder(
-                  future: _fileService.getFile(coverUri),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      return Container(
+                hasAvatar
+                    ? Container(
                         width: 40.w,
                         height: 40.w,
                         decoration: BoxDecoration(
@@ -527,15 +524,43 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                         ),
                         child: ClipOval(
                           child: Image.memory(
-                            snapshot.data!.data,
+                            _avatarCache[coverUri]!,
                             fit: BoxFit.cover,
                           ),
                         ),
-                      );
-                    }
-                    return _buildAvatarSkeleton(session['name']);
-                  },
-                )
+                      )
+                    : FutureBuilder(
+                        future: _fileService.getFile(coverUri),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData) {
+                            // 在获取数据后立即更新缓存
+                            if (!_avatarCache.containsKey(coverUri)) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) {
+                                  setState(() {
+                                    _avatarCache[coverUri] =
+                                        snapshot.data!.data;
+                                  });
+                                }
+                              });
+                            }
+                            return Container(
+                              width: 40.w,
+                              height: 40.w,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                              ),
+                              child: ClipOval(
+                                child: Image.memory(
+                                  snapshot.data!.data,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            );
+                          }
+                          return _buildAvatarSkeleton(session['name']);
+                        },
+                      )
               else
                 _buildAvatarSkeleton(session['name']),
               SizedBox(width: 12.w),

@@ -227,11 +227,13 @@ class _ChatBubbleState extends State<ChatBubble> {
       height: 1.5,
     );
 
-    if (widget.formatMode == 'none') {
-      return Text(
-        widget.message,
-        style: baseStyle,
-      );
+    if (widget.message.isEmpty &&
+        (widget.isLoading || widget.status == 'streaming')) {
+      return const SizedBox.shrink();
+    }
+
+    if (widget.message.isEmpty) {
+      return const SizedBox.shrink();
     }
 
     BaseFormatter formatter;
@@ -246,6 +248,12 @@ class _ChatBubbleState extends State<ChatBubble> {
         formatter = CustomFormatter();
         break;
       default:
+        if (widget.formatMode == 'none') {
+          return Text(
+            widget.message,
+            style: baseStyle,
+          );
+        }
         formatter = StatusFormatter();
     }
 
@@ -302,8 +310,10 @@ class _ChatBubbleState extends State<ChatBubble> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildContent(),
-                    if (!widget.isUser && !_isEditing) ...[
-                      SizedBox(height: 6.h),
+                    if (!widget.isUser &&
+                        !_isEditing &&
+                        (widget.isLoading || widget.status != null)) ...[
+                      SizedBox(height: widget.message.isEmpty ? 0 : 6.h),
                       _buildStatusText(),
                     ],
                   ],

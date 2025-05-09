@@ -220,20 +220,16 @@ class _SelectWorldBookPageState extends State<SelectWorldBookPage> {
         centerTitle: true,
         actions: [
           TextButton(
-            onPressed: _selectedIds.isEmpty
-                ? null
-                : () {
-                    final selectedWorldBooks =
-                        _selectedIds.map((id) => _worldBookMap[id]!).toList();
-                    Navigator.pop(context, selectedWorldBooks);
-                  },
+            onPressed: () {
+              final selectedWorldBooks =
+                  _selectedIds.map((id) => _worldBookMap[id]!).toList();
+              Navigator.pop(context, selectedWorldBooks);
+            },
             child: Text(
               '完成(${_selectedIds.length})',
               style: TextStyle(
                 fontSize: AppTheme.captionSize,
-                color: _selectedIds.isEmpty
-                    ? AppTheme.textSecondary
-                    : AppTheme.primaryColor,
+                color: AppTheme.primaryColor,
               ),
             ),
           ),

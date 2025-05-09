@@ -554,7 +554,7 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
       );
     }
 
-    return Container(
+    return SizedBox(
       width: containerWidth,
       height: containerHeight,
       child: GestureDetector(

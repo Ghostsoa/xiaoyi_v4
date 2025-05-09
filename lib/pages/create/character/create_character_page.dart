@@ -56,10 +56,12 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   double _topP = 0.9;
   int _topK = 40;
   int _maxTokens = 2000;
+  bool _streamMode = true;
 
   // 高级设定
   int _memoryTurns = 100;
   int _searchDepth = 5;
+  bool _permanentMemory = false;
   Map<String, dynamic> _worldbookMap = {};
   String _status = 'draft';
   int _selectedWorldBookCount = 0;
@@ -97,8 +99,10 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     _topP = (character['topP'] ?? 0.9).toDouble();
     _topK = character['topK'] ?? 40;
     _maxTokens = character['maxTokens'] ?? 2000;
+    _streamMode = character['streamMode'] ?? true;
     _memoryTurns = character['memoryTurns'] ?? 100;
     _searchDepth = character['searchDepth'] ?? 5;
+    _permanentMemory = character['permanentMemory'] ?? false;
     _status = character['status'] ?? 'draft';
 
     // 处理世界书数据
@@ -161,7 +165,9 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
         "topP": _topP,
         "topK": _topK,
         "maxTokens": _maxTokens,
+        "streamMode": _streamMode,
         "memoryTurns": _memoryTurns,
+        "permanentMemory": _permanentMemory,
         "greeting": _greetingController.text,
         "prefix": _prefixController.text,
         "suffix": _suffixController.text,
@@ -267,11 +273,13 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           topP: _topP,
           topK: _topK,
           maxTokens: _maxTokens,
+          streamMode: _streamMode,
           onModelNameChanged: (value) => setState(() => _modelName = value),
           onTemperatureChanged: (value) => setState(() => _temperature = value),
           onTopPChanged: (value) => setState(() => _topP = value),
           onTopKChanged: (value) => setState(() => _topK = value),
           onMaxTokensChanged: (value) => setState(() => _maxTokens = value),
+          onStreamModeChanged: (value) => setState(() => _streamMode = value),
         );
       case 3:
         return AdvancedSettingsModule(
@@ -279,6 +287,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           searchDepth: _searchDepth,
           status: _status,
           uiSettings: _uiSettings,
+          permanentMemory: _permanentMemory,
           selectedWorldBooks: _selectedWorldBooks,
           prefixController: _prefixController,
           suffixController: _suffixController,
@@ -286,6 +295,8 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           onSearchDepthChanged: (value) => setState(() => _searchDepth = value),
           onStatusChanged: (value) => setState(() => _status = value),
           onUiSettingsChanged: (value) => setState(() => _uiSettings = value),
+          onPermanentMemoryChanged: (value) =>
+              setState(() => _permanentMemory = value),
           onWorldBooksChanged: (value) => setState(() => _selectedWorldBooks
             ..clear()
             ..addAll(value)),

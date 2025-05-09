@@ -70,9 +70,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   // 当前正在接收的消息
   String _currentMessage = '';
 
-  // 添加token计数
-  int _totalTokens = 0;
-
   // 添加一个变量用于控制流的终止
   bool _shouldStopStream = false;
 
@@ -85,10 +82,12 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   @override
   void initState() {
     super.initState();
-    _loadSettings();
-    _loadBackgroundImage();
-    _loadMessageHistory();
-    _loadFormatMode(); // 添加加载格式化模式
+    // 先加载设置，再加载其他内容
+    _loadSettings().then((_) {
+      _loadBackgroundImage();
+      _loadMessageHistory();
+      _loadFormatMode();
+    });
 
     // 初始化菜单动画控制器
     _menuAnimationController = AnimationController(
@@ -133,24 +132,48 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   }
 
   Future<void> _loadSettings() async {
-    final settings = await _settingsDao.getAllSettings();
-    setState(() {
-      _backgroundOpacity = settings['backgroundOpacity'];
-      _bubbleColor = _hexToColor(settings['bubbleColor']);
-      _bubbleOpacity = settings['bubbleOpacity'];
-      _textColor = _hexToColor(settings['textColor']);
-      _userBubbleColor = _hexToColor(settings['userBubbleColor']);
-      _userBubbleOpacity = settings['userBubbleOpacity'];
-      _userTextColor = _hexToColor(settings['userTextColor']);
-    });
+    try {
+      final settings = await _settingsDao.getAllSettings();
+      if (!mounted) return;
+
+      setState(() {
+        _backgroundOpacity = settings['backgroundOpacity'] ?? 0.5;
+        _bubbleColor = _hexToColor(settings['bubbleColor'] ?? '#FFFFFF');
+        _bubbleOpacity = settings['bubbleOpacity'] ?? 0.8;
+        _textColor = _hexToColor(settings['textColor'] ?? '#000000');
+        _userBubbleColor = _hexToColor(settings['userBubbleColor'] ??
+            AppTheme.primaryColor.value.toRadixString(16));
+        _userBubbleOpacity = settings['userBubbleOpacity'] ?? 0.8;
+        _userTextColor = _hexToColor(settings['userTextColor'] ?? '#FFFFFF');
+      });
+    } catch (e) {
+      debugPrint('加载设置失败: $e');
+      // 使用默认值
+      if (mounted) {
+        setState(() {
+          _backgroundOpacity = 0.5;
+          _bubbleColor = Colors.white;
+          _bubbleOpacity = 0.8;
+          _textColor = Colors.black;
+          _userBubbleColor = AppTheme.primaryColor;
+          _userBubbleOpacity = 0.8;
+          _userTextColor = Colors.white;
+        });
+      }
+    }
   }
 
   Color _hexToColor(String hexColor) {
-    hexColor = hexColor.toUpperCase().replaceAll('#', '');
-    if (hexColor.length == 6) {
-      hexColor = 'FF$hexColor';
+    try {
+      hexColor = hexColor.toUpperCase().replaceAll('#', '');
+      if (hexColor.length == 6) {
+        hexColor = 'FF$hexColor';
+      }
+      return Color(int.parse(hexColor, radix: 16));
+    } catch (e) {
+      debugPrint('颜色转换失败: $e');
+      return Colors.white; // 返回默认颜色
     }
-    return Color(int.parse(hexColor, radix: 16));
   }
 
   Future<void> _loadMessageHistory({bool isLoadMore = false}) async {
@@ -181,13 +204,10 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                 'timestamp': DateTime.now().millisecondsSinceEpoch,
                 'tokenCount': msg['tokenCount'] ?? 0,
                 'messageId': msg['id'],
+                'status': 'done', // 添加状态以确保正确渲染
               }));
 
           _totalPages = pagination['total_pages'] ?? 1;
-          _totalTokens = _messages.fold<int>(
-            0,
-            (sum, msg) => sum + ((msg['tokenCount'] ?? 0) as int),
-          );
         });
       }
     } catch (e) {
@@ -238,13 +258,10 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                 'timestamp': DateTime.now().millisecondsSinceEpoch,
                 'tokenCount': msg['tokenCount'] ?? 0,
                 'messageId': msg['id'],
+                'status': 'done', // 添加状态以确保正确渲染
               }));
 
           _totalPages = pagination['total_pages'] ?? 1;
-          _totalTokens = _messages.fold<int>(
-            0,
-            (sum, msg) => sum + ((msg['tokenCount'] ?? 0) as int),
-          );
         });
       }
     } catch (e) {
@@ -336,8 +353,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
             if (response.messageId != null) {
               _messages[0]['messageId'] = response.messageId;
             }
-          } else if (response.isTokens) {
-            _totalTokens += response.tokens ?? 0;
           } else if (response.isDone) {
             _messages[0]['status'] = 'done';
             _messages[0]['isLoading'] = false;
@@ -436,7 +451,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           _messages.clear();
           _currentPage = 1;
           _totalPages = 1;
-          _totalTokens = 0;
         });
 
         // 刷新消息列表
@@ -463,6 +477,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                   'tokenCount': msg['tokenCount'] ?? 0,
                   'opacity': 1.0,
                   'messageId': msg['id'],
+                  'status': 'done', // 添加状态以确保正确渲染
                 },
               )
               .toList();
@@ -471,10 +486,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
             _messages.clear();
             _messages.addAll(newMessages);
             _totalPages = pagination['total_pages'] ?? 1;
-            _totalTokens = messageList.fold<int>(
-              0,
-              (sum, msg) => sum + ((msg['tokenCount'] ?? 0) as int),
-            );
             _currentPage = 1;
           });
 
@@ -506,29 +517,29 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       // 调用撤回接口
       await _characterService.revokeLastMessage(widget.sessionData['id']);
 
-      // 如果最后一条是AI的回复，需要同时删除用户的提问
-      if (!_messages.last['isUser']) {
+      // 如果第一条是AI的回复，需要同时删除用户的提问
+      if (!_messages[0]['isUser']) {
         setState(() {
-          _messages.removeLast(); // 删除AI回复
-          if (_messages.isNotEmpty && _messages.last['isUser']) {
+          _messages.removeAt(0); // 删除AI回复
+          if (_messages.isNotEmpty && _messages[0]['isUser']) {
             // 将用户消息内容放回输入框
-            _messageController.text = _messages.last['content'];
+            _messageController.text = _messages[0]['content'];
             // 将光标移到文本末尾
             _messageController.selection = TextSelection.fromPosition(
               TextPosition(offset: _messageController.text.length),
             );
-            _messages.removeLast(); // 删除用户提问
+            _messages.removeAt(0); // 删除用户提问
           }
         });
       } else {
         setState(() {
           // 将用户消息内容放回输入框
-          _messageController.text = _messages.last['content'];
+          _messageController.text = _messages[0]['content'];
           // 将光标移到文本末尾
           _messageController.selection = TextSelection.fromPosition(
             TextPosition(offset: _messageController.text.length),
           );
-          _messages.removeLast(); // 只删除用户消息
+          _messages.removeAt(0); // 只删除用户消息
         });
       }
     } catch (e) {
@@ -582,6 +593,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                   'tokenCount': msg['tokenCount'] ?? 0,
                   'opacity': 1.0,
                   'messageId': msg['id'],
+                  'status': 'done', // 添加状态以确保正确渲染
                 },
               )
               .toList();
@@ -610,15 +622,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
               _messages.addAll(newMessages.sublist(_messages.length));
             });
           }
-
-          // 更新总页数和token计数
-          setState(() {
-            _totalPages = pagination['total_pages'] ?? 1;
-            _totalTokens = messageList.fold<int>(
-              0,
-              (sum, msg) => sum + ((msg['tokenCount'] ?? 0) as int),
-            );
-          });
 
           // 如果有新消息，滚动到底部
           if (hasNewMessages) {}
@@ -706,25 +709,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     );
   }
 
-  Widget _buildMessageItem(Map<String, dynamic> message) {
-    return ChatBubble(
-      key: ValueKey(message['messageId'] ?? message['timestamp']),
-      message: message['content'],
-      isUser: message['isUser'],
-      isLoading: message['isLoading'] ?? false,
-      isError: message['isError'] ?? false,
-      status: message['status'],
-      bubbleColor: message['isUser'] ? _userBubbleColor : _bubbleColor,
-      bubbleOpacity: message['isUser'] ? _userBubbleOpacity : _bubbleOpacity,
-      textColor: message['isUser'] ? _userTextColor : _textColor,
-      messageId: message['messageId'],
-      onEdit: !message['isUser'] && message['messageId'] != null
-          ? _handleMessageEdit
-          : null,
-      formatMode: _formatMode,
-    );
-  }
-
   // 添加简单的滚动到底部方法
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
@@ -747,8 +731,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
             Image.memory(
               _backgroundImage!,
               fit: BoxFit.cover,
-              cacheWidth:
-                  MediaQuery.of(context).size.width.toInt(), // 添加缓存宽度提高性能
             ),
           Container(color: Colors.black.withOpacity(_backgroundOpacity)),
           Column(
@@ -826,6 +808,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                           'tokenCount': msg['tokenCount'] ?? 0,
                                           'opacity': 1.0,
                                           'messageId': msg['id'],
+                                          'status': 'done', // 添加状态以确保正确渲染
                                         },
                                       )
                                       .toList();
@@ -835,12 +818,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                     _messages.addAll(newMessages);
                                     _totalPages =
                                         pagination['total_pages'] ?? 1;
-                                    _totalTokens = messageList.fold<int>(
-                                      0,
-                                      (sum, msg) =>
-                                          sum +
-                                          ((msg['tokenCount'] ?? 0) as int),
-                                    );
                                     _currentPage = 1;
                                   });
 

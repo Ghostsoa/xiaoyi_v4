@@ -35,6 +35,8 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   final Map<String, dynamic> _editedData = {};
   String? _error;
   int _currentPageIndex = 0;
+  bool _streamMode = true;
+  bool _permanentMemory = false;
 
   final _settingController = TextEditingController();
   final _temperatureController = TextEditingController();
@@ -96,6 +98,8 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
       setState(() {
         _sessionData = data;
         _isLoading = false;
+        _streamMode = data['stream_mode'] ?? true;
+        _permanentMemory = data['permanent_memory'] ?? false;
       });
 
       // 加载封面图

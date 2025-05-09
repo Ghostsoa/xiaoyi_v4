@@ -34,6 +34,21 @@ class ModelConfigCard extends StatelessWidget {
       title: 'AI模型配置',
       children: [
         _buildModelSelector(context),
+        _buildSwitchItem(
+          '流式响应',
+          'stream_mode',
+          editedData['stream_mode'] ?? sessionData['stream_mode'] ?? true,
+          description: '开启后AI回复将逐字显示，关闭则等待生成完毕后一次性显示',
+        ),
+        _buildSwitchItem(
+          '永久记忆',
+          'permanent_memory',
+          editedData['permanent_memory'] ??
+              sessionData['permanent_memory'] ??
+              false,
+          description: '开启后记忆轮数将被锁定至100轮，使用新技术实现理论上的永久性记忆（测试阶段）',
+          showBeta: true,
+        ),
         _buildSliderItem(
           '温度',
           'temperature',
@@ -76,6 +91,9 @@ class ModelConfigCard extends StatelessWidget {
           500,
           499,
           isInt: true,
+          isDisabled: editedData['permanent_memory'] ??
+              sessionData['permanent_memory'] ??
+              false,
         ),
         _buildSliderItem(
           '搜索深度',
@@ -173,14 +191,12 @@ class ModelConfigCard extends StatelessWidget {
     );
   }
 
-  Widget _buildSliderItem(
+  Widget _buildSwitchItem(
     String label,
     String field,
-    TextEditingController controller,
-    double min,
-    double max,
-    int divisions, {
-    bool isInt = false,
+    bool value, {
+    String? description,
+    bool showBeta = false,
   }) {
     return Container(
       width: double.infinity,
@@ -208,6 +224,93 @@ class ModelConfigCard extends StatelessWidget {
                       fontSize: 14.sp,
                     ),
                   ),
+                  if (showBeta) ...[
+                    SizedBox(width: 6.w),
+                    Container(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                      decoration: BoxDecoration(
+                        color: Colors.amber,
+                        borderRadius: BorderRadius.circular(4.r),
+                      ),
+                      child: Text(
+                        'Beta',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              Switch(
+                value: value,
+                onChanged: (newValue) {
+                  onUpdateField(field, newValue);
+
+                  // 当开启永久记忆时，锁定记忆轮数为100
+                  if (field == 'permanent_memory' && newValue) {
+                    onUpdateField('memory_turns', 100);
+                    memoryTurnsController.text = '100';
+                  }
+                },
+                activeColor: AppTheme.primaryColor,
+              ),
+            ],
+          ),
+          if (description != null) ...[
+            SizedBox(height: 4.h),
+            Text(
+              description,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.4),
+                fontSize: 12.sp,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSliderItem(
+    String label,
+    String field,
+    TextEditingController controller,
+    double min,
+    double max,
+    int divisions, {
+    bool isInt = false,
+    bool isDisabled = false,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(vertical: 12.h),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(isDisabled ? 0.3 : 0.6),
+                      fontSize: 14.sp,
+                    ),
+                  ),
                   SizedBox(width: 4.w),
                   Container(
                     padding: EdgeInsets.symmetric(
@@ -215,13 +318,16 @@ class ModelConfigCard extends StatelessWidget {
                       vertical: 2.h,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.2),
+                      color: AppTheme.primaryColor
+                          .withOpacity(isDisabled ? 0.1 : 0.2),
                       borderRadius: BorderRadius.circular(4.r),
                     ),
                     child: Text(
-                      '可编辑',
+                      isDisabled ? '已锁定' : '可编辑',
                       style: TextStyle(
-                        color: AppTheme.primaryColor,
+                        color: isDisabled
+                            ? AppTheme.primaryColor.withOpacity(0.5)
+                            : AppTheme.primaryColor,
                         fontSize: 10.sp,
                       ),
                     ),
@@ -231,7 +337,7 @@ class ModelConfigCard extends StatelessWidget {
               Text(
                 controller.text,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Colors.white.withOpacity(isDisabled ? 0.3 : 1.0),
                   fontSize: 14.sp,
                 ),
               ),
@@ -240,9 +346,15 @@ class ModelConfigCard extends StatelessWidget {
           SizedBox(height: 8.h),
           SliderTheme(
             data: SliderThemeData(
-              activeTrackColor: AppTheme.primaryColor,
-              inactiveTrackColor: AppTheme.primaryColor.withOpacity(0.2),
-              thumbColor: AppTheme.primaryColor,
+              activeTrackColor: isDisabled
+                  ? AppTheme.primaryColor.withOpacity(0.3)
+                  : AppTheme.primaryColor,
+              inactiveTrackColor: isDisabled
+                  ? AppTheme.primaryColor.withOpacity(0.1)
+                  : AppTheme.primaryColor.withOpacity(0.2),
+              thumbColor: isDisabled
+                  ? AppTheme.primaryColor.withOpacity(0.3)
+                  : AppTheme.primaryColor,
               overlayColor: AppTheme.primaryColor.withOpacity(0.2),
               trackHeight: 4.h,
             ),
@@ -252,12 +364,15 @@ class ModelConfigCard extends StatelessWidget {
               min: min,
               max: max,
               divisions: divisions,
-              onChanged: (value) {
-                final newValue = isInt ? value.toInt() : value;
-                controller.text =
-                    isInt ? newValue.toString() : newValue.toStringAsFixed(2);
-                onUpdateField(field, newValue);
-              },
+              onChanged: isDisabled
+                  ? null
+                  : (value) {
+                      final newValue = isInt ? value.toInt() : value;
+                      controller.text = isInt
+                          ? newValue.toString()
+                          : newValue.toStringAsFixed(2);
+                      onUpdateField(field, newValue);
+                    },
             ),
           ),
         ],

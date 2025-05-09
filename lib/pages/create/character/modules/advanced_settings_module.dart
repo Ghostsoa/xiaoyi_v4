@@ -10,6 +10,7 @@ class AdvancedSettingsModule extends StatefulWidget {
   final int searchDepth;
   final String status;
   final String uiSettings;
+  final bool permanentMemory;
   final List<Map<String, dynamic>> selectedWorldBooks;
   final TextEditingController prefixController;
   final TextEditingController suffixController;
@@ -17,6 +18,7 @@ class AdvancedSettingsModule extends StatefulWidget {
   final Function(int) onSearchDepthChanged;
   final Function(String) onStatusChanged;
   final Function(String) onUiSettingsChanged;
+  final Function(bool) onPermanentMemoryChanged;
   final Function(List<Map<String, dynamic>>) onWorldBooksChanged;
   final Function(Map<String, dynamic>) onWorldbookMapChanged;
 
@@ -26,6 +28,7 @@ class AdvancedSettingsModule extends StatefulWidget {
     required this.searchDepth,
     required this.status,
     required this.uiSettings,
+    this.permanentMemory = false,
     required this.selectedWorldBooks,
     required this.prefixController,
     required this.suffixController,
@@ -33,6 +36,7 @@ class AdvancedSettingsModule extends StatefulWidget {
     required this.onSearchDepthChanged,
     required this.onStatusChanged,
     required this.onUiSettingsChanged,
+    required this.onPermanentMemoryChanged,
     required this.onWorldBooksChanged,
     required this.onWorldbookMapChanged,
   });
@@ -310,8 +314,9 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                   min: 1,
                   max: 500,
                   divisions: 499,
-                  onChanged: (value) =>
-                      widget.onMemoryTurnsChanged(value.toInt()),
+                  onChanged: widget.permanentMemory
+                      ? null // 永久记忆开启时禁用记忆轮数滑块
+                      : (value) => widget.onMemoryTurnsChanged(value.toInt()),
                 ),
               ),
               SizedBox(height: 16.h),
@@ -321,19 +326,83 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                   Row(
                     children: [
                       Text(
-                        '搜索深度',
+                        '永久记忆',
                         style: AppTheme.secondaryStyle,
                       ),
-                      SizedBox(width: 8.w),
-                      Text(
-                        '仅当使用世界书生效',
-                        style: AppTheme.hintStyle.copyWith(
-                          fontSize: 12.sp,
+                      SizedBox(width: 6.w),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 6.w, vertical: 2.h),
+                        decoration: BoxDecoration(
+                          color: Colors.amber,
+                          borderRadius: BorderRadius.circular(4.r),
+                        ),
+                        child: Text(
+                          'Beta',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Switch(
+                    value: widget.permanentMemory,
+                    onChanged: (value) {
+                      widget.onPermanentMemoryChanged(value);
+                      if (value) {
+                        // 开启永久记忆时，锁定记忆轮数为100
+                        widget.onMemoryTurnsChanged(100);
+                      }
+                    },
+                    activeColor: AppTheme.primaryColor,
+                  ),
+                ],
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4.w),
+                child: RichText(
+                  text: TextSpan(
+                    style: AppTheme.hintStyle,
+                    children: [
+                      const TextSpan(text: '开启后记忆轮数将被'),
+                      TextSpan(
+                        text: '锁定至100轮',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const TextSpan(text: '，使用'),
+                      TextSpan(
+                        text: '新技术',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const TextSpan(text: '实现理论上的'),
+                      TextSpan(
+                        text: '永久性记忆',
+                        style: TextStyle(
                           color: Colors.amber,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      const TextSpan(text: '（测试阶段）'),
                     ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '搜索深度',
+                    style: AppTheme.secondaryStyle,
                   ),
                   Text(
                     widget.searchDepth.toString(),
@@ -448,7 +517,7 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                   ),
                   if (widget.selectedWorldBooks.isNotEmpty)
                     Text(
-                      '已选择 ${widget.selectedWorldBooks.length} 个 · ${totalKeywords} 个关键词',
+                      '已选择 ${widget.selectedWorldBooks.length} 个 · $totalKeywords 个关键词',
                       style: AppTheme.hintStyle,
                     ),
                 ],

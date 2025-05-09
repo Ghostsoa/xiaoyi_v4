@@ -217,7 +217,7 @@ class _UiSettingsPageState extends State<UiSettingsPage> {
           SizedBox(width: 8.w),
           Expanded(
             child: Text(
-              option.isEnabled ? '${formatSymbol}示例文本' : formatSymbol,
+              option.isEnabled ? '$formatSymbol示例文本' : formatSymbol,
               style: TextStyle(
                 color: option.isEnabled ? option.color : AppTheme.textSecondary,
                 fontSize: 14.sp,
