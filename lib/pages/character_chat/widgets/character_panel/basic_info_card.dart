@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../../../../theme/app_theme.dart';
 import 'base_card.dart';
 
 class BasicInfoCard extends StatelessWidget {
@@ -15,50 +16,67 @@ class BasicInfoCard extends StatelessWidget {
     return BaseCard(
       title: '基本信息',
       children: [
-        _buildInfoItem('名称', sessionData['name'] ?? '未知'),
-        _buildInfoItem('描述', sessionData['description'] ?? '暂无描述'),
+        _buildInfoItem('名称', sessionData['name'] ?? '未知', Icons.person),
         if (sessionData['tags'] != null)
           _buildInfoItem(
             '标签',
             (sessionData['tags'] as List<dynamic>)
                 .map((tag) => '#$tag')
                 .join(' '),
+            Icons.tag,
           ),
-        _buildInfoItem('作者', sessionData['author_name'] ?? '未知'),
-        _buildInfoItem('创建时间', _formatDateTime(sessionData['created_at'])),
-        _buildInfoItem('更新时间', _formatDateTime(sessionData['updated_at'])),
+        _buildInfoItem(
+            '作者', sessionData['author_name'] ?? '未知', Icons.person_outline),
+        _buildInfoItem('创建时间', _formatDateTime(sessionData['created_at']),
+            Icons.access_time),
+        _buildInfoItem(
+            '更新时间', _formatDateTime(sessionData['updated_at']), Icons.update),
       ],
     );
   }
 
-  Widget _buildInfoItem(String label, String value) {
+  Widget _buildInfoItem(String label, String value, IconData icon) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(vertical: 12.h),
+      margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
+        color: Colors.black.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.05),
+          width: 1,
         ),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
-              fontSize: 14.sp,
-            ),
+          Icon(
+            icon,
+            color: AppTheme.primaryColor.withOpacity(0.7),
+            size: 20.sp,
           ),
-          SizedBox(height: 8.h),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16.sp,
-              color: Colors.white,
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 14.sp,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

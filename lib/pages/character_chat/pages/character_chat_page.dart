@@ -79,6 +79,13 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   // 添加格式化模式
   String _formatMode = 'none';
 
+  // 添加抽屉控制变量
+  double _drawerOffset = 0.0;
+  bool _isDragging = false;
+  final double _maxDrawerOffset = 500.0;
+  late AnimationController _drawerAnimationController;
+  late Animation<double> _drawerAnimation;
+
   @override
   void initState() {
     super.initState();
@@ -87,6 +94,25 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       _loadBackgroundImage();
       _loadMessageHistory();
       _loadFormatMode();
+    });
+
+    // 初始化抽屉动画控制器
+    _drawerAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _drawerAnimation = Tween<double>(begin: 0, end: 0).animate(
+      CurvedAnimation(
+        parent: _drawerAnimationController,
+        curve: Curves.easeOut,
+      ),
+    );
+
+    _drawerAnimationController.addListener(() {
+      setState(() {
+        _drawerOffset = _drawerAnimation.value;
+      });
     });
 
     // 初始化菜单动画控制器
@@ -128,6 +154,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     _menuAnimationController.dispose();
     _scrollController.dispose();
     _refreshAnimationController.dispose();
+    _drawerAnimationController.dispose();
     super.dispose();
   }
 
@@ -203,8 +230,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                 'isUser': msg['role'] == 'user',
                 'timestamp': DateTime.now().millisecondsSinceEpoch,
                 'tokenCount': msg['tokenCount'] ?? 0,
-                'messageId': msg['id'],
-                'status': 'done', // 添加状态以确保正确渲染
+                'msgId': msg['msgId'],
+                'status': 'done'
               }));
 
           _totalPages = pagination['total_pages'] ?? 1;
@@ -257,8 +284,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                 'isUser': msg['role'] == 'user',
                 'timestamp': DateTime.now().millisecondsSinceEpoch,
                 'tokenCount': msg['tokenCount'] ?? 0,
-                'messageId': msg['id'],
-                'status': 'done', // 添加状态以确保正确渲染
+                'msgId': msg['msgId'],
+                'status': 'done'
               }));
 
           _totalPages = pagination['total_pages'] ?? 1;
@@ -313,7 +340,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         'content': message,
         'isUser': true,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
-        'messageId': null,
+        'msgId': null,
       });
       _isSending = true;
       _currentMessage = '';
@@ -332,7 +359,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           'isUser': false,
           'isLoading': true,
           'timestamp': DateTime.now().millisecondsSinceEpoch,
-          'messageId': null,
+          'msgId': null,
         });
       });
 
@@ -351,7 +378,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
             _messages[0]['isLoading'] = false;
             _messages[0]['status'] = response.status;
             if (response.messageId != null) {
-              _messages[0]['messageId'] = response.messageId;
+              _messages[0]['msgId'] = response.messageId;
             }
           } else if (response.isDone) {
             _messages[0]['status'] = 'done';
@@ -475,9 +502,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                   'isUser': msg['role'] == 'user',
                   'timestamp': DateTime.now().millisecondsSinceEpoch,
                   'tokenCount': msg['tokenCount'] ?? 0,
-                  'opacity': 1.0,
-                  'messageId': msg['id'],
-                  'status': 'done', // 添加状态以确保正确渲染
+                  'msgId': msg['msgId'],
+                  'status': 'done'
                 },
               )
               .toList();
@@ -551,18 +577,18 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   }
 
   // 添加消息编辑处理方法
-  Future<void> _handleMessageEdit(int messageId, String newContent) async {
+  Future<void> _handleMessageEdit(String msgId, String newContent) async {
     try {
       await _characterService.updateMessage(
         widget.sessionData['id'],
-        messageId,
+        msgId,
         newContent,
       );
 
       // 更新本地消息
       setState(() {
         final index = _messages.indexWhere(
-          (msg) => msg['messageId'] == messageId,
+          (msg) => msg['msgId'] == msgId,
         );
         if (index != -1) {
           _messages[index]['content'] = newContent;
@@ -582,18 +608,16 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           if (!mounted) return;
 
           final List<dynamic> messageList = result['list'] ?? [];
-          final pagination = result['pagination'] ?? {};
 
-          final newMessages = messageList.reversed
+          final newMessages = messageList
               .map(
                 (msg) => {
                   'content': msg['content'] ?? '',
                   'isUser': msg['role'] == 'user',
                   'timestamp': DateTime.now().millisecondsSinceEpoch,
                   'tokenCount': msg['tokenCount'] ?? 0,
-                  'opacity': 1.0,
-                  'messageId': msg['id'],
-                  'status': 'done', // 添加状态以确保正确渲染
+                  'msgId': msg['msgId'],
+                  'status': 'done'
                 },
               )
               .toList();
@@ -694,12 +718,21 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.white.withOpacity(0.8), size: 24.sp),
-            SizedBox(height: 2.h),
+            Container(
+              width: 40.w,
+              height: 40.h,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: Colors.white, size: 24.sp),
+            ),
+            SizedBox(height: 4.h),
             Text(
               label,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white,
                 fontSize: 12.sp,
               ),
             ),
@@ -727,19 +760,23 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       body: Stack(
         fit: StackFit.expand,
         children: [
+          // 背景层
           if (_backgroundImage != null)
             Image.memory(
               _backgroundImage!,
               fit: BoxFit.cover,
             ),
           Container(color: Colors.black.withOpacity(_backgroundOpacity)),
+
+          // 主内容层
           Column(
             children: [
-              SizedBox(height: padding.top),
+              // 顶部区域
+              SizedBox(height: padding.top - 8.h),
               // 自定义顶部栏
               Container(
-                height: 56.h,
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                height: 44.h,
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 2.h),
                 child: Row(
                   children: [
                     // 返回按钮
@@ -749,13 +786,13 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                         onTap: () => Navigator.of(context).pop(),
                         borderRadius: BorderRadius.circular(18.r),
                         child: Container(
-                          width: 36.w,
-                          height: 36.w,
+                          width: 32.w,
+                          height: 32.w,
                           alignment: Alignment.center,
                           child: Icon(
                             Icons.arrow_back_ios_new,
                             color: Colors.white,
-                            size: 20.sp,
+                            size: 18.sp,
                           ),
                         ),
                       ),
@@ -806,9 +843,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                           'timestamp': DateTime.now()
                                               .millisecondsSinceEpoch,
                                           'tokenCount': msg['tokenCount'] ?? 0,
-                                          'opacity': 1.0,
-                                          'messageId': msg['id'],
-                                          'status': 'done', // 添加状态以确保正确渲染
+                                          'msgId': msg['msgId'],
+                                          'status': 'done'
                                         },
                                       )
                                       .toList();
@@ -866,182 +902,166 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                   ],
                 ),
               ),
+
+              // 中间可拖拽的消息区域（占满剩余空间）
               Expanded(
-                child: ListView.builder(
-                  reverse: true, // 反转列表,新消息在底部
-                  controller: _scrollController,
-                  padding: EdgeInsets.only(
-                    top: 16.h,
-                    bottom: 16.h +
-                        (viewInsets.bottom > 0 ? viewInsets.bottom : 0) +
-                        80.h,
-                  ),
-                  itemCount: _messages.length,
-                  itemBuilder: (context, index) {
-                    final message = _messages[index];
-                    return ChatBubble(
-                      key: ValueKey(
-                          message['messageId'] ?? message['timestamp']),
-                      message: message['content'],
-                      isUser: message['isUser'],
-                      isLoading: message['isLoading'] ?? false,
-                      isError: message['isError'] ?? false,
-                      status: message['status'],
-                      bubbleColor:
-                          message['isUser'] ? _userBubbleColor : _bubbleColor,
-                      bubbleOpacity: message['isUser']
-                          ? _userBubbleOpacity
-                          : _bubbleOpacity,
-                      textColor:
-                          message['isUser'] ? _userTextColor : _textColor,
-                      messageId: message['messageId'],
-                      onEdit: !message['isUser'] && message['messageId'] != null
-                          ? _handleMessageEdit
-                          : null,
-                      formatMode: _formatMode,
-                    );
+                child: GestureDetector(
+                  onVerticalDragStart: (details) {
+                    setState(() {
+                      _isDragging = true;
+                    });
                   },
-                  // 性能优化选项
-                  addAutomaticKeepAlives: false,
-                  addRepaintBoundaries: true,
-                  clipBehavior: Clip.hardEdge,
-                ),
-              ),
-            ],
-          ),
-          // 将底部输入框改为Positioned定位
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: viewInsets.bottom,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0),
-                    Colors.black.withOpacity(0.3),
-                    Colors.black.withOpacity(0.3),
-                  ],
-                  stops: const [0, 0.1, 1],
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 输入框区域
-                  Container(
-                    padding: EdgeInsets.only(
-                      left: 16.w,
-                      right: 16.w,
-                      top: 8.h,
-                      bottom: padding.bottom + 8.h,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.3),
-                      border: Border(
-                        top: BorderSide(
-                          color: Colors.white.withOpacity(0.1),
-                          width: 1,
+                  onVerticalDragUpdate: (details) {
+                    setState(() {
+                      _drawerOffset += details.delta.dy;
+                      // 限制抽屉范围
+                      if (_drawerOffset < 0) _drawerOffset = 0;
+                      if (_drawerOffset > _maxDrawerOffset)
+                        _drawerOffset = _maxDrawerOffset;
+                    });
+                  },
+                  onVerticalDragEnd: (details) {
+                    // 保持在当前位置，不自动收起或展开
+                    setState(() {
+                      _isDragging = false;
+
+                      // 设置动画的起始值为当前位置
+                      _drawerAnimation = Tween<double>(
+                        begin: _drawerOffset,
+                        end: _drawerOffset,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: _drawerAnimationController,
+                          curve: Curves.easeOut,
                         ),
+                      );
+
+                      // 如果有较大的滑动速度，则根据速度方向决定展开或收起
+                      if (details.velocity.pixelsPerSecond.dy.abs() > 500) {
+                        if (details.velocity.pixelsPerSecond.dy > 0) {
+                          // 向下滑动，展开到最大
+                          _drawerAnimation = Tween<double>(
+                            begin: _drawerOffset,
+                            end: _maxDrawerOffset,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: _drawerAnimationController,
+                              curve: Curves.easeOut,
+                            ),
+                          );
+                        } else {
+                          // 向上滑动，收起
+                          _drawerAnimation = Tween<double>(
+                            begin: _drawerOffset,
+                            end: 0,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: _drawerAnimationController,
+                              curve: Curves.easeOut,
+                            ),
+                          );
+                        }
+                        // 重置动画并开始
+                        _drawerAnimationController.reset();
+                        _drawerAnimationController.forward();
+                      }
+                    });
+                  },
+                  child: Container(
+                    margin: EdgeInsets.only(top: _drawerOffset),
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(20.r),
+                        topRight: Radius.circular(20.r),
                       ),
                     ),
-                    child: Row(
+                    child: Column(
                       children: [
-                        // 汉堡按钮
+                        // 抽屉指示条
                         Container(
-                          width: 36.w,
-                          height: 36.w,
-                          margin: EdgeInsets.only(right: 8.w),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: _handleMenuToggle,
-                              borderRadius: BorderRadius.circular(18.r),
-                              child: Icon(
-                                _isMenuExpanded
-                                    ? Icons.keyboard_arrow_down
-                                    : Icons.keyboard_arrow_up,
-                                color: Colors.white,
-                                size: 24.sp,
+                          margin: EdgeInsets.symmetric(vertical: 8.h),
+                          width: 60.w,
+                          height: 4.h,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(2.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 2,
+                                spreadRadius: 0.5,
                               ),
-                            ),
+                            ],
                           ),
                         ),
-                        // 输入框
+                        // 消息列表 - 占用抽屉区域的大部分空间，但不是全部
                         Expanded(
-                          child: Container(
-                            constraints: BoxConstraints(
-                              minHeight: 36.h,
-                              maxHeight: 120.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(18.r),
-                            ),
-                            child: TextField(
-                              controller: _messageController,
-                              focusNode: _focusNode,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14.sp,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(20.r)),
+                            child: ListView.builder(
+                              reverse: true, // 反转列表,新消息在底部
+                              controller: _scrollController,
+                              padding: EdgeInsets.only(
+                                top: 16.h,
+                                bottom: 16.h,
                               ),
-                              maxLines: null,
-                              decoration: InputDecoration(
-                                hintText: '发送消息...',
-                                hintStyle: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
-                                  fontSize: 14.sp,
-                                ),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 16.w,
-                                  vertical: 8.h,
-                                ),
-                                border: InputBorder.none,
-                                isDense: true,
-                              ),
-                            ),
-                          ),
-                        ),
-                        // 发送/终止/撤回按钮
-                        Container(
-                          width: 36.w,
-                          height: 36.w,
-                          margin: EdgeInsets.only(left: 8.w),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: _isSending
-                                  ? _handleStopGeneration
-                                  : _currentInputText.trim().isNotEmpty
-                                      ? _handleSendMessage
-                                      : _handleUndoLastMessage,
-                              borderRadius: BorderRadius.circular(18.r),
-                              child: Icon(
-                                _isSending
-                                    ? Icons.stop_rounded
-                                    : _currentInputText.trim().isNotEmpty
-                                        ? Icons.send
-                                        : Icons.undo,
-                                color: _isSending
-                                    ? Colors.red.withOpacity(0.8)
-                                    : _currentInputText.trim().isNotEmpty
-                                        ? AppTheme.primaryColor
-                                        : Colors.white.withOpacity(0.8),
-                                size: 20.sp,
-                              ),
+                              itemCount: _messages.length,
+                              itemBuilder: (context, index) {
+                                final message = _messages[index];
+                                return ChatBubble(
+                                  key: ValueKey(
+                                      message['msgId'] ?? message['timestamp']),
+                                  message: message['content'],
+                                  isUser: message['isUser'],
+                                  isLoading: message['isLoading'] ?? false,
+                                  isError: message['isError'] ?? false,
+                                  status: message['status'],
+                                  bubbleColor: message['isUser']
+                                      ? _userBubbleColor
+                                      : _bubbleColor,
+                                  bubbleOpacity: message['isUser']
+                                      ? _userBubbleOpacity
+                                      : _bubbleOpacity,
+                                  textColor: message['isUser']
+                                      ? _userTextColor
+                                      : _textColor,
+                                  msgId: message['msgId'],
+                                  onEdit: !message['isUser'] &&
+                                          message['msgId'] != null
+                                      ? _handleMessageEdit
+                                      : null,
+                                  formatMode: _formatMode,
+                                );
+                              },
+                              // 性能优化选项
+                              addAutomaticKeepAlives: false,
+                              addRepaintBoundaries: true,
+                              clipBehavior: Clip.hardEdge,
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  // 展开的功能区
-                  if (_isMenuExpanded)
+                ),
+              ),
+
+              // 底部输入框区域（固定部分）
+              Container(
+                padding: EdgeInsets.only(bottom: viewInsets.bottom),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 输入框区域
                     Container(
-                      height: _menuHeightAnimation.value,
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      padding: EdgeInsets.only(
+                        left: 16.w,
+                        right: 16.w,
+                        top: 8.h,
+                        bottom: padding.bottom + 8.h,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.3),
                         border: Border(
@@ -1051,76 +1071,182 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                           ),
                         ),
                       ),
-                      child: GridView.count(
-                        crossAxisCount: 4,
-                        padding: EdgeInsets.only(
-                          top: 8.h,
-                          bottom: viewInsets.bottom > 0 ? 8.h : padding.bottom,
-                        ),
-                        mainAxisSpacing: 4.h,
-                        crossAxisSpacing: 4.w,
-                        childAspectRatio: 1.2,
-                        physics: const NeverScrollableScrollPhysics(),
+                      child: Row(
                         children: [
-                          _buildExpandedFunctionButton(
-                            icon: Icons.person_outline,
-                            label: '角色',
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => CharacterPanelPage(
-                                    characterData: widget.sessionData,
-                                  ),
+                          // 汉堡按钮
+                          Container(
+                            width: 36.w,
+                            height: 36.w,
+                            margin: EdgeInsets.only(right: 8.w),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _handleMenuToggle,
+                                borderRadius: BorderRadius.circular(18.r),
+                                child: Icon(
+                                  _isMenuExpanded
+                                      ? Icons.keyboard_arrow_down
+                                      : Icons.keyboard_arrow_up,
+                                  color: Colors.white,
+                                  size: 24.sp,
                                 ),
-                              );
-                            },
+                              ),
+                            ),
                           ),
-                          _buildExpandedFunctionButton(
-                            icon: Icons.chat_bubble_outline,
-                            label: '气泡',
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => ChatSettingsPage(
-                                    sessionData: widget.sessionData,
-                                    onSettingsChanged: () {
-                                      // 重新加载设置
-                                      _loadSettings();
-                                    },
-                                  ),
+                          // 输入框
+                          Expanded(
+                            child: Container(
+                              constraints: BoxConstraints(
+                                minHeight: 36.h,
+                                maxHeight: 120.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(18.r),
+                              ),
+                              child: TextField(
+                                controller: _messageController,
+                                focusNode: _focusNode,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14.sp,
                                 ),
-                              );
-                            },
-                          ),
-                          _buildExpandedFunctionButton(
-                            icon: Icons.settings_outlined,
-                            label: 'UI设置',
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => UiSettingsPage(
-                                    onSettingsChanged: () {
-                                      // 重新加载格式化模式
-                                      _loadFormatMode();
-                                      // 强制刷新所有消息
-                                      setState(() {});
-                                    },
+                                maxLines: null,
+                                decoration: InputDecoration(
+                                  hintText: '发送消息...',
+                                  hintStyle: TextStyle(
+                                    color: Colors.white.withOpacity(0.6),
+                                    fontSize: 14.sp,
                                   ),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16.w,
+                                    vertical: 8.h,
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
                                 ),
-                              );
-                            },
+                              ),
+                            ),
                           ),
-                          _buildExpandedFunctionButton(
-                            icon: Icons.delete_outline,
-                            label: '清空对话',
-                            onTap: _handleResetSession,
+                          // 发送/终止/撤回按钮
+                          Container(
+                            width: 36.w,
+                            height: 36.w,
+                            margin: EdgeInsets.only(left: 8.w),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _isSending
+                                    ? _handleStopGeneration
+                                    : _currentInputText.trim().isNotEmpty
+                                        ? _handleSendMessage
+                                        : _handleUndoLastMessage,
+                                borderRadius: BorderRadius.circular(18.r),
+                                child: Icon(
+                                  _isSending
+                                      ? Icons.stop_rounded
+                                      : _currentInputText.trim().isNotEmpty
+                                          ? Icons.send
+                                          : Icons.undo,
+                                  color: _isSending
+                                      ? Colors.red.withOpacity(0.8)
+                                      : _currentInputText.trim().isNotEmpty
+                                          ? AppTheme.primaryColor
+                                          : Colors.white.withOpacity(0.8),
+                                  size: 20.sp,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
-                ],
+                    // 展开的功能区
+                    if (_isMenuExpanded)
+                      Container(
+                        height: _menuHeightAnimation.value,
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.3),
+                          border: Border(
+                            top: BorderSide(
+                              color: Colors.white.withOpacity(0.1),
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        child: GridView.count(
+                          crossAxisCount: 4,
+                          padding: EdgeInsets.only(
+                            top: 8.h,
+                            bottom:
+                                viewInsets.bottom > 0 ? 8.h : padding.bottom,
+                          ),
+                          mainAxisSpacing: 4.h,
+                          crossAxisSpacing: 4.w,
+                          childAspectRatio: 1.2,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _buildExpandedFunctionButton(
+                              icon: Icons.person,
+                              label: '角色',
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => CharacterPanelPage(
+                                      characterData: widget.sessionData,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            _buildExpandedFunctionButton(
+                              icon: Icons.palette,
+                              label: '界面',
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => ChatSettingsPage(
+                                      sessionData: widget.sessionData,
+                                      onSettingsChanged: () {
+                                        // 重新加载设置
+                                        _loadSettings();
+                                      },
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            _buildExpandedFunctionButton(
+                              icon: Icons.format_paint,
+                              label: '消息渲染',
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => UiSettingsPage(
+                                      onSettingsChanged: () {
+                                        // 重新加载格式化模式
+                                        _loadFormatMode();
+                                        // 强制刷新所有消息
+                                        setState(() {});
+                                      },
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            _buildExpandedFunctionButton(
+                              icon: Icons.delete,
+                              label: '清空对话',
+                              onTap: _handleResetSession,
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),

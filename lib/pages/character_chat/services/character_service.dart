@@ -104,7 +104,7 @@ class CharacterService {
   /// 更新消息内容
   Future<void> updateMessage(
     int sessionId,
-    int messageId,
+    String messageId,
     String content,
   ) async {
     try {

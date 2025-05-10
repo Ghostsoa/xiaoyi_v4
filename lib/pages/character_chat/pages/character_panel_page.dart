@@ -261,7 +261,12 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
 
   Widget _buildLoadingContent() {
     return SingleChildScrollView(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.only(
+        top: kToolbarHeight + MediaQuery.of(context).padding.top + 16.h,
+        left: 16.w,
+        right: 16.w,
+        bottom: 16.h,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -394,9 +399,11 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppTheme.background,
         elevation: 0,
+        shadowColor: AppTheme.background,
         title: Text(
           '角色信息',
           style: TextStyle(
@@ -417,14 +424,14 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
                       height: 16.w,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.w,
-                        valueColor:
-                            const AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            AppTheme.primaryColor),
                       ),
                     )
                   : Text(
                       '保存',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.primaryColor,
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w500,
                       ),
@@ -432,19 +439,61 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
             ),
         ],
       ),
-      body: _isLoading
-          ? _buildLoadingContent()
-          : Column(
-              children: [
-                _buildPageSelector(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w),
-                    child: _buildCurrentPage(),
+      body: Stack(
+        children: [
+          // 背景
+          if (_coverImage != null)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: MemoryImage(_coverImage!),
+                    fit: BoxFit.cover,
+                    colorFilter: ColorFilter.mode(
+                      Colors.black.withOpacity(0.7),
+                      BlendMode.darken,
+                    ),
                   ),
                 ),
-              ],
+              ),
             ),
+          // 渐变遮罩
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    AppTheme.background.withOpacity(0.8),
+                    AppTheme.background,
+                  ],
+                  stops: const [0.0, 0.3, 0.6],
+                ),
+              ),
+            ),
+          ),
+          // 内容
+          _isLoading
+              ? _buildLoadingContent()
+              : Column(
+                  children: [
+                    SizedBox(
+                        height: kToolbarHeight +
+                            MediaQuery.of(context).padding.top +
+                            16.h),
+                    _buildPageSelector(),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        child: _buildCurrentPage(),
+                      ),
+                    ),
+                  ],
+                ),
+        ],
+      ),
     );
   }
 }

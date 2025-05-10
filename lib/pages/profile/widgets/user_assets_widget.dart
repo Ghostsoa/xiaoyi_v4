@@ -3,9 +3,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../theme/app_theme.dart';
 
 class UserAssetsWidget extends StatelessWidget {
-  final int coin;
-  final int exp;
-  final int playTime;
+  final double coin;
+  final double exp;
+  final double playTime;
   final String? playTimeExpireAt;
   final bool isAssetLoading;
   final bool refreshSuccess;
@@ -116,7 +116,7 @@ class UserAssetsWidget extends StatelessWidget {
                 context,
                 icon: Icons.monetization_on_outlined,
                 label: '小懿币',
-                value: '$coin',
+                value: '${coin.toStringAsFixed(2)}',
                 iconColor: Colors.amber,
                 onTap: () => onAssetTap('coin'),
               ),
@@ -124,7 +124,7 @@ class UserAssetsWidget extends StatelessWidget {
                 context,
                 icon: Icons.star_outline_rounded,
                 label: '经验值',
-                value: '$exp',
+                value: '${exp.toStringAsFixed(2)}',
                 iconColor: Colors.blue,
                 onTap: () => onAssetTap('exp'),
               ),
@@ -132,7 +132,7 @@ class UserAssetsWidget extends StatelessWidget {
                 context,
                 icon: Icons.access_time,
                 label: '畅玩时长',
-                value: '$playTime小时',
+                value: '${playTime.toStringAsFixed(2)}小时',
                 iconColor: Colors.green,
                 onTap: () => onAssetTap('play_time'),
               ),

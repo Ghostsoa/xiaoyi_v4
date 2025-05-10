@@ -91,6 +91,14 @@ class _CharacterInitPageState extends State<CharacterInitPage>
 
     _animationController.forward();
     _loadCoverImage();
+
+    // 如果没有待初始化字段，直接自动初始化
+    if (_initFields == null || _interactiveFields.isEmpty) {
+      // 使用微任务确保在构建完成后执行
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _createSession();
+      });
+    }
   }
 
   Future<void> _loadCoverImage() async {
@@ -211,14 +219,6 @@ class _CharacterInitPageState extends State<CharacterInitPage>
                 color: Colors.white,
               ),
             ),
-            SizedBox(height: 8.h),
-            Text(
-              '选择一个最适合的选项',
-              style: TextStyle(
-                fontSize: 14.sp,
-                color: Colors.white70,
-              ),
-            ),
             SizedBox(height: 32.h),
             ...options.map((option) => Padding(
                   padding: EdgeInsets.only(bottom: 16.h),
@@ -292,14 +292,6 @@ class _CharacterInitPageState extends State<CharacterInitPage>
                 fontSize: 24.sp,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
-              ),
-            ),
-            SizedBox(height: 8.h),
-            Text(
-              '让角色更有个性',
-              style: TextStyle(
-                fontSize: 14.sp,
-                color: Colors.white70,
               ),
             ),
             SizedBox(height: 32.h),
@@ -447,68 +439,7 @@ class _CharacterInitPageState extends State<CharacterInitPage>
           ),
           // 内容
           if (_initFields == null || _interactiveFields.isEmpty)
-            Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.w),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '准备好开始了吗？',
-                      style: TextStyle(
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    SizedBox(height: 32.h),
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: _createSession,
-                        style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 24.w,
-                            vertical: 20.h,
-                          ),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.r),
-                          ),
-                        ),
-                        child: Container(
-                          decoration: AppTheme.buttonDecoration,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 24.w,
-                            vertical: 20.h,
-                          ),
-                          child: Center(
-                            child: Text(
-                              '开始对话',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
+            Container() // 不显示任何内容，因为会显示加载指示器
           else
             PageView.builder(
               controller: _pageController,
@@ -526,9 +457,9 @@ class _CharacterInitPageState extends State<CharacterInitPage>
                 );
               },
             ),
-          if (_isLoading)
+          if (_isLoading || (_initFields == null || _interactiveFields.isEmpty))
             Container(
-              color: Colors.black45,
+              color: _isLoading ? Colors.black45 : Colors.transparent,
               child: Center(
                 child: Container(
                   padding: EdgeInsets.all(24.w),

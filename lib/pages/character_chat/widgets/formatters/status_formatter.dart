@@ -99,11 +99,15 @@ class StatusFormatter extends BaseFormatter {
                       ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                        child: Text(
-                          content.trim(),
-                          style: baseStyle.copyWith(
-                            height: 1.5,
-                            letterSpacing: 0.5,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) => Text(
+                            content.trim(),
+                            style: baseStyle.copyWith(
+                              height: 1.5,
+                              letterSpacing: 0.5,
+                              fontFamily: 'monospace',
+                            ),
+                            softWrap: true,
                           ),
                         ),
                       ),

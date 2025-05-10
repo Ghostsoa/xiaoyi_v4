@@ -377,16 +377,14 @@ class MarkdownFormatter extends BaseFormatter {
                             constraints: BoxConstraints(
                               maxWidth: MediaQuery.of(context).size.width * 0.8,
                             ),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              physics: const ClampingScrollPhysics(),
-                              child: Text(
-                                codeContent.toString(),
-                                style: baseStyle.copyWith(
-                                  height: 1.5,
-                                  letterSpacing: 0.5,
-                                ),
+                            child: Text(
+                              codeContent.toString(),
+                              style: baseStyle.copyWith(
+                                height: 1.5,
+                                letterSpacing: 0.5,
+                                fontFamily: 'monospace',
                               ),
+                              softWrap: true,
                             ),
                           ),
                         ),

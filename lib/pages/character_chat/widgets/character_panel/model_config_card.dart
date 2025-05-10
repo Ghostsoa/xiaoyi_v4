@@ -111,13 +111,14 @@ class ModelConfigCard extends StatelessWidget {
   Widget _buildModelSelector(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(vertical: 12.h),
+      margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
+        color: Colors.black.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.05),
+          width: 1,
         ),
       ),
       child: Column(
@@ -125,17 +126,31 @@ class ModelConfigCard extends StatelessWidget {
         children: [
           Row(
             children: [
+              Container(
+                padding: EdgeInsets.all(6.w),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.smart_toy,
+                  color: AppTheme.primaryColor,
+                  size: 16.sp,
+                ),
+              ),
+              SizedBox(width: 12.w),
               Text(
                 '模型',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
-                  fontSize: 14.sp,
+                  color: Colors.white,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               SizedBox(width: 4.w),
               Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: 4.w,
+                  horizontal: 6.w,
                   vertical: 2.h,
                 ),
                 decoration: BoxDecoration(
@@ -152,7 +167,7 @@ class ModelConfigCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 12.h),
           GestureDetector(
             onTap: () async {
               final result = await Navigator.push(
@@ -165,25 +180,37 @@ class ModelConfigCard extends StatelessWidget {
                 onUpdateField('model_name', result);
               }
             },
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    editedData['model_name'] ??
-                        sessionData['model_name'] ??
-                        '未知',
-                    style: TextStyle(
-                      fontSize: 16.sp,
-                      color: Colors.white,
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(
+                  color: AppTheme.primaryColor.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      editedData['model_name'] ??
+                          sessionData['model_name'] ??
+                          '未知',
+                      style: TextStyle(
+                        fontSize: 16.sp,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16.sp,
-                  color: Colors.white.withOpacity(0.6),
-                ),
-              ],
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16.sp,
+                    color: AppTheme.primaryColor,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -200,13 +227,14 @@ class ModelConfigCard extends StatelessWidget {
   }) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(vertical: 12.h),
+      margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
+        color: Colors.black.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.05),
+          width: 1,
         ),
       ),
       child: Column(
@@ -217,11 +245,25 @@ class ModelConfigCard extends StatelessWidget {
             children: [
               Row(
                 children: [
+                  Container(
+                    padding: EdgeInsets.all(6.w),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      field == 'stream_mode' ? Icons.stream : Icons.memory,
+                      color: AppTheme.primaryColor,
+                      size: 16.sp,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
                   Text(
                     label,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
-                      fontSize: 14.sp,
+                      color: Colors.white,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   if (showBeta) ...[
@@ -257,16 +299,20 @@ class ModelConfigCard extends StatelessWidget {
                   }
                 },
                 activeColor: AppTheme.primaryColor,
+                activeTrackColor: AppTheme.primaryColor.withOpacity(0.3),
               ),
             ],
           ),
           if (description != null) ...[
-            SizedBox(height: 4.h),
-            Text(
-              description,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
-                fontSize: 12.sp,
+            SizedBox(height: 8.h),
+            Padding(
+              padding: EdgeInsets.only(left: 36.w),
+              child: Text(
+                description,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 12.sp,
+                ),
               ),
             ),
           ],
@@ -287,13 +333,14 @@ class ModelConfigCard extends StatelessWidget {
   }) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(vertical: 12.h),
+      margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
+        color: Colors.black.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.05),
+          width: 1,
         ),
       ),
       child: Column(
@@ -304,17 +351,33 @@ class ModelConfigCard extends StatelessWidget {
             children: [
               Row(
                 children: [
+                  Container(
+                    padding: EdgeInsets.all(6.w),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor
+                          .withOpacity(isDisabled ? 0.05 : 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _getIconForField(field),
+                      color: AppTheme.primaryColor
+                          .withOpacity(isDisabled ? 0.5 : 1.0),
+                      size: 16.sp,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
                   Text(
                     label,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(isDisabled ? 0.3 : 0.6),
-                      fontSize: 14.sp,
+                      color: Colors.white.withOpacity(isDisabled ? 0.5 : 1.0),
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   SizedBox(width: 4.w),
                   Container(
                     padding: EdgeInsets.symmetric(
-                      horizontal: 4.w,
+                      horizontal: 6.w,
                       vertical: 2.h,
                     ),
                     decoration: BoxDecoration(
@@ -334,49 +397,112 @@ class ModelConfigCard extends StatelessWidget {
                   ),
                 ],
               ),
-              Text(
-                controller.text,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(isDisabled ? 0.3 : 1.0),
-                  fontSize: 14.sp,
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color:
+                      AppTheme.primaryColor.withOpacity(isDisabled ? 0.1 : 0.2),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Text(
+                  controller.text,
+                  style: TextStyle(
+                    color: isDisabled
+                        ? AppTheme.primaryColor.withOpacity(0.5)
+                        : AppTheme.primaryColor,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
           ),
-          SizedBox(height: 8.h),
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: isDisabled
-                  ? AppTheme.primaryColor.withOpacity(0.3)
-                  : AppTheme.primaryColor,
-              inactiveTrackColor: isDisabled
-                  ? AppTheme.primaryColor.withOpacity(0.1)
-                  : AppTheme.primaryColor.withOpacity(0.2),
-              thumbColor: isDisabled
-                  ? AppTheme.primaryColor.withOpacity(0.3)
-                  : AppTheme.primaryColor,
-              overlayColor: AppTheme.primaryColor.withOpacity(0.2),
-              trackHeight: 4.h,
+          SizedBox(height: 16.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8.w),
+            child: SliderTheme(
+              data: SliderThemeData(
+                activeTrackColor: isDisabled
+                    ? AppTheme.primaryColor.withOpacity(0.3)
+                    : AppTheme.primaryColor,
+                inactiveTrackColor: isDisabled
+                    ? AppTheme.primaryColor.withOpacity(0.1)
+                    : AppTheme.primaryColor.withOpacity(0.2),
+                thumbColor: isDisabled
+                    ? AppTheme.primaryColor.withOpacity(0.3)
+                    : AppTheme.primaryColor,
+                overlayColor: AppTheme.primaryColor.withOpacity(0.2),
+                trackHeight: 4.h,
+                thumbShape: RoundSliderThumbShape(
+                  enabledThumbRadius: 8.r,
+                  disabledThumbRadius: 6.r,
+                ),
+                overlayShape: RoundSliderOverlayShape(
+                  overlayRadius: 16.r,
+                ),
+              ),
+              child: Slider(
+                value: double.tryParse(controller.text)?.toDouble() ??
+                    (isInt ? min.toInt().toDouble() : min),
+                min: min,
+                max: max,
+                divisions: divisions,
+                onChanged: isDisabled
+                    ? null
+                    : (value) {
+                        final newValue = isInt ? value.toInt() : value;
+                        controller.text = isInt
+                            ? newValue.toString()
+                            : newValue.toStringAsFixed(2);
+                        onUpdateField(field, newValue);
+                      },
+              ),
             ),
-            child: Slider(
-              value: double.tryParse(controller.text)?.toDouble() ??
-                  (isInt ? min.toInt().toDouble() : min),
-              min: min,
-              max: max,
-              divisions: divisions,
-              onChanged: isDisabled
-                  ? null
-                  : (value) {
-                      final newValue = isInt ? value.toInt() : value;
-                      controller.text = isInt
-                          ? newValue.toString()
-                          : newValue.toStringAsFixed(2);
-                      onUpdateField(field, newValue);
-                    },
+          ),
+          SizedBox(height: 4.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  min.toString(),
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.5),
+                    fontSize: 10.sp,
+                  ),
+                ),
+                Text(
+                  max.toString(),
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.5),
+                    fontSize: 10.sp,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  IconData _getIconForField(String field) {
+    switch (field) {
+      case 'temperature':
+        return Icons.thermostat;
+      case 'top_p':
+        return Icons.bar_chart;
+      case 'top_k':
+        return Icons.format_list_numbered;
+      case 'max_tokens':
+        return Icons.text_fields;
+      case 'memory_turns':
+        return Icons.history;
+      case 'search_depth':
+        return Icons.search;
+      default:
+        return Icons.settings;
+    }
   }
 }

@@ -16,8 +16,8 @@ class ChatBubble extends StatefulWidget {
   final Color bubbleColor;
   final double bubbleOpacity;
   final Color textColor;
-  final int? messageId;
-  final Function(int messageId, String newContent)? onEdit;
+  final String? msgId;
+  final Function(String msgId, String newContent)? onEdit;
   final String formatMode;
 
   const ChatBubble({
@@ -30,7 +30,7 @@ class ChatBubble extends StatefulWidget {
     required this.bubbleColor,
     required this.bubbleOpacity,
     required this.textColor,
-    this.messageId,
+    this.msgId,
     this.onEdit,
     this.formatMode = 'none',
   });
@@ -58,7 +58,7 @@ class _ChatBubbleState extends State<ChatBubble> {
   }
 
   void _startEditing() {
-    if (widget.messageId == null || widget.onEdit == null) return;
+    if (widget.msgId == null || widget.onEdit == null) return;
     setState(() {
       _isEditing = true;
       _editController.text = widget.message;
@@ -70,7 +70,7 @@ class _ChatBubbleState extends State<ChatBubble> {
     if (_isEditing) {
       final newContent = _editController.text.trim();
       if (newContent.isNotEmpty && newContent != widget.message) {
-        widget.onEdit!(widget.messageId!, newContent);
+        widget.onEdit!(widget.msgId!, newContent);
       }
       setState(() => _isEditing = false);
     }
@@ -90,27 +90,62 @@ class _ChatBubbleState extends State<ChatBubble> {
 
       if (widget.isLoading || widget.status == 'streaming') {
         return Shimmer.fromColors(
-          baseColor: widget.textColor.withOpacity(0.7),
-          highlightColor: widget.textColor,
-          child: Text(
-            text,
-            style: TextStyle(
-              color: widget.textColor,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
-            ),
+          baseColor: widget.textColor.withOpacity(0.5),
+          highlightColor: Colors.white,
+          period: const Duration(milliseconds: 1200),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 4.w,
+                height: 4.w,
+                decoration: BoxDecoration(
+                  color: widget.textColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              SizedBox(width: 6.w),
+              Text(
+                text,
+                style: TextStyle(
+                  color: widget.textColor,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         );
       } else {
-        return Text(
-          text,
-          style: TextStyle(
-            color: widget.status == 'error'
-                ? AppTheme.error
-                : widget.textColor.withOpacity(0.8),
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w500,
-          ),
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 4.w,
+              height: 4.w,
+              decoration: BoxDecoration(
+                color: widget.status == 'done'
+                    ? Colors.green
+                    : widget.status == 'error'
+                        ? Colors.red
+                        : widget.textColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            SizedBox(width: 6.w),
+            Text(
+              text,
+              style: TextStyle(
+                color: widget.status == 'error'
+                    ? AppTheme.error
+                    : widget.status == 'done'
+                        ? Colors.green
+                        : widget.textColor.withOpacity(0.8),
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         );
       }
     }
@@ -277,7 +312,15 @@ class _ChatBubbleState extends State<ChatBubble> {
           child: InkWell(
             onLongPress: widget.isLoading || widget.isError || widget.isUser
                 ? null
-                : _startEditing,
+                : () {
+                    print('长按消息调试信息:');
+                    print('- 消息ID: ${widget.msgId}');
+                    print('- 是否用户消息: ${widget.isUser}');
+                    print('- 是否加载中: ${widget.isLoading}');
+                    print('- 是否错误: ${widget.isError}');
+                    print('- 是否有编辑回调: ${widget.onEdit != null}');
+                    _startEditing();
+                  },
             borderRadius: BorderRadius.circular(12.r),
             child: Ink(
               decoration: BoxDecoration(

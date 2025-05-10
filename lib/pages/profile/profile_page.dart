@@ -37,9 +37,9 @@ class ProfilePageState extends State<ProfilePage> {
   // 资产相关
   int _level = 0;
   String _levelName = '';
-  int _coin = 0;
-  int _exp = 0;
-  int _playTime = 0;
+  double _coin = 0.0;
+  double _exp = 0.0;
+  double _playTime = 0.0;
   String? _playTimeExpireAt;
 
   bool _isLoading = true;
@@ -99,9 +99,9 @@ class ProfilePageState extends State<ProfilePage> {
           final assets = result['data'];
           _level = assets['level'] ?? 0;
           _levelName = assets['level_name'] ?? '';
-          _coin = assets['assets']['coin'] ?? 0;
-          _exp = assets['assets']['exp'] ?? 0;
-          _playTime = assets['assets']['play_time'] ?? 0;
+          _coin = (assets['assets']['coin'] ?? 0).toDouble();
+          _exp = (assets['assets']['exp'] ?? 0).toDouble();
+          _playTime = (assets['assets']['play_time'] ?? 0).toDouble();
           _playTimeExpireAt = assets['assets']['play_time_expire_at'];
         } else {
           // 显示错误消息
@@ -136,9 +136,9 @@ class ProfilePageState extends State<ProfilePage> {
           final assets = result['data'];
           _level = assets['level'] ?? 0;
           _levelName = assets['level_name'] ?? '';
-          _coin = assets['assets']['coin'] ?? 0;
-          _exp = assets['assets']['exp'] ?? 0;
-          _playTime = assets['assets']['play_time'] ?? 0;
+          _coin = (assets['assets']['coin'] ?? 0).toDouble();
+          _exp = (assets['assets']['exp'] ?? 0).toDouble();
+          _playTime = (assets['assets']['play_time'] ?? 0).toDouble();
           _playTimeExpireAt = assets['assets']['play_time_expire_at'];
           _refreshSuccess = true;
         } else {
