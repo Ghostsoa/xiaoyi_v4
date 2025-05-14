@@ -16,7 +16,7 @@ class HttpClient {
 
   HttpClient._internal() {
     _dio = Dio(BaseOptions(
-      baseUrl: 'https://hk2.xiaoyi.ink/api/v1', // 替换为实际的API基础URL
+      baseUrl: 'http://152.53.166.227:12080/api/v1', // 替换为实际的API基础URL
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 15),
       sendTimeout: const Duration(seconds: 15),

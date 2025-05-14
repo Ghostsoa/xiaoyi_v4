@@ -54,6 +54,8 @@ dependencies:
   flutter_launcher_icons: ^0.13.1
   permission_handler: ^11.3.0  # 用于权限管理
   flutter_html: ^3.0.0
+  google_fonts: ^6.2.1
+  flutter_staggered_animations: ^1.1.1
 
 
 flutter_launcher_icons:

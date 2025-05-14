@@ -83,8 +83,15 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
 
       if (mounted) {
         setState(() {
-          _sessions = List<Map<String, dynamic>>.from(result['list']);
-          _hasMore = _sessions.length < result['total'];
+          if (result['list'] is List) {
+            _sessions = List<Map<String, dynamic>>.from(result['list']);
+          } else {
+            _sessions = [];
+            debugPrint('获取会话列表返回数据格式错误: $result');
+          }
+
+          final int total = result['total'] is int ? result['total'] : 0;
+          _hasMore = _sessions.length < total;
           _isLoading = false;
         });
 
@@ -95,9 +102,13 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _sessions = []; // 确保在错误情况下清空会话列表
+        });
+        debugPrint('加载会话列表失败: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text('加载会话列表失败: ${e.toString()}')),
         );
       }
     }
@@ -115,11 +126,19 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
       );
 
       if (mounted) {
-        final newSessions = List<Map<String, dynamic>>.from(result['list']);
+        List<Map<String, dynamic>> newSessions = [];
+        if (result['list'] is List) {
+          newSessions = List<Map<String, dynamic>>.from(result['list']);
+        } else {
+          debugPrint('加载更多会话返回数据格式错误: $result');
+        }
+
         setState(() {
           _sessions.addAll(newSessions);
           _currentPage++;
-          _hasMore = _sessions.length < result['total'];
+
+          final int total = result['total'] is int ? result['total'] : 0;
+          _hasMore = _sessions.length < total;
           _isLoadingMore = false;
         });
 
@@ -131,8 +150,9 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingMore = false);
+        debugPrint('加载更多会话失败: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text('加载更多会话失败: ${e.toString()}')),
         );
       }
     }
@@ -147,11 +167,12 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
 
     try {
       final result = await _fileService.getFile(coverUri);
-      if (mounted) {
+      if (mounted && result.data != null) {
         setState(() => _avatarCache[coverUri] = result.data);
       }
     } catch (e) {
       debugPrint('加载头像失败: $e');
+      // 不要在UI上显示这个错误，只是记录日志
     }
   }
 
@@ -357,17 +378,37 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                   ),
                   onRefresh: _onRefresh,
                   onLoading: _onLoading,
-                  child: ListView.builder(
-                    itemCount: _sessions.length,
-                    padding: EdgeInsets.symmetric(horizontal: 20.w),
-                    itemBuilder: (context, index) {
-                      final session = _sessions[index];
-                      return _buildSessionItem(
-                        context,
-                        session,
-                      );
-                    },
-                  ),
+                  child: _sessions.isEmpty
+                      ? _buildEmptyView()
+                      : ListView.builder(
+                          key: const PageStorageKey('message_list'),
+                          itemCount: _sessions.length,
+                          padding: EdgeInsets.symmetric(horizontal: 20.w),
+                          itemBuilder: (context, index) {
+                            try {
+                              final session = _sessions[index];
+                              return _buildSessionItem(
+                                context,
+                                session,
+                              );
+                            } catch (e) {
+                              debugPrint('构建消息项失败 index=$index: $e');
+                              // 返回空白占位元素，避免整个列表崩溃
+                              return SizedBox(
+                                height: 60.h,
+                                child: Center(
+                                  child: Text(
+                                    '加载失败',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 14.sp,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                        ),
                 ),
               ),
           ],
@@ -441,12 +482,40 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
     BuildContext context,
     Map<String, dynamic> session,
   ) {
+    // 添加防御性编程，确保 session 有效
+    if (session.isEmpty) {
+      return SizedBox.shrink();
+    }
+
+    // 安全获取 sessionId，防止类型转换错误
+    final int sessionId;
+    try {
+      sessionId = session['id'] as int;
+    } catch (e) {
+      debugPrint('获取会话 ID 失败: $e');
+      return SizedBox.shrink(); // 如果无法获取ID，不显示此项
+    }
+
     final String? coverUri = session['cover_uri'];
     final bool hasAvatar = coverUri != null &&
         coverUri.isNotEmpty &&
         _avatarCache.containsKey(coverUri);
-    final int sessionId = session['id'] as int;
     final bool isSelected = _selectedIds.contains(sessionId);
+
+    // 防止可能导致渲染错误的情况
+    String sessionName = '';
+    try {
+      sessionName = session['name'] ?? '未命名会话';
+    } catch (e) {
+      sessionName = '未命名会话';
+    }
+
+    String lastMessage = '';
+    try {
+      lastMessage = session['last_message'] ?? '开始对话';
+    } catch (e) {
+      lastMessage = '开始对话';
+    }
 
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 10.h),
@@ -461,18 +530,21 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
               }
             });
           } else {
+            // 创建安全的 characterData
+            final Map<String, dynamic> safeCharacterData = {
+              'name': sessionName,
+              'id': sessionId,
+              'cover_uri': coverUri,
+              'ui_settings': _safeGet(session, 'ui_settings', 'markdown'),
+            };
+
             // 跳转到聊天页面
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => CharacterChatPage(
                   sessionData: session,
-                  characterData: {
-                    'name': session['name'],
-                    'id': session['id'],
-                    'cover_uri': session['cover_uri'],
-                    'ui_settings': session['ui_settings'] ?? 'markdown',
-                  },
+                  characterData: safeCharacterData,
                 ),
               ),
             );
@@ -526,6 +598,10 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                           child: Image.memory(
                             _avatarCache[coverUri]!,
                             fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              // 图片加载错误时显示占位符
+                              return _buildAvatarPlaceholder(sessionName);
+                            },
                           ),
                         ),
                       )
@@ -554,15 +630,19 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                                 child: Image.memory(
                                   snapshot.data!.data,
                                   fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    // 图片加载错误时显示占位符
+                                    return _buildAvatarPlaceholder(sessionName);
+                                  },
                                 ),
                               ),
                             );
                           }
-                          return _buildAvatarSkeleton(session['name']);
+                          return _buildAvatarSkeleton(sessionName);
                         },
                       )
               else
-                _buildAvatarSkeleton(session['name']),
+                _buildAvatarSkeleton(sessionName),
               SizedBox(width: 12.w),
               Expanded(
                 child: Column(
@@ -572,22 +652,26 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          session['name'] ?? '',
-                          style: AppTheme.titleStyle.copyWith(
-                            fontSize: 15.sp,
-                            fontWeight: FontWeight.w500,
+                        Flexible(
+                          child: Text(
+                            sessionName,
+                            style: AppTheme.titleStyle.copyWith(
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
                         Text(
-                          _formatTime(session['updated_at']),
+                          _formatTime(_safeGet(session, 'updated_at', '')),
                           style: AppTheme.hintStyle.copyWith(fontSize: 13.sp),
                         ),
                       ],
                     ),
                     SizedBox(height: 4.h),
                     Text(
-                      session['last_message'] ?? '开始对话',
+                      lastMessage,
                       style: AppTheme.secondaryStyle.copyWith(fontSize: 14.sp),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -596,6 +680,41 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 添加安全获取Map值的辅助方法
+  T _safeGet<T>(Map<String, dynamic>? map, String key, T defaultValue) {
+    if (map == null) return defaultValue;
+    try {
+      final value = map[key];
+      if (value == null) return defaultValue;
+      if (value is T) return value;
+      return defaultValue;
+    } catch (e) {
+      return defaultValue;
+    }
+  }
+
+  // 添加头像占位符方法
+  Widget _buildAvatarPlaceholder(String name) {
+    return Container(
+      width: 40.w,
+      height: 40.w,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppTheme.cardBackground,
+      ),
+      child: Center(
+        child: Text(
+          name.isNotEmpty ? name.substring(0, 1) : '?',
+          style: TextStyle(
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w500,
+            color: AppTheme.primaryColor,
           ),
         ),
       ),
@@ -872,5 +991,37 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
     if (mounted) {
       _onRefresh();
     }
+  }
+
+  // 添加空列表视图
+  Widget _buildEmptyView() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 48.sp,
+            color: AppTheme.textSecondary.withOpacity(0.3),
+          ),
+          SizedBox(height: 16.h),
+          Text(
+            '暂无对话',
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: AppTheme.textSecondary.withOpacity(0.5),
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            '快去探索角色，开始有趣的对话吧',
+            style: TextStyle(
+              fontSize: 12.sp,
+              color: AppTheme.textSecondary.withOpacity(0.3),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

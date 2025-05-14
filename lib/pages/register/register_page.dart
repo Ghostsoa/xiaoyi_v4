@@ -272,8 +272,8 @@ class _RegisterPageState extends State<RegisterPage> {
                       if (value == null || value.isEmpty) {
                         return '请输入用户名';
                       }
-                      if (value.length < 3 || value.length > 16) {
-                        return '用户名长度必须在3-16位之间';
+                      if (value.length < 2 || value.length > 20) {
+                        return '用户名长度必须在2-20位之间';
                       }
                       return null;
                     },
@@ -400,8 +400,8 @@ class _RegisterPageState extends State<RegisterPage> {
                       if (value == null || value.isEmpty) {
                         return '请输入密码';
                       }
-                      if (value.length < 6) {
-                        return '密码长度不能少于6位';
+                      if (value.length < 6 || value.length > 16) {
+                        return '密码长度必须在6-16位之间';
                       }
                       return null;
                     },

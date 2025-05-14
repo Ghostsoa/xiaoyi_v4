@@ -110,7 +110,7 @@ class UserManagementService {
       if (refType != null) data['ref_type'] = refType;
 
       final response = await _httpClient.post(
-        '/admin/user/$userId/coin',
+        '/admin/users/$userId/assets/coin',
         data: data,
       );
 
@@ -141,8 +141,8 @@ class UserManagementService {
       if (refId != null) data['ref_id'] = refId;
       if (refType != null) data['ref_type'] = refType;
 
-      final response = await _httpClient.post(
-        '/admin/user/$userId/coin-deduct',
+      final response = await _httpClient.delete(
+        '/admin/users/$userId/assets/coin',
         data: data,
       );
 
@@ -174,7 +174,7 @@ class UserManagementService {
       if (refType != null) data['ref_type'] = refType;
 
       final response = await _httpClient.post(
-        '/admin/user/$userId/experience',
+        '/admin/users/$userId/assets/exp',
         data: data,
       );
 
@@ -206,7 +206,7 @@ class UserManagementService {
       if (refType != null) data['ref_type'] = refType;
 
       final response = await _httpClient.post(
-        '/admin/user/$userId/play-time',
+        '/admin/users/$userId/assets/play-time',
         data: data,
       );
 

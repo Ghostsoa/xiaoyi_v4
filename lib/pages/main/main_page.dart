@@ -120,11 +120,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem("首页", 0),
-                _buildNavItem("消息", 1),
+                _buildNavItem(Icons.home_rounded, Icons.home_outlined, 0),
+                _buildNavItem(Icons.chat_rounded, Icons.chat_outlined, 1),
                 _buildAddButton(),
-                _buildNavItem("待定", 3),
-                _buildNavItem("我的", 4),
+                _buildNavItem(Icons.explore_rounded, Icons.explore_outlined, 3),
+                _buildNavItem(Icons.person_rounded, Icons.person_outlined, 4),
               ],
             ),
           ),
@@ -133,7 +133,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildNavItem(String title, int index) {
+  Widget _buildNavItem(
+      IconData selectedIcon, IconData unselectedIcon, int index) {
     final isSelected = _currentIndex == index;
     final bool showBadge = index == 1 && _unreadCount > 0;
 
@@ -162,15 +163,26 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color:
-                    isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
-              ),
-            ),
+            isSelected
+                ? ShaderMask(
+                    shaderCallback: (Rect bounds) {
+                      return LinearGradient(
+                        colors: AppTheme.primaryGradient,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ).createShader(bounds);
+                    },
+                    child: Icon(
+                      selectedIcon,
+                      color: Colors.white,
+                      size: 26.sp,
+                    ),
+                  )
+                : Icon(
+                    unselectedIcon,
+                    color: AppTheme.textSecondary,
+                    size: 26.sp,
+                  ),
             if (showBadge)
               Positioned(
                 right: -8.w,

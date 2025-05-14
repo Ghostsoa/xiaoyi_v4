@@ -231,7 +231,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                 'timestamp': DateTime.now().millisecondsSinceEpoch,
                 'tokenCount': msg['tokenCount'] ?? 0,
                 'msgId': msg['msgId'],
-                'status': 'done'
+                'status': 'done',
+                'statusBar': msg['statusBar'], // 添加状态栏数据
               }));
 
           _totalPages = pagination['total_pages'] ?? 1;
@@ -285,7 +286,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                 'timestamp': DateTime.now().millisecondsSinceEpoch,
                 'tokenCount': msg['tokenCount'] ?? 0,
                 'msgId': msg['msgId'],
-                'status': 'done'
+                'status': 'done',
+                'statusBar': msg['statusBar'], // 添加状态栏数据
               }));
 
           _totalPages = pagination['total_pages'] ?? 1;
@@ -363,6 +365,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         });
       });
 
+      // 存储用户原始消息以便错误时恢复
+      final String originalUserMessage = message;
+
       // 订阅消息流
       await for (final SseResponse response in _chatService.sendMessage(
         widget.sessionData['id'],
@@ -377,12 +382,24 @@ class _CharacterChatPageState extends State<CharacterChatPage>
             _messages[0]['content'] = _currentMessage;
             _messages[0]['isLoading'] = false;
             _messages[0]['status'] = response.status;
+
+            // 保存消息ID
             if (response.messageId != null) {
               _messages[0]['msgId'] = response.messageId;
+            }
+
+            // 保存状态栏数据
+            if (response.statusBar != null) {
+              _messages[0]['statusBar'] = response.statusBar;
             }
           } else if (response.isDone) {
             _messages[0]['status'] = 'done';
             _messages[0]['isLoading'] = false;
+
+            // 保存状态栏数据
+            if (response.statusBar != null) {
+              _messages[0]['statusBar'] = response.statusBar;
+            }
           }
         });
       }
@@ -398,14 +415,25 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       debugPrint('发送消息错误: $e');
       if (mounted) {
         setState(() {
-          // 删除AI回复和用户消息
-          _messages.removeAt(0);
-          final userMessage = _messages.removeAt(0);
-          // 将用户消息放回输入框
-          _messageController.text = userMessage['content'];
-          _messageController.selection = TextSelection.fromPosition(
-            TextPosition(offset: _messageController.text.length),
-          );
+          // 错误处理 - 始终删除AI回复和用户消息，把用户消息恢复到输入框
+          if (_messages.isNotEmpty) {
+            // 如果AI回复已经显示，先删除它
+            if (!_messages[0]['isUser']) {
+              _messages.removeAt(0);
+            }
+
+            // 然后找到并删除最近的用户消息，将其内容恢复到输入框
+            int userMsgIndex =
+                _messages.indexWhere((msg) => msg['isUser'] == true);
+            if (userMsgIndex >= 0) {
+              final userMessage = _messages.removeAt(userMsgIndex);
+              // 将用户消息放回输入框
+              _messageController.text = userMessage['content'];
+              _messageController.selection = TextSelection.fromPosition(
+                TextPosition(offset: _messageController.text.length),
+              );
+            }
+          }
         });
 
         CustomToast.show(context, message: e.toString(), type: ToastType.error);
@@ -503,7 +531,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                   'timestamp': DateTime.now().millisecondsSinceEpoch,
                   'tokenCount': msg['tokenCount'] ?? 0,
                   'msgId': msg['msgId'],
-                  'status': 'done'
+                  'status': 'done',
+                  'statusBar': msg['statusBar'], // 添加状态栏数据
                 },
               )
               .toList();
@@ -617,7 +646,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                   'timestamp': DateTime.now().millisecondsSinceEpoch,
                   'tokenCount': msg['tokenCount'] ?? 0,
                   'msgId': msg['msgId'],
-                  'status': 'done'
+                  'status': 'done',
+                  'statusBar': msg['statusBar'], // 添加状态栏数据
                 },
               )
               .toList();
@@ -844,7 +874,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                               .millisecondsSinceEpoch,
                                           'tokenCount': msg['tokenCount'] ?? 0,
                                           'msgId': msg['msgId'],
-                                          'status': 'done'
+                                          'status': 'done',
+                                          'statusBar':
+                                              msg['statusBar'], // 添加状态栏数据
                                         },
                                       )
                                       .toList();
@@ -1033,6 +1065,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                       ? _handleMessageEdit
                                       : null,
                                   formatMode: _formatMode,
+                                  statusBar: message['statusBar'],
                                 );
                               },
                               // 性能优化选项

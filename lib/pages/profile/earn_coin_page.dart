@@ -208,7 +208,7 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
 
   // 打开赞助网页
   Future<void> _launchSponsorUrl() async {
-    final Uri url = Uri.parse('https://shop.xiaoman.top//links/4D1256ED');
+    final Uri url = Uri.parse('http://zanzhu.xiaoyi.ink');
     try {
       if (await canLaunchUrl(url)) {
         await launchUrl(url, mode: LaunchMode.externalApplication);

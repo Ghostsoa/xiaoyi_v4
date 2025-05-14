@@ -85,6 +85,21 @@ class CharacterChatStreamService {
             if (sseResponse.isDone) {
               return;
             }
+
+            // 添加错误事件处理
+            if (sseResponse.isError) {
+              // 获取错误信息
+              String errorMessage = '对话处理失败';
+              if (sseResponse.data.containsKey('message')) {
+                errorMessage = sseResponse.data['message'];
+              } else if (sseResponse.data.containsKey('error')) {
+                errorMessage = sseResponse.data['error'];
+              }
+
+              // 将错误传播到流中，终止流的处理
+              yield* Stream.error(errorMessage);
+              return; // 确保在抛出错误后退出
+            }
           } catch (e) {
             debugPrint('解析SSE数据错误: $e');
             continue;

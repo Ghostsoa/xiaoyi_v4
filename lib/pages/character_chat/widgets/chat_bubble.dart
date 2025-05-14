@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shimmer/shimmer.dart';
+import 'dart:ui';
 import '../../../theme/app_theme.dart';
 import 'formatters/base_formatter.dart';
 import 'formatters/status_formatter.dart';
 import 'formatters/markdown_formatter.dart';
 import 'formatters/custom_formatter.dart';
+import 'status_bar.dart';
 
 class ChatBubble extends StatefulWidget {
   final String message;
@@ -19,6 +21,7 @@ class ChatBubble extends StatefulWidget {
   final String? msgId;
   final Function(String msgId, String newContent)? onEdit;
   final String formatMode;
+  final Map<String, dynamic>? statusBar;
 
   const ChatBubble({
     super.key,
@@ -33,6 +36,7 @@ class ChatBubble extends StatefulWidget {
     this.msgId,
     this.onEdit,
     this.formatMode = 'none',
+    this.statusBar,
   });
 
   @override
@@ -298,6 +302,18 @@ class _ChatBubbleState extends State<ChatBubble> {
     );
   }
 
+  Widget _buildStatusBar() {
+    if (widget.statusBar == null || widget.isUser) {
+      return const SizedBox.shrink();
+    }
+
+    // 使用独立的StatusBar组件
+    return StatusBar(
+      statusData: widget.statusBar!,
+      textColor: widget.textColor,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -353,6 +369,8 @@ class _ChatBubbleState extends State<ChatBubble> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildContent(),
+                    if (!widget.isUser && widget.statusBar != null)
+                      _buildStatusBar(),
                     if (!widget.isUser &&
                         !_isEditing &&
                         (widget.isLoading || widget.status != null)) ...[

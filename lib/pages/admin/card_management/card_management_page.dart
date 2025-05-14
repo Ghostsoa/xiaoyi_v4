@@ -471,62 +471,49 @@ class _CardManagementPageState extends State<CardManagementPage> {
         cardType: _selectedCardType,
       );
 
-      // 显示导出结果对话框
+      // 获取未使用的卡密
       final unusedCards = result['data']['unused_cards'] as List;
-      final exportTime = result['data']['export_time'];
 
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('导出成功'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('共导出 ${unusedCards.length} 张未使用的卡密'),
-                Text('导出时间: $exportTime'),
-                SizedBox(height: 16.h),
-                Flexible(
-                  child: SizedBox(
-                    height: 300.h,
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: unusedCards.length,
-                      itemBuilder: (context, index) {
-                        final card = unusedCards[index];
-                        return Container(
-                          margin: EdgeInsets.only(bottom: 8.h),
-                          padding: EdgeInsets.all(8.r),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(4.r),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('卡密: ${card['card_secret']}'),
-                              Text(
-                                  '类型: ${card['card_type'] == 'coin' ? '小懿币卡' : '畅玩时长卡'} / 面额: ${card['amount']}'),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('关闭'),
-            ),
-          ],
-        ),
-      );
+      if (unusedCards.isEmpty) {
+        _showErrorToast('没有未使用的卡密可导出');
+        return;
+      }
+
+      // 整理卡密数据并分组
+      Map<String, List<dynamic>> groupedCards = {};
+
+      for (var card in unusedCards) {
+        final cardType = card['card_type'] == 'coin' ? '小懿币卡' : '畅玩时长卡';
+        final amount = card['amount'];
+        final key = '$cardType+$amount';
+
+        if (!groupedCards.containsKey(key)) {
+          groupedCards[key] = [];
+        }
+
+        groupedCards[key]!.add(card);
+      }
+
+      // 构建文本内容
+      StringBuffer content = StringBuffer();
+
+      groupedCards.forEach((key, groupCards) {
+        // 添加分组标题
+        content.writeln(key);
+
+        // 添加每张卡密
+        for (var card in groupCards) {
+          content.writeln(card['card_secret']);
+        }
+
+        // 添加分组间的空行
+        content.writeln();
+      });
+
+      // 复制到剪贴板
+      await Clipboard.setData(ClipboardData(text: content.toString()));
+
+      _showSuccessToast('已复制 ${unusedCards.length} 张卡密到剪贴板');
     } catch (e) {
       _showErrorToast('导出失败: $e');
     }
@@ -873,9 +860,8 @@ class _CardManagementPageState extends State<CardManagementPage> {
                               ),
                             ] else ...[
                               IconButton(
-                                icon: Icon(Icons.file_download,
-                                    color: Colors.blue),
-                                tooltip: '导出未使用卡密',
+                                icon: Icon(Icons.copy, color: Colors.blue),
+                                tooltip: '复制未使用卡密到剪贴板',
                                 onPressed: _exportUnusedCards,
                               ),
                             ],

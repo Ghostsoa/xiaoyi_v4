@@ -119,7 +119,17 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
       _prefixController.text = data['prefix'] ?? '';
       _suffixController.text = data['suffix'] ?? '';
       _userSettingController.text = data['user_setting'] ?? '';
-      _statusBarController.text = data['status_bar'] ?? '';
+
+      // 直接使用原始状态栏数据
+      if (data['status_bar'] is String) {
+        _statusBarController.text = data['status_bar'];
+      } else if (data['status_bar'] != null) {
+        // 直接将对象转换为JSON字符串
+        _statusBarController.text = data['status_bar'].toString();
+      } else {
+        _statusBarController.text = '';
+      }
+
       _uiSettings = data['ui_settings'] ?? 'markdown';
     } catch (e) {
       if (!mounted) return;
