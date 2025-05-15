@@ -4,6 +4,7 @@ import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:flutter/material.dart';
 import '../dao/user_dao.dart';
 import '../pages/login/login_page.dart';
+import '../services/network_monitor_service.dart';
 
 class HttpClient {
   static final HttpClient _instance = HttpClient._internal();
@@ -15,8 +16,12 @@ class HttpClient {
   factory HttpClient() => _instance;
 
   HttpClient._internal() {
+    // 初始使用默认线路，后续会通过NetworkMonitorService更新
+    final defaultApiBase =
+        '${NetworkMonitorService.getDefaultEndpoint()}/api/v1';
+
     _dio = Dio(BaseOptions(
-      baseUrl: 'https://hk2.xiaoyi.ink/api/v1', // 替换为实际的API基础URL
+      baseUrl: defaultApiBase, // 初始使用默认线路，后续会通过NetworkMonitorService更新
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 15),
       sendTimeout: const Duration(seconds: 15),
@@ -68,6 +73,22 @@ class HttpClient {
         return handler.next(error);
       },
     ));
+
+    // 应用启动后立即尝试获取和使用最佳线路
+    _initBestApiEndpoint();
+  }
+
+  // 初始化最佳API线路
+  Future<void> _initBestApiEndpoint() async {
+    try {
+      // 获取最佳线路
+      final bestEndpoint = await NetworkMonitorService().getBestApiEndpoint();
+      // 设置最佳线路
+      setBaseUrl('$bestEndpoint/api/v1');
+    } catch (e) {
+      // 出现异常时使用默认线路，不做任何处理
+      // 网络监控服务会定期检测并自动切换到最佳线路
+    }
   }
 
   // 处理令牌失效

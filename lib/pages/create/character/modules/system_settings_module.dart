@@ -546,7 +546,7 @@ class _SystemSettingsModuleState extends State<SystemSettingsModule> {
                     ),
                     const TextSpan(text: '，内容需要用'),
                     TextSpan(
-                      text: '```状态栏\n内容\n```',
+                      text: 'json格式',
                       style: TextStyle(
                         color: Colors.amber,
                         fontWeight: FontWeight.w600,
@@ -561,7 +561,7 @@ class _SystemSettingsModuleState extends State<SystemSettingsModule> {
             TextFormField(
               controller: widget.statusBarController,
               decoration: InputDecoration(
-                hintText: '例如：```状态栏\nHP: 100 | MP: 50 | 好感度: 80\n```',
+                hintText: '例如：{\n"生命": "100",\n "魔法": "50",\n "好感度": "80"\n}',
                 filled: true,
                 fillColor: AppTheme.cardBackground,
                 border: OutlineInputBorder(

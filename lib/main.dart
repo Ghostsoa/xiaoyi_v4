@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'net/http_client.dart';
 import 'widgets/unfocus_wrapper.dart';
 import 'theme/app_theme.dart';
+import 'services/network_monitor_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +19,9 @@ void main() async {
   await Permission.photos.request();
   await Permission.camera.request();
   await Permission.microphone.request();
+
+  // 初始化网络监控服务
+  await NetworkMonitorService().initialize();
 
   // 强制竖屏
   SystemChrome.setPreferredOrientations([

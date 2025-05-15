@@ -4,10 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../dao/user_dao.dart';
 import '../models/sse_response.dart';
+import '../../../services/network_monitor_service.dart';
 
 class CharacterChatStreamService {
-  static const String baseUrl = 'https://hk2.xiaoyi.ink/api/v1';
   final UserDao _userDao = UserDao();
+  final NetworkMonitorService _networkMonitor = NetworkMonitorService();
 
   /// 发送对话消息并获取流式响应
   /// [sessionId] 会话ID
@@ -19,6 +20,9 @@ class CharacterChatStreamService {
         yield* Stream.error('未登录或token已失效');
         return;
       }
+
+      // 获取当前最佳API线路
+      final baseUrl = '${await _networkMonitor.getBestApiEndpoint()}/api/v1';
 
       final uri = Uri.parse('$baseUrl/sessions/character/$sessionId/chat');
       final request = http.Request('POST', uri);
