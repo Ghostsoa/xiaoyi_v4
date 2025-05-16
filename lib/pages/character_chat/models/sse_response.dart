@@ -41,4 +41,7 @@ class SseResponse {
   String? get messageId => data['msgId'];
 
   Map<String, dynamic>? get statusBar => data['statusBar'];
+
+  bool? get enhanced =>
+      data.containsKey('enhanced') ? data['enhanced'] as bool : null;
 }

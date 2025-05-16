@@ -155,8 +155,7 @@ class SettingCard extends StatelessWidget {
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   fillColor: Colors.transparent,
-                  hintText:
-                      field == 'status_bar' ? '请用```状态栏\n...\n```包裹内容' : null,
+                  hintText: field == 'status_bar' ? '请用标准json格式' : null,
                   hintStyle: TextStyle(
                     fontSize: 12.sp,
                     color: Colors.white.withOpacity(0.3),

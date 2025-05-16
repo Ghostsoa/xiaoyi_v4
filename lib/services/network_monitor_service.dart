@@ -87,55 +87,64 @@ class NetworkMonitorService {
 
   // 检查网络质量并切换线路
   Future<void> _checkNetworkQuality() async {
-    final results = await Future.wait(
-      _apiEndpoints.map((endpoint) => _checkEndpointHealth(endpoint)),
-    );
-
-    // 更新线路状态
-    final availableEndpoints = <String>[];
     final statusInfo = StringBuffer('[网络监控] 线路状态: ');
+    final availableEndpoints = <String>[];
+    bool hasFoundHealthyEndpoint = false;
+    String? firstHealthyEndpoint;
+    int? fastestResponseTime;
 
-    for (int i = 0; i < _apiEndpoints.length; i++) {
-      final endpoint = _apiEndpoints[i];
-      final responseTime = results[i];
+    // 创建一个List来存储所有端点检查的Future
+    List<Future<void>> checkFutures = [];
 
-      // 更新可用性和响应时间
-      _endpointAvailability[endpoint] = responseTime > 0;
-      if (responseTime > 0) {
-        _endpointResponseTimes[endpoint] = responseTime;
-        availableEndpoints.add(endpoint);
+    // 对每个端点进行健康检查
+    for (final endpoint in _apiEndpoints) {
+      final future = _checkEndpointHealth(endpoint).then((responseTime) {
+        // 更新可用性和响应时间
+        _endpointAvailability[endpoint] = responseTime > 0;
+
+        if (responseTime > 0) {
+          _endpointResponseTimes[endpoint] = responseTime;
+          availableEndpoints.add(endpoint);
+
+          // 检查是否是第一个健康的端点或比现有最快端点还快
+          if (!hasFoundHealthyEndpoint ||
+              responseTime < (fastestResponseTime ?? 9999)) {
+            hasFoundHealthyEndpoint = true;
+            firstHealthyEndpoint = endpoint;
+            fastestResponseTime = responseTime;
+
+            // 立即切换到这个健康端点
+            if (_currentApiUrl != endpoint) {
+              _switchApiEndpoint(endpoint);
+              debugPrint('[网络监控] 立即切换到可用端点: $endpoint (${responseTime}ms)');
+            }
+          }
+        }
+      });
+
+      checkFutures.add(future);
+    }
+
+    // 等待所有健康检查完成，用于记录完整状态
+    await Future.wait(checkFutures);
+
+    // 构建状态信息
+    for (final endpoint in _apiEndpoints) {
+      final responseTime = _endpointResponseTimes[endpoint];
+      final isAvailable = _endpointAvailability[endpoint] ?? false;
+
+      if (isAvailable) {
         statusInfo.write('$endpoint(${responseTime}ms) ');
       } else {
         statusInfo.write('$endpoint(不可用) ');
       }
     }
 
-    // 选择最佳线路
-    String bestEndpoint = _selectBestEndpoint(availableEndpoints);
-
-    // 如果当前线路与最佳线路不同，则切换
-    if (_currentApiUrl != bestEndpoint) {
-      _switchApiEndpoint(bestEndpoint);
-      statusInfo.write('- 切换到: $bestEndpoint');
-    } else {
-      statusInfo.write('- 保持: $_currentApiUrl');
-    }
+    // 添加当前使用的端点信息
+    statusInfo.write('- 当前: $_currentApiUrl');
 
     // 输出一条简单的状态日志
     debugPrint(statusInfo.toString());
-  }
-
-  // 选择最佳线路
-  String _selectBestEndpoint(List<String> availableEndpoints) {
-    // 如果有可用线路，选择最快的
-    if (availableEndpoints.isNotEmpty) {
-      availableEndpoints.sort((a, b) =>
-          _endpointResponseTimes[a]!.compareTo(_endpointResponseTimes[b]!));
-      return availableEndpoints.first;
-    }
-
-    // 如果没有可用线路，返回默认线路
-    return _defaultEndpoint;
   }
 
   // 检查线路健康状态，返回响应时间（毫秒），如果不可用则返回-1

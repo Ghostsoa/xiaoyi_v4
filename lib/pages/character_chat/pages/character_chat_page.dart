@@ -233,6 +233,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                 'msgId': msg['msgId'],
                 'status': 'done',
                 'statusBar': msg['statusBar'], // 添加状态栏数据
+                'enhanced': msg['enhanced'], // 添加增强状态数据
               }));
 
           _totalPages = pagination['total_pages'] ?? 1;
@@ -288,6 +289,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                 'msgId': msg['msgId'],
                 'status': 'done',
                 'statusBar': msg['statusBar'], // 添加状态栏数据
+                'enhanced': msg['enhanced'], // 添加增强状态数据
               }));
 
           _totalPages = pagination['total_pages'] ?? 1;
@@ -392,6 +394,11 @@ class _CharacterChatPageState extends State<CharacterChatPage>
             if (response.statusBar != null) {
               _messages[0]['statusBar'] = response.statusBar;
             }
+
+            // 保存增强状态 - 修改为enhanced
+            if (response.enhanced != null) {
+              _messages[0]['enhanced'] = response.enhanced;
+            }
           } else if (response.isDone) {
             _messages[0]['status'] = 'done';
             _messages[0]['isLoading'] = false;
@@ -399,6 +406,11 @@ class _CharacterChatPageState extends State<CharacterChatPage>
             // 保存状态栏数据
             if (response.statusBar != null) {
               _messages[0]['statusBar'] = response.statusBar;
+            }
+
+            // 保存增强状态 - 修改为enhanced
+            if (response.enhanced != null) {
+              _messages[0]['enhanced'] = response.enhanced;
             }
           }
         });
@@ -533,6 +545,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                   'msgId': msg['msgId'],
                   'status': 'done',
                   'statusBar': msg['statusBar'], // 添加状态栏数据
+                  'enhanced': msg['enhanced'], // 添加增强状态数据
                 },
               )
               .toList();
@@ -648,6 +661,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                   'msgId': msg['msgId'],
                   'status': 'done',
                   'statusBar': msg['statusBar'], // 添加状态栏数据
+                  'enhanced': msg['enhanced'], // 添加增强状态数据
                 },
               )
               .toList();
@@ -877,6 +891,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                           'status': 'done',
                                           'statusBar':
                                               msg['statusBar'], // 添加状态栏数据
+                                          'enhanced':
+                                              msg['enhanced'], // 添加增强状态数据
                                         },
                                       )
                                       .toList();
@@ -1066,6 +1082,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                       : null,
                                   formatMode: _formatMode,
                                   statusBar: message['statusBar'],
+                                  enhance: message['enhanced'],
                                 );
                               },
                               // 性能优化选项

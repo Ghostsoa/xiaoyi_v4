@@ -22,6 +22,7 @@ class ChatBubble extends StatefulWidget {
   final Function(String msgId, String newContent)? onEdit;
   final String formatMode;
   final Map<String, dynamic>? statusBar;
+  final bool? enhance;
 
   const ChatBubble({
     super.key,
@@ -37,6 +38,7 @@ class ChatBubble extends StatefulWidget {
     this.onEdit,
     this.formatMode = 'none',
     this.statusBar,
+    this.enhance,
   });
 
   @override
@@ -154,6 +156,98 @@ class _ChatBubbleState extends State<ChatBubble> {
       }
     }
     return const SizedBox.shrink();
+  }
+
+  Widget _buildEnhanceTagContent() {
+    if (widget.enhance == null || widget.isUser) {
+      return const SizedBox.shrink();
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          widget.enhance! ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+          size: 12.sp,
+          color: widget.enhance! ? Colors.green : Colors.amber,
+        ),
+        SizedBox(width: 4.w),
+        Text(
+          widget.enhance! ? "回复已增强" : "标准回复",
+          style: TextStyle(
+            color: widget.enhance! ? Colors.green : Colors.amber,
+            fontSize: 10.sp,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCombinedStatusRow() {
+    if (widget.isUser) {
+      return const SizedBox.shrink();
+    }
+
+    if ((widget.status == null && !widget.isLoading) &&
+        widget.enhance == null) {
+      return const SizedBox.shrink();
+    }
+
+    if (widget.isLoading || widget.status == 'streaming') {
+      return _buildStatusText();
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.status != null) ...[
+          Container(
+            width: 4.w,
+            height: 4.w,
+            decoration: BoxDecoration(
+              color: widget.status == 'done'
+                  ? Colors.green
+                  : widget.status == 'error'
+                      ? Colors.red
+                      : widget.textColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          SizedBox(width: 6.w),
+          Text(
+            widget.status == 'error'
+                ? '发送失败'
+                : widget.status == 'done'
+                    ? '生成完成'
+                    : '',
+            style: TextStyle(
+              color: widget.status == 'error'
+                  ? AppTheme.error
+                  : widget.status == 'done'
+                      ? Colors.green
+                      : widget.textColor.withOpacity(0.8),
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+        if (widget.status != null && widget.enhance != null)
+          SizedBox(width: 12.w),
+        if (widget.enhance != null) ...[
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 1.h),
+            decoration: BoxDecoration(
+              color: widget.enhance!
+                  ? Colors.green.withOpacity(0.2)
+                  : Colors.amber.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(4.r),
+            ),
+            child: _buildEnhanceTagContent(),
+          ),
+        ],
+      ],
+    );
   }
 
   Widget _buildContent() {
@@ -371,11 +465,9 @@ class _ChatBubbleState extends State<ChatBubble> {
                     _buildContent(),
                     if (!widget.isUser && widget.statusBar != null)
                       _buildStatusBar(),
-                    if (!widget.isUser &&
-                        !_isEditing &&
-                        (widget.isLoading || widget.status != null)) ...[
+                    if (!widget.isUser && !_isEditing) ...[
                       SizedBox(height: widget.message.isEmpty ? 0 : 6.h),
-                      _buildStatusText(),
+                      _buildCombinedStatusRow(),
                     ],
                   ],
                 ),

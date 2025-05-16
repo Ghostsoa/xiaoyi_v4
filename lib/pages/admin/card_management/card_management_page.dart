@@ -494,26 +494,132 @@ class _CardManagementPageState extends State<CardManagementPage> {
         groupedCards[key]!.add(card);
       }
 
-      // 构建文本内容
-      StringBuffer content = StringBuffer();
-
-      groupedCards.forEach((key, groupCards) {
-        // 添加分组标题
-        content.writeln(key);
-
-        // 添加每张卡密
-        for (var card in groupCards) {
-          content.writeln(card['card_secret']);
+      // 获取所有批次号
+      Set<String> batchNos = {};
+      for (var card in unusedCards) {
+        final batchNo = card['batch_no'];
+        if (batchNo != null && batchNo.toString().isNotEmpty) {
+          batchNos.add(batchNo.toString());
         }
+      }
 
-        // 添加分组间的空行
-        content.writeln();
-      });
+      // 显示批次信息对话框
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('导出卡密'),
+          content: Container(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '共 ${unusedCards.length} 张未使用卡密',
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                if (batchNos.isNotEmpty) ...[
+                  Text(
+                    '批次信息：',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
 
-      // 复制到剪贴板
-      await Clipboard.setData(ClipboardData(text: content.toString()));
+                  // 显示所有批次号
+                  Container(
+                    height: 120.h,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: batchNos.length,
+                      itemBuilder: (context, index) {
+                        final batchNo = batchNos.elementAt(index);
+                        return ListTile(
+                          dense: true,
+                          title: Text(batchNo),
+                          trailing: IconButton(
+                            icon: Icon(Icons.copy, size: 18.r),
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: batchNo));
+                              Navigator.of(context).pop(); // 关闭对话框
+                              _showSuccessToast('批次号已复制到剪贴板');
+                            },
+                            tooltip: '复制批次号',
+                            constraints: BoxConstraints(),
+                            padding: EdgeInsets.all(4.r),
+                          ),
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: batchNo));
+                            Navigator.of(context).pop(); // 关闭对话框
+                            _showSuccessToast('批次号已复制到剪贴板');
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
+                ],
+                Text(
+                  '点击下方按钮复制所有卡密到剪贴板',
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // 构建文本内容，保持原有格式
+                StringBuffer content = StringBuffer();
 
-      _showSuccessToast('已复制 ${unusedCards.length} 张卡密到剪贴板');
+                groupedCards.forEach((key, groupCards) {
+                  // 添加分组标题
+                  content.writeln(key);
+
+                  // 添加每张卡密
+                  for (var card in groupCards) {
+                    content.writeln(card['card_secret']);
+                  }
+
+                  // 添加分组间的空行
+                  content.writeln();
+                });
+
+                // 复制到剪贴板
+                await Clipboard.setData(
+                    ClipboardData(text: content.toString()));
+
+                Navigator.of(context).pop(); // 关闭对话框
+                _showSuccessToast('已复制 ${unusedCards.length} 张卡密到剪贴板');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              child: Text('复制所有卡密'),
+            ),
+          ],
+        ),
+      );
     } catch (e) {
       _showErrorToast('导出失败: $e');
     }

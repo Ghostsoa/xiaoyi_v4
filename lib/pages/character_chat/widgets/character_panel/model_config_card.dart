@@ -49,6 +49,7 @@ class ModelConfigCard extends StatelessWidget {
           description: '开启后记忆轮数将被锁定至100轮，使用新技术实现理论上的永久性记忆（测试阶段）',
           showBeta: true,
         ),
+        _buildEnhanceModeSelector(context),
         _buildSliderItem(
           '温度',
           'temperature',
@@ -105,6 +106,187 @@ class ModelConfigCard extends StatelessWidget {
           isInt: true,
         ),
       ],
+    );
+  }
+
+  Widget _buildEnhanceModeSelector(BuildContext context) {
+    final currentMode =
+        editedData['enhance_mode'] ?? sessionData['enhance_mode'] ?? 'disabled';
+
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.05),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(6.w),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.auto_awesome,
+                  color: AppTheme.primaryColor,
+                  size: 16.sp,
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Text(
+                '回复增强',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              SizedBox(width: 6.w),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                decoration: BoxDecoration(
+                  color: Colors.amber,
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+                child: Text(
+                  'Beta',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          Padding(
+            padding: EdgeInsets.only(left: 36.w),
+            child: Text(
+              '利用特殊技术增强角色的回复质量，选择合适的模式获得更好的体验',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.5),
+                fontSize: 12.sp,
+              ),
+            ),
+          ),
+          SizedBox(height: 12.h),
+          _buildEnhanceModeOption(
+            context,
+            'disabled',
+            '禁用回复增强',
+            '使用原生模型输出，不进行特殊处理',
+            currentMode,
+          ),
+          SizedBox(height: 8.h),
+          _buildEnhanceModeOption(
+            context,
+            'full',
+            '回复超级增强',
+            '对所有回复进行增强，大幅度提升\n回复质量，文笔，内容，逻辑，等',
+            currentMode,
+          ),
+          SizedBox(height: 8.h),
+          _buildEnhanceModeOption(
+            context,
+            'partial',
+            '回复UI增强',
+            '对UI显示效果，内容进行增强，\n平衡了UI显示与回复质量',
+            currentMode,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnhanceModeOption(
+    BuildContext context,
+    String mode,
+    String title,
+    String description,
+    String currentMode,
+  ) {
+    final bool isSelected = currentMode == mode;
+
+    return GestureDetector(
+      onTap: () {
+        onUpdateField('enhance_mode', mode);
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.primaryColor.withOpacity(0.1)
+              : Colors.black.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8.r),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.primaryColor
+                : Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 20.w,
+              height: 20.w,
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected
+                      ? AppTheme.primaryColor
+                      : Colors.white.withOpacity(0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: isSelected
+                  ? Icon(
+                      Icons.check,
+                      size: 14.sp,
+                      color: Colors.white,
+                    )
+                  : null,
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: isSelected ? AppTheme.primaryColor : Colors.white,
+                      fontSize: 14.sp,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  SizedBox(height: 2.h),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 12.sp,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

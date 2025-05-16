@@ -14,6 +14,7 @@ class AdvancedSettingsModule extends StatefulWidget {
   final List<Map<String, dynamic>> selectedWorldBooks;
   final TextEditingController prefixController;
   final TextEditingController suffixController;
+  final String enhanceMode;
   final Function(int) onMemoryTurnsChanged;
   final Function(int) onSearchDepthChanged;
   final Function(String) onStatusChanged;
@@ -21,6 +22,7 @@ class AdvancedSettingsModule extends StatefulWidget {
   final Function(bool) onPermanentMemoryChanged;
   final Function(List<Map<String, dynamic>>) onWorldBooksChanged;
   final Function(Map<String, dynamic>) onWorldbookMapChanged;
+  final Function(String) onEnhanceModeChanged;
 
   const AdvancedSettingsModule({
     super.key,
@@ -32,6 +34,7 @@ class AdvancedSettingsModule extends StatefulWidget {
     required this.selectedWorldBooks,
     required this.prefixController,
     required this.suffixController,
+    required this.enhanceMode,
     required this.onMemoryTurnsChanged,
     required this.onSearchDepthChanged,
     required this.onStatusChanged,
@@ -39,6 +42,7 @@ class AdvancedSettingsModule extends StatefulWidget {
     required this.onPermanentMemoryChanged,
     required this.onWorldBooksChanged,
     required this.onWorldbookMapChanged,
+    required this.onEnhanceModeChanged,
   });
 
   @override
@@ -252,6 +256,71 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
     );
   }
 
+  Widget _buildEnhanceModeButton(
+      String value, String label, String description) {
+    final bool isSelected = widget.enhanceMode == value;
+    return GestureDetector(
+      onTap: () => widget.onEnhanceModeChanged(value),
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 12.w),
+        margin: EdgeInsets.only(bottom: 8.h),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.primaryColor.withOpacity(0.1)
+              : Colors.transparent,
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryColor : AppTheme.border,
+          ),
+          borderRadius: BorderRadius.circular(8.r),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 20.w,
+              height: 20.w,
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+                borderRadius: BorderRadius.circular(10.r),
+                border: Border.all(
+                  color: isSelected ? AppTheme.primaryColor : AppTheme.border,
+                ),
+              ),
+              child: isSelected
+                  ? Icon(
+                      Icons.check,
+                      size: 14.sp,
+                      color: Colors.white,
+                    )
+                  : null,
+            ),
+            SizedBox(width: 12.w),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected
+                        ? AppTheme.primaryColor
+                        : AppTheme.textPrimary,
+                    fontSize: 14.sp,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  description,
+                  style: AppTheme.hintStyle,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // 计算关键词总数
@@ -457,7 +526,7 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
               _buildInputField(
                 title: '前缀词',
                 controller: widget.prefixController,
-                hintText: '可选，例如：Assistant:',
+                hintText: '可选，例如：(xxx)',
                 type: TextSelectType.prefix,
               ),
               SizedBox(height: 4.h),
@@ -484,7 +553,7 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
               _buildInputField(
                 title: '后缀词',
                 controller: widget.suffixController,
-                hintText: '可选，例如：Human:',
+                hintText: '可选，例如：(xxx)',
                 type: TextSelectType.suffix,
               ),
               SizedBox(height: 4.h),
@@ -652,7 +721,7 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                       'disabled', '标准\n模式', Icons.chat_outlined),
                   SizedBox(width: 8.w),
                   _buildUiSettingsButton(
-                      'legacy_bar', '旧版\n状态栏', Icons.view_stream),
+                      'legacy_bar', '新版\n状态栏', Icons.view_stream),
                 ],
               ),
               SizedBox(height: 8.h),
@@ -679,17 +748,53 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                       ),
                       const TextSpan(text: '普通聊天界面，无特殊格式化\n'),
                       TextSpan(
-                        text: '旧版状态栏：',
+                        text: '新版状态栏：',
                         style: TextStyle(
                           color: Colors.amber,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const TextSpan(text: '经典旧版样式'),
+                      const TextSpan(text: '新版状态栏样式'),
                     ],
                   ),
                 ),
               ),
+              SizedBox(height: 24.h),
+              Text(
+                '回复增强',
+                style: AppTheme.secondaryStyle,
+              ),
+              SizedBox(height: 4.h),
+              RichText(
+                text: TextSpan(
+                  style: AppTheme.hintStyle,
+                  children: [
+                    const TextSpan(text: '利用'),
+                    TextSpan(
+                      text: '特殊技术',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const TextSpan(text: '增强角色的'),
+                    TextSpan(
+                      text: '回复质量',
+                      style: TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const TextSpan(text: '，选择合适的模式获得更好的体验'),
+                  ],
+                ),
+              ),
+              SizedBox(height: 12.h),
+              _buildEnhanceModeButton('disabled', '禁用回复增强', '使用原生模型输出，不进行特殊处理'),
+              _buildEnhanceModeButton(
+                  'full', '回复超级增强', '对所有回复进行增强，大幅度提升\n回复质量，文笔，内容，逻辑，等'),
+              _buildEnhanceModeButton(
+                  'partial', '回复UI增强', '对UI显示效果，内容进行增强\n平衡了UI显示与回复质量'),
               SizedBox(height: 24.h),
               Text(
                 '发布状态',

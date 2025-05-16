@@ -66,6 +66,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   String _status = 'draft';
   int _selectedWorldBookCount = 0;
   final List<Map<String, dynamic>> _selectedWorldBooks = [];
+  String _enhanceMode = 'disabled';
 
   final List<String> _pageNames = ['基础信息', '系统设定', '模型配置', '高级设定'];
 
@@ -104,6 +105,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     _searchDepth = character['searchDepth'] ?? 5;
     _permanentMemory = character['permanentMemory'] ?? false;
     _status = character['status'] ?? 'draft';
+    _enhanceMode = character['enhanceMode'] ?? 'disabled';
 
     // 处理世界书数据
     if (character['worldbookMap'] != null) {
@@ -177,7 +179,8 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
         "searchDepth": _searchDepth,
         "worldbookMap": _worldbookMap,
         "settingEditable": _settingEditable,
-        "status": _status
+        "status": _status,
+        "enhanceMode": _enhanceMode,
       };
 
       final response = widget.isEdit
@@ -291,6 +294,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           selectedWorldBooks: _selectedWorldBooks,
           prefixController: _prefixController,
           suffixController: _suffixController,
+          enhanceMode: _enhanceMode,
           onMemoryTurnsChanged: (value) => setState(() => _memoryTurns = value),
           onSearchDepthChanged: (value) => setState(() => _searchDepth = value),
           onStatusChanged: (value) => setState(() => _status = value),
@@ -302,6 +306,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
             ..addAll(value)),
           onWorldbookMapChanged: (value) =>
               setState(() => _worldbookMap = value),
+          onEnhanceModeChanged: (value) => setState(() => _enhanceMode = value),
         );
       default:
         return const SizedBox();

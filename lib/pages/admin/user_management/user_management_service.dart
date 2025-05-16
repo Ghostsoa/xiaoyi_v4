@@ -219,4 +219,51 @@ class UserManagementService {
       throw Exception(e.toString());
     }
   }
+
+  // 获取用户资产
+  Future<Map<String, dynamic>> getUserAsset(int userId) async {
+    try {
+      final response = await _httpClient.get('/admin/user/$userId/asset');
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception(response.data['msg'] ?? '获取用户资产失败');
+      }
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+  // 获取用户资产变动记录
+  Future<Map<String, dynamic>> getUserAssetRecords(
+    int userId, {
+    String? assetType,
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    try {
+      Map<String, dynamic> queryParams = {
+        'page': page,
+        'page_size': pageSize,
+      };
+
+      if (assetType != null) {
+        queryParams['asset_type'] = assetType;
+      }
+
+      final response = await _httpClient.get(
+        '/admin/user/$userId/asset/records',
+        queryParameters: queryParams,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception(response.data['msg'] ?? '获取用户资产记录失败');
+      }
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
 }

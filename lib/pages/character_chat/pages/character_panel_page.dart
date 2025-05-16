@@ -10,6 +10,7 @@ import '../widgets/character_panel/basic_info_card.dart';
 import '../widgets/character_panel/setting_card.dart';
 import '../widgets/character_panel/model_config_card.dart';
 import '../widgets/character_panel/interaction_card.dart';
+import 'dart:convert';
 
 class CharacterPanelPage extends StatefulWidget {
   final Map<String, dynamic> characterData;
@@ -37,6 +38,7 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   int _currentPageIndex = 0;
   bool _streamMode = true;
   bool _permanentMemory = false;
+  String _enhanceMode = 'disabled';
 
   final _settingController = TextEditingController();
   final _temperatureController = TextEditingController();
@@ -100,6 +102,7 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
         _isLoading = false;
         _streamMode = data['stream_mode'] ?? true;
         _permanentMemory = data['permanent_memory'] ?? false;
+        _enhanceMode = data['enhance_mode'] ?? 'disabled';
       });
 
       // 加载封面图
@@ -124,8 +127,9 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
       if (data['status_bar'] is String) {
         _statusBarController.text = data['status_bar'];
       } else if (data['status_bar'] != null) {
-        // 直接将对象转换为JSON字符串
-        _statusBarController.text = data['status_bar'].toString();
+        // 将对象转换为格式化的JSON字符串
+        _statusBarController.text =
+            const JsonEncoder.withIndent('    ').convert(data['status_bar']);
       } else {
         _statusBarController.text = '';
       }
@@ -199,6 +203,11 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   void _updateField(String field, dynamic value) {
     setState(() {
       _editedData[field] = value;
+
+      // 为了实时更新UI状态
+      if (field == 'enhance_mode') {
+        _enhanceMode = value;
+      }
     });
   }
 

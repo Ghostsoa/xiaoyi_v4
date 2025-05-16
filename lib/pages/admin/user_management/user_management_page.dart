@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../theme/app_theme.dart';
 import 'user_management_service.dart';
 import '../../../widgets/custom_toast.dart';
+import '../../../pages/admin/user_management/user_asset_records_page.dart';
 
 class UserManagementPage extends StatefulWidget {
   const UserManagementPage({super.key});
@@ -1307,6 +1308,48 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                                                 .account_balance_wallet,
                                                             size: 20.sp,
                                                             color: Colors.teal,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+
+                                                  // 资产记录按钮
+                                                  Material(
+                                                    color: Colors.transparent,
+                                                    child: InkWell(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              4.r),
+                                                      onTap: () {
+                                                        Navigator.push(
+                                                          context,
+                                                          MaterialPageRoute(
+                                                            builder: (context) =>
+                                                                UserAssetRecordsPage(
+                                                              userId: userId,
+                                                              username: user[
+                                                                      'username'] ??
+                                                                  '',
+                                                            ),
+                                                          ),
+                                                        );
+                                                      },
+                                                      child: Container(
+                                                        width: 40.w,
+                                                        height: 40.h,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      4.r),
+                                                        ),
+                                                        child: Center(
+                                                          child: Icon(
+                                                            Icons.history,
+                                                            size: 20.sp,
+                                                            color: Colors.blue,
                                                           ),
                                                         ),
                                                       ),
