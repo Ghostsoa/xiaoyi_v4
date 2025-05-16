@@ -525,8 +525,8 @@ class _UiSettingsPageState extends State<UiSettingsPage> {
                 ),
                 _buildModeCard(
                   mode: 'old',
-                  title: '旧版状态栏',
-                  description: '使用经典的状态栏样式',
+                  title: '新版UI样式',
+                  description: '使用新版的UI样式',
                   icon: Icons.restore,
                   characterCardValue: 'legacy_bar',
                 ),

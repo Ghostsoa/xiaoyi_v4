@@ -721,7 +721,7 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                       'disabled', '标准\n模式', Icons.chat_outlined),
                   SizedBox(width: 8.w),
                   _buildUiSettingsButton(
-                      'legacy_bar', '新版\n状态栏', Icons.view_stream),
+                      'legacy_bar', '新版\nUI样式', Icons.view_stream),
                 ],
               ),
               SizedBox(height: 8.h),
@@ -748,13 +748,13 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                       ),
                       const TextSpan(text: '普通聊天界面，无特殊格式化\n'),
                       TextSpan(
-                        text: '新版状态栏：',
+                        text: '新版UI样式：',
                         style: TextStyle(
                           color: Colors.amber,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const TextSpan(text: '新版状态栏样式'),
+                      const TextSpan(text: '新版UI样式'),
                     ],
                   ),
                 ),
