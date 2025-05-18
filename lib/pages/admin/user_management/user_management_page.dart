@@ -17,6 +17,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedStatus = '全部';
   String _selectedRole = '全部';
+  String _selectedSearchType = 'username'; // 默认搜索类型为用户名
   int _currentPage = 1;
   final int _pageSize = 10;
   int _totalUsers = 0;
@@ -53,6 +54,13 @@ class _UserManagementPageState extends State<UserManagementPage> {
       TextEditingController();
   final TextEditingController _playTimeDescriptionController =
       TextEditingController();
+
+  // 搜索类型选项
+  final List<Map<String, String>> _searchTypes = [
+    {'value': 'username', 'label': '用户名'},
+    {'value': 'email', 'label': '邮箱'},
+    {'value': 'id', 'label': '用户ID'},
+  ];
 
   @override
   void initState() {
@@ -108,8 +116,9 @@ class _UserManagementPageState extends State<UserManagementPage> {
         pageSize: _pageSize,
         status: statusValue,
         role: roleValue,
-        keyword:
+        search:
             _searchController.text.isNotEmpty ? _searchController.text : null,
+        searchType: _selectedSearchType,
       );
 
       setState(() {
@@ -771,43 +780,90 @@ class _UserManagementPageState extends State<UserManagementPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 搜索区域 - 第一行
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: '搜索用户...',
-                hintStyle: TextStyle(color: textSecondary),
-                prefixIcon: Icon(Icons.search, color: textSecondary),
-                suffixIcon: IconButton(
-                  icon: Icon(Icons.clear, color: textSecondary),
-                  onPressed: () {
-                    _searchController.clear();
-                    _loadUsers();
-                  },
-                ),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12.w),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4.r),
-                  borderSide: BorderSide(
-                    color: Colors.grey.withOpacity(0.2),
-                    width: 1,
+            Row(
+              children: [
+                // 搜索类型下拉框
+                Container(
+                  width: 120.w,
+                  height: 48.h,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Colors.grey.withOpacity(0.2),
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(4.r),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: _selectedSearchType,
+                      icon: Icon(Icons.arrow_drop_down, color: textSecondary),
+                      padding: EdgeInsets.symmetric(horizontal: 12.w),
+                      items: _searchTypes.map((Map<String, String> type) {
+                        return DropdownMenuItem<String>(
+                          value: type['value'],
+                          child: Text(
+                            type['label']!,
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              color: textPrimary,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            _selectedSearchType = newValue;
+                          });
+                        }
+                      },
+                    ),
                   ),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4.r),
-                  borderSide: BorderSide(
-                    color: Colors.grey.withOpacity(0.2),
-                    width: 1,
+                SizedBox(width: 8.w),
+                // 搜索输入框
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: '搜索用户...',
+                      hintStyle: TextStyle(color: textSecondary),
+                      prefixIcon: Icon(Icons.search, color: textSecondary),
+                      suffixIcon: IconButton(
+                        icon: Icon(Icons.clear, color: textSecondary),
+                        onPressed: () {
+                          _searchController.clear();
+                          _loadUsers();
+                        },
+                      ),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12.w),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4.r),
+                        borderSide: BorderSide(
+                          color: Colors.grey.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4.r),
+                        borderSide: BorderSide(
+                          color: Colors.grey.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4.r),
+                        borderSide: BorderSide(
+                          color: primaryColor.withOpacity(0.6),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    onSubmitted: (_) => _loadUsers(),
                   ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4.r),
-                  borderSide: BorderSide(
-                    color: primaryColor.withOpacity(0.6),
-                    width: 1,
-                  ),
-                ),
-              ),
-              onSubmitted: (_) => _loadUsers(),
+              ],
             ),
             SizedBox(height: 12.h),
 

@@ -47,7 +47,10 @@ class CharacterChatStreamService {
         },
       );
 
+      // HTTP级别的错误处理已不需要，所有错误都通过SSE流处理
+      // 但仍需确认状态码是否正确
       if (response.statusCode != 200) {
+        // 仅处理非200状态码的HTTP级别错误
         final errorStr = await response.stream.bytesToString();
         Map<String, dynamic> errorData;
         try {
@@ -84,25 +87,13 @@ class CharacterChatStreamService {
             final data = line.substring(5).trim();
             debugPrint('Processing SSE data: $data');
             final sseResponse = SseResponse.fromSseData(data);
+
+            // 所有SSE消息都直接传递给上层处理，包括错误消息
             yield sseResponse;
 
+            // 如果收到done事件，流处理结束，但不抛出异常
             if (sseResponse.isDone) {
               return;
-            }
-
-            // 添加错误事件处理
-            if (sseResponse.isError) {
-              // 获取错误信息
-              String errorMessage = '对话处理失败';
-              if (sseResponse.data.containsKey('message')) {
-                errorMessage = sseResponse.data['message'];
-              } else if (sseResponse.data.containsKey('error')) {
-                errorMessage = sseResponse.data['error'];
-              }
-
-              // 将错误传播到流中，终止流的处理
-              yield* Stream.error(errorMessage);
-              return; // 确保在抛出错误后退出
             }
           } catch (e) {
             debugPrint('解析SSE数据错误: $e');

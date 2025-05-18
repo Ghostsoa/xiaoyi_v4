@@ -33,10 +33,15 @@ class SseResponse {
   bool get isDone => event == 'done';
 
   String? get content => data['content'];
-  String? get errorMsg =>
-      isError ? (data['error'] ?? data['message'] ?? data['error_msg']) : null;
+  String? get errorMsg => isError
+      ? (data['content'] ??
+          data['error'] ??
+          data['message'] ??
+          data['error_msg'])
+      : null;
   int? get tokens => isTokens ? data['tokens'] : null;
   String? get status => data['status'];
+  String? get role => data['role'];
 
   String? get messageId => data['msgId'];
 

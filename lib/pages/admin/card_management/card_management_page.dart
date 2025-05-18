@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/custom_toast.dart';
 import 'card_management_service.dart';
+import 'batch_card_list_page.dart'; // 假设新的卡密列表页面
 
 class CardManagementPage extends StatefulWidget {
   const CardManagementPage({super.key});
@@ -17,213 +18,230 @@ class _CardManagementPageState extends State<CardManagementPage> {
 
   // 搜索筛选条件
   String? _selectedCardType;
-  int? _selectedStatus;
-  final TextEditingController _batchNoController = TextEditingController();
-  final TextEditingController _cardSecretController = TextEditingController();
+  int? _selectedStatus; // 0:激活, 1:禁用
+  final TextEditingController _cardSecretController =
+      TextEditingController(); // 改名为_cardSecretController，用于搜索卡密
 
-  // 创建卡密表单控制器
+  // 创建批次表单控制器 (如果创建功能在此页面)
   String? _createCardType;
   final TextEditingController _createAmountController = TextEditingController();
   final TextEditingController _createCountController =
       TextEditingController(text: '1');
-  final TextEditingController _createBatchNoController =
-      TextEditingController();
   final TextEditingController _createRemarkController = TextEditingController();
+  bool _isCreatingBatch = false;
 
   // 列表数据
-  List<dynamic> _cards = [];
+  List<dynamic> _batches = [];
   bool _isLoading = false;
-  bool _isCreating = false;
   int _currentPage = 1;
   int _totalItems = 0;
   int _totalPages = 1;
   final int _pageSize = 10;
 
-  // 批量操作变量
-  List<int> _selectedCardIds = [];
-  bool _isBatchProcessing = false;
+  // 卡密搜索结果相关
+  List<dynamic> _searchResultCards = [];
+  bool _isShowingSearchResults = false; // 是否正在显示搜索结果
+  bool _isSearching = false; // 是否正在搜索
 
   @override
   void initState() {
     super.initState();
-    _loadCards();
+    _loadBatches();
   }
 
   @override
   void dispose() {
-    _batchNoController.dispose();
     _cardSecretController.dispose();
     _createAmountController.dispose();
     _createCountController.dispose();
-    _createBatchNoController.dispose();
     _createRemarkController.dispose();
     super.dispose();
   }
 
-  // 加载卡密列表
-  Future<void> _loadCards() async {
-    if (_isLoading) return;
+  // 查询卡密
+  Future<void> _searchCardsByKeyword() async {
+    final cardSecret = _cardSecretController.text.trim();
+    if (cardSecret.isEmpty) {
+      // 如果关键词为空，则回到批次列表
+      setState(() {
+        _isShowingSearchResults = false;
+        _searchResultCards = [];
+      });
+      _loadBatches();
+      return;
+    }
 
     setState(() {
-      _isLoading = true;
+      _isSearching = true;
+      _isShowingSearchResults = true;
     });
 
     try {
       final result = await _cardService.getCardList(
+        cardSecret: cardSecret,
         cardType: _selectedCardType,
         status: _selectedStatus,
-        cardSecret: _cardSecretController.text.trim(),
         page: _currentPage,
         pageSize: _pageSize,
       );
 
-      // 检查API返回的数据结构
       if (result['code'] == 0) {
-        // 获取成功
         final data = result['data'];
         setState(() {
-          _cards = data['cards'] ?? [];
+          _searchResultCards = data['cards'] ?? [];
           _totalItems = data['total'] ?? 0;
-          _totalPages = data['total_pages'] ?? 1;
+          _totalPages = (data['total'] / _pageSize).ceil();
+          if (_totalPages == 0) _totalPages = 1;
         });
+
+        if (_searchResultCards.isEmpty) {
+          _showErrorToast('未找到匹配的卡密');
+        }
       } else {
-        // API返回错误
-        _showErrorToast('获取失败: ${result['msg']}');
+        _showErrorToast('搜索卡密失败: ${result['message']}');
       }
     } catch (e) {
-      _showErrorToast('加载卡密列表失败: $e');
+      _showErrorToast('搜索卡密失败: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isSearching = false);
     }
   }
 
-  // 创建卡密
-  Future<void> _createCards() async {
-    // 表单验证
+  // 修改loadBatches方法
+  Future<void> _loadBatches() async {
+    if (_isLoading) return;
+
+    // 如果搜索框不为空且之前不是显示搜索结果，则执行搜索
+    if (_cardSecretController.text.trim().isNotEmpty &&
+        !_isShowingSearchResults) {
+      _searchCardsByKeyword();
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final result = await _cardService.getBatchList(
+        cardType: _selectedCardType,
+        status: _selectedStatus,
+        keyword: "",
+        page: _currentPage,
+        pageSize: _pageSize,
+      );
+      if (result['code'] == 0) {
+        final data = result['data'];
+        setState(() {
+          _batches = data['batches'] ?? [];
+          _totalItems = data['total'] ?? 0;
+          _totalPages = (data['total'] / _pageSize).ceil();
+          if (_totalPages == 0) _totalPages = 1;
+        });
+      } else {
+        _showErrorToast('获取批次列表失败: ${result['message']}');
+      }
+    } catch (e) {
+      _showErrorToast('加载批次列表失败: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _navigateToBatchCards(int batchId, String batchNo) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            BatchCardListPage(batchId: batchId, batchNo: batchNo),
+      ),
+    );
+  }
+
+  // 创建卡密批次
+  Future<void> _createBatch() async {
     if (_createCardType == null) {
       _showErrorToast('请选择卡密类型');
       return;
     }
-
     final amountText = _createAmountController.text.trim();
     if (amountText.isEmpty) {
       _showErrorToast('请输入卡密面额');
       return;
     }
-
     final amount = int.tryParse(amountText);
     if (amount == null || amount <= 0) {
       _showErrorToast('卡密面额必须为正整数');
       return;
     }
-
     final countText = _createCountController.text.trim();
     final count = int.tryParse(countText);
     if (count == null || count <= 0) {
       _showErrorToast('创建数量必须为正整数');
       return;
     }
+    if (count > 1000) {
+      _showErrorToast('单次最多创建1000张卡密');
+      return;
+    }
 
-    setState(() {
-      _isCreating = true;
-    });
+    setState(() => _isCreatingBatch = true);
 
     try {
-      if (count == 1) {
-        // 创建单个卡密
-        await _cardService.createCard(
-          cardType: _createCardType!,
-          amount: amount,
-          batchNo: _createBatchNoController.text.trim(),
-          remark: _createRemarkController.text.trim(),
-        );
-
-        _showSuccessToast('卡密创建成功');
-      } else {
-        // 批量创建卡密
-        await _cardService.batchCreateCards(
-          cardType: _createCardType!,
-          amount: amount,
-          count: count,
-          batchNo: _createBatchNoController.text.trim(),
-          remark: _createRemarkController.text.trim(),
-        );
-
-        _showSuccessToast('成功创建 $count 张卡密');
-      }
-
-      // 重置表单并刷新列表
-      _resetCreateForm();
+      await _cardService.createCardBatch(
+        cardType: _createCardType!,
+        amount: amount,
+        count: count,
+        remark: _createRemarkController.text.trim(),
+      );
+      _showSuccessToast('批次创建成功，已生成 $count 张卡密');
+      _resetCreateBatchForm();
       Navigator.of(context).pop(); // 关闭对话框
       _currentPage = 1;
-      _loadCards();
+      _loadBatches();
     } catch (e) {
-      _showErrorToast('创建卡密失败: $e');
+      _showErrorToast('创建批次失败: $e');
     } finally {
-      setState(() {
-        _isCreating = false;
-      });
+      setState(() => _isCreatingBatch = false);
     }
   }
 
-  void _resetCreateForm() {
+  void _resetCreateBatchForm() {
     setState(() {
       _createCardType = null;
     });
     _createAmountController.clear();
     _createCountController.text = '1';
-    _createBatchNoController.clear();
     _createRemarkController.clear();
   }
 
-  // 显示创建卡密对话框
-  void _showCreateCardDialog() {
-    _resetCreateForm();
+  void _showCreateBatchDialog() {
+    _resetCreateBatchForm();
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text('创建卡密'),
+        builder: (context, setStateDialog) => AlertDialog(
+          title: const Text('创建卡密批次'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 卡密类型选择
                 DropdownButtonFormField<String>(
                   isExpanded: true,
                   decoration: InputDecoration(
                     labelText: '卡密类型',
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.r),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16.w,
-                      vertical: 16.h,
-                    ),
+                        borderRadius: BorderRadius.circular(8.r)),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
                   ),
                   value: _createCardType,
-                  items: [
-                    DropdownMenuItem(
-                      value: 'coin',
-                      child: Text('小懿币卡'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'play_time',
-                      child: Text('畅玩时长卡'),
-                    ),
+                  items: const [
+                    DropdownMenuItem(value: 'coin', child: Text('小懿币卡')),
+                    DropdownMenuItem(value: 'play_time', child: Text('畅玩时长卡')),
                   ],
-                  onChanged: (value) {
-                    setState(() {
-                      _createCardType = value;
-                    });
-                  },
+                  onChanged: (value) =>
+                      setStateDialog(() => _createCardType = value),
                 ),
                 SizedBox(height: 16.h),
-
-                // 卡密面额
                 TextField(
                   controller: _createAmountController,
                   keyboardType: TextInputType.number,
@@ -231,64 +249,34 @@ class _CardManagementPageState extends State<CardManagementPage> {
                     labelText: '卡密面额',
                     hintText: '例如：100, 500',
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.r),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16.w,
-                      vertical: 16.h,
-                    ),
+                        borderRadius: BorderRadius.circular(8.r)),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
                   ),
                 ),
                 SizedBox(height: 16.h),
-
-                // 创建数量
                 TextField(
                   controller: _createCountController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: '创建数量',
-                    hintText: '数量大于1时批量创建',
+                    hintText: '最多1000',
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.r),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16.w,
-                      vertical: 16.h,
-                    ),
+                        borderRadius: BorderRadius.circular(8.r)),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
                   ),
                 ),
                 SizedBox(height: 16.h),
-
-                // 批次号
-                TextField(
-                  controller: _createBatchNoController,
-                  decoration: InputDecoration(
-                    labelText: '批次号（可选）',
-                    hintText: '用于卡密分组管理',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.r),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16.w,
-                      vertical: 16.h,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 16.h),
-
-                // 备注
                 TextField(
                   controller: _createRemarkController,
                   decoration: InputDecoration(
                     labelText: '备注（可选）',
-                    hintText: '添加卡密备注信息',
+                    hintText: '添加批次备注信息',
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.r),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16.w,
-                      vertical: 16.h,
-                    ),
+                        borderRadius: BorderRadius.circular(8.r)),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
                   ),
                 ),
               ],
@@ -296,34 +284,24 @@ class _CardManagementPageState extends State<CardManagementPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('取消'),
-            ),
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('取消')),
             ElevatedButton(
-              onPressed: _isCreating ? null : _createCards,
+              onPressed: _isCreatingBatch ? null : _createBatch,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-              ),
-              child: _isCreating
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white),
+              child: _isCreatingBatch
+                  ? Row(mainAxisSize: MainAxisSize.min, children: [
+                      SizedBox(
                           width: 16.r,
                           height: 16.r,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(width: 8.w),
-                        Text('创建中...'),
-                      ],
-                    )
-                  : Text('创建'),
+                          child: const CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white)),
+                      SizedBox(width: 8.w),
+                      const Text('创建中...')
+                    ])
+                  : const Text('创建'),
             ),
           ],
         ),
@@ -331,344 +309,83 @@ class _CardManagementPageState extends State<CardManagementPage> {
     );
   }
 
-  // 禁用卡密
-  Future<void> _disableCard(int cardId) async {
-    try {
-      await _cardService.disableCard(cardId);
-      _showSuccessToast('卡密已禁用');
-      _loadCards(); // 刷新列表
-    } catch (e) {
-      _showErrorToast('禁用卡密失败: $e');
-    }
-  }
-
-  // 启用卡密
-  Future<void> _enableCard(int cardId) async {
-    try {
-      await _cardService.enableCard(cardId);
-      _showSuccessToast('卡密已启用');
-      _loadCards(); // 刷新列表
-    } catch (e) {
-      _showErrorToast('启用卡密失败: $e');
-    }
-  }
-
-  // 删除卡密
-  Future<void> _deleteCard(int cardId) async {
-    try {
-      await _cardService.deleteCard(cardId);
-      _showSuccessToast('卡密已删除');
-      _loadCards(); // 刷新列表
-    } catch (e) {
-      _showErrorToast('删除卡密失败: $e');
-    }
-  }
-
-  // 批量禁用卡密
-  Future<void> _batchDisableCards() async {
-    if (_selectedCardIds.isEmpty) {
-      _showErrorToast('请先选择要操作的卡密');
-      return;
-    }
-
-    setState(() {
-      _isBatchProcessing = true;
-    });
-
-    try {
-      final result = await _cardService.batchDisableCards(_selectedCardIds);
-      _showSuccessToast('成功禁用 ${result['data']['disabled_count']} 张卡密');
-      _clearSelection();
-      _loadCards(); // 刷新列表
-    } catch (e) {
-      _showErrorToast('批量禁用失败: $e');
-    } finally {
-      setState(() {
-        _isBatchProcessing = false;
-      });
-    }
-  }
-
-  // 批量启用卡密
-  Future<void> _batchEnableCards() async {
-    if (_selectedCardIds.isEmpty) {
-      _showErrorToast('请先选择要操作的卡密');
-      return;
-    }
-
-    setState(() {
-      _isBatchProcessing = true;
-    });
-
-    try {
-      final result = await _cardService.batchEnableCards(_selectedCardIds);
-      _showSuccessToast('成功启用 ${result['data']['enabled_count']} 张卡密');
-      _clearSelection();
-      _loadCards(); // 刷新列表
-    } catch (e) {
-      _showErrorToast('批量启用失败: $e');
-    } finally {
-      setState(() {
-        _isBatchProcessing = false;
-      });
-    }
-  }
-
-  // 批量删除卡密
-  Future<void> _batchDeleteCards() async {
-    if (_selectedCardIds.isEmpty) {
-      _showErrorToast('请先选择要删除的卡密');
-      return;
-    }
-
-    // 显示确认对话框
+  Future<void> _deleteEmptyBatches() async {
     final bool confirm = await showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text('确认删除'),
-            content: Text('确定要删除选中的 ${_selectedCardIds.length} 张卡密吗？此操作不可撤销。'),
+            title: const Text('确认操作'),
+            content: const Text('确定要删除所有不包含任何卡密的空批次吗？'),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text('取消'),
-              ),
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('取消')),
               TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red,
-                ),
-                child: Text('删除'),
-              ),
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  child: const Text('全部删除')),
             ],
           ),
         ) ??
         false;
-
     if (!confirm) return;
-
-    setState(() {
-      _isBatchProcessing = true;
-    });
-
     try {
-      final result = await _cardService.batchDeleteCards(_selectedCardIds);
-      _showSuccessToast('成功删除 ${result['data']['deleted_count']} 张卡密');
-      _clearSelection();
-      _loadCards(); // 刷新列表
+      final result = await _cardService.deleteEmptyBatches();
+      final count = result['data']?['deleted_batches_count'] ?? 0;
+      _showSuccessToast('成功删除 $count 个空批次');
+      _loadBatches();
     } catch (e) {
-      _showErrorToast('批量删除失败: $e');
-    } finally {
-      setState(() {
-        _isBatchProcessing = false;
-      });
+      _showErrorToast('删除空批次失败: $e');
     }
   }
 
-  // 导出未使用的卡密
-  Future<void> _exportUnusedCards() async {
+  Future<void> _disableBatch(int batchId) async {
     try {
-      final result = await _cardService.exportUnusedCards(
-        cardType: _selectedCardType,
-      );
-
-      // 获取未使用的卡密
-      final unusedCards = result['data']['unused_cards'] as List;
-
-      if (unusedCards.isEmpty) {
-        _showErrorToast('没有未使用的卡密可导出');
-        return;
-      }
-
-      // 整理卡密数据并分组
-      Map<String, List<dynamic>> groupedCards = {};
-
-      for (var card in unusedCards) {
-        final cardType = card['card_type'] == 'coin' ? '小懿币卡' : '畅玩时长卡';
-        final amount = card['amount'];
-        final key = '$cardType+$amount';
-
-        if (!groupedCards.containsKey(key)) {
-          groupedCards[key] = [];
-        }
-
-        groupedCards[key]!.add(card);
-      }
-
-      // 获取所有批次号
-      Set<String> batchNos = {};
-      for (var card in unusedCards) {
-        final batchNo = card['batch_no'];
-        if (batchNo != null && batchNo.toString().isNotEmpty) {
-          batchNos.add(batchNo.toString());
-        }
-      }
-
-      // 显示批次信息对话框
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('导出卡密'),
-          content: Container(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '共 ${unusedCards.length} 张未使用卡密',
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 16.h),
-                if (batchNos.isNotEmpty) ...[
-                  Text(
-                    '批次信息：',
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(height: 8.h),
-
-                  // 显示所有批次号
-                  Container(
-                    height: 120.h,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      borderRadius: BorderRadius.circular(4.r),
-                    ),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: batchNos.length,
-                      itemBuilder: (context, index) {
-                        final batchNo = batchNos.elementAt(index);
-                        return ListTile(
-                          dense: true,
-                          title: Text(batchNo),
-                          trailing: IconButton(
-                            icon: Icon(Icons.copy, size: 18.r),
-                            onPressed: () {
-                              Clipboard.setData(ClipboardData(text: batchNo));
-                              Navigator.of(context).pop(); // 关闭对话框
-                              _showSuccessToast('批次号已复制到剪贴板');
-                            },
-                            tooltip: '复制批次号',
-                            constraints: BoxConstraints(),
-                            padding: EdgeInsets.all(4.r),
-                          ),
-                          onTap: () {
-                            Clipboard.setData(ClipboardData(text: batchNo));
-                            Navigator.of(context).pop(); // 关闭对话框
-                            _showSuccessToast('批次号已复制到剪贴板');
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                  SizedBox(height: 16.h),
-                ],
-                Text(
-                  '点击下方按钮复制所有卡密到剪贴板',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('取消'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                // 构建文本内容，保持原有格式
-                StringBuffer content = StringBuffer();
-
-                groupedCards.forEach((key, groupCards) {
-                  // 添加分组标题
-                  content.writeln(key);
-
-                  // 添加每张卡密
-                  for (var card in groupCards) {
-                    content.writeln(card['card_secret']);
-                  }
-
-                  // 添加分组间的空行
-                  content.writeln();
-                });
-
-                // 复制到剪贴板
-                await Clipboard.setData(
-                    ClipboardData(text: content.toString()));
-
-                Navigator.of(context).pop(); // 关闭对话框
-                _showSuccessToast('已复制 ${unusedCards.length} 张卡密到剪贴板');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-              ),
-              child: Text('复制所有卡密'),
-            ),
-          ],
-        ),
-      );
+      final result = await _cardService.disableBatch(batchId);
+      _showSuccessToast(
+          '批次已禁用，影响 ${result['data']?['disabled_cards_count'] ?? 0} 张卡密');
+      _loadBatches();
     } catch (e) {
-      _showErrorToast('导出失败: $e');
+      _showErrorToast('禁用批次失败: $e');
     }
   }
 
-  // 清除选择
-  void _clearSelection() {
-    setState(() {
-      _selectedCardIds = [];
-    });
+  Future<void> _enableBatch(int batchId) async {
+    try {
+      final result = await _cardService.enableBatch(batchId);
+      _showSuccessToast(
+          '批次已启用，影响 ${result['data']?['enabled_cards_count'] ?? 0} 张卡密');
+      _loadBatches();
+    } catch (e) {
+      _showErrorToast('启用批次失败: $e');
+    }
   }
 
-  // 切换卡密选择状态
-  void _toggleCardSelection(int cardId) {
-    setState(() {
-      if (_selectedCardIds.contains(cardId)) {
-        _selectedCardIds.remove(cardId);
-      } else {
-        _selectedCardIds.add(cardId);
-      }
-    });
-  }
-
-  // 确认删除单个卡密
-  Future<void> _confirmDeleteCard(int cardId) async {
+  Future<void> _deleteBatch(int batchId) async {
     final bool confirm = await showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text('确认删除'),
-            content: Text('确定要删除该卡密吗？此操作不可撤销。'),
+            title: const Text('确认删除'),
+            content: const Text('确定要删除该批次及其下所有卡密吗？此操作不可撤销。'),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text('取消'),
-              ),
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('取消')),
               TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red,
-                ),
-                child: Text('删除'),
-              ),
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  child: const Text('删除')),
             ],
           ),
         ) ??
         false;
-
-    if (confirm) {
-      _deleteCard(cardId);
+    if (!confirm) return;
+    try {
+      final result = await _cardService.deleteBatch(batchId);
+      _showSuccessToast(
+          '批次已删除，共删除 ${result['data']?['deleted_cards_count'] ?? 0} 张卡密');
+      _loadBatches();
+    } catch (e) {
+      _showErrorToast('删除批次失败: $e');
     }
   }
 
@@ -685,908 +402,697 @@ class _CardManagementPageState extends State<CardManagementPage> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 顶部搜索区域 - 仅占2行
-          Container(
+          Padding(
             padding: EdgeInsets.all(16.r),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 第一行：标题和创建按钮
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '卡密管理',
-                      style: TextStyle(
-                        fontSize: 20.sp,
-                        fontWeight: FontWeight.bold,
-                        color: textPrimary,
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: _showCreateCardDialog,
-                      icon: Icon(Icons.add),
-                      label: Text('创建卡密'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 16.w,
-                          vertical: 12.h,
+                    Text('卡密批次管理',
+                        style: TextStyle(
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.bold,
+                            color: textPrimary)),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          icon: Icon(Icons.add, size: 18.sp),
+                          label:
+                              Text('创建批次', style: TextStyle(fontSize: 13.sp)),
+                          onPressed: _showCreateBatchDialog,
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 12.w, vertical: 8.h)),
                         ),
-                      ),
-                    ),
+                        SizedBox(width: 10.w),
+                        ElevatedButton.icon(
+                          icon: Icon(Icons.delete_sweep, size: 18.sp),
+                          label:
+                              Text('删空批次', style: TextStyle(fontSize: 13.sp)),
+                          onPressed: _deleteEmptyBatches,
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange.shade700,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 12.w, vertical: 8.h)),
+                        ),
+                      ],
+                    )
                   ],
                 ),
                 SizedBox(height: 16.h),
-
-                // 搜索条件
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 第一行：卡密密文搜索和搜索按钮
-                    Row(
-                      children: [
-                        // 卡密密文搜索
-                        Expanded(
-                          child: TextField(
-                            controller: _cardSecretController,
-                            decoration: InputDecoration(
-                              labelText: '卡密密文',
-                              hintText: '输入卡密关键词进行搜索',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4.r),
-                              ),
-                              prefixIcon: Icon(Icons.search),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12.w, vertical: 12.h),
-                            ),
-                            onSubmitted: (_) {
-                              _currentPage = 1;
-                              _loadCards();
-                            },
-                          ),
-                        ),
-                        SizedBox(width: 12.w),
-                        // 搜索按钮
-                        ElevatedButton(
-                          onPressed: () {
-                            _currentPage = 1;
-                            _loadCards();
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 24.w,
-                              vertical: 12.h,
-                            ),
-                            minimumSize: Size(100.w, 56.h), // 匹配输入框高度
-                          ),
-                          child: Text('搜索'),
-                        ),
-                      ],
-                    ),
-
-                    SizedBox(height: 12.h),
-
-                    // 第二行：卡密类型和状态筛选
-                    Row(
-                      children: [
-                        // 卡密类型筛选
-                        Expanded(
-                          child: SizedBox(
-                            height: 56.h,
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              decoration: InputDecoration(
-                                labelText: '卡密类型',
-                                contentPadding:
-                                    EdgeInsets.symmetric(horizontal: 12.w),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(4.r),
-                                ),
-                                isDense: true,
-                              ),
-                              value: _selectedCardType,
-                              items: [
-                                DropdownMenuItem(
-                                  value: null,
-                                  child: Text('全部类型'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'coin',
-                                  child: Text('小懿币卡'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'play_time',
-                                  child: Text('畅玩时长卡'),
-                                ),
-                              ],
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedCardType = value;
-                                  _currentPage = 1; // 重置页码
-                                });
-                                _loadCards(); // 立即刷新
-                              },
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 12.w),
-
-                        // 状态筛选
-                        Expanded(
-                          child: SizedBox(
-                            height: 56.h,
-                            child: DropdownButtonFormField<int?>(
-                              isExpanded: true,
-                              decoration: InputDecoration(
-                                labelText: '状态',
-                                contentPadding:
-                                    EdgeInsets.symmetric(horizontal: 12.w),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(4.r),
-                                ),
-                                isDense: true,
-                              ),
-                              value: _selectedStatus,
-                              items: [
-                                DropdownMenuItem(
-                                  value: null,
-                                  child: Text('全部状态'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 0,
-                                  child: Text('未使用'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 1,
-                                  child: Text('已使用'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 2,
-                                  child: Text('已禁用'),
-                                ),
-                              ],
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedStatus = value;
-                                  _currentPage = 1; // 重置页码
-                                });
-                                _loadCards(); // 立即刷新
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                _buildSearchFilters(),
               ],
             ),
           ),
-
-          // 列表区域
           Expanded(
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 16.r),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 列表标题和操作按钮
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 标题部分
-                      Row(
-                        children: [
-                          Text(
-                            '卡密列表',
-                            style: TextStyle(
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w500,
-                              color: textPrimary,
-                            ),
-                          ),
-                          SizedBox(width: 16.w),
-                          Text(
-                            '共 $_totalItems 条记录',
-                            style: TextStyle(
-                              fontSize: 14.sp,
-                              color: textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 8.h),
-
-                      // 操作按钮部分
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            // 批量操作按钮
-                            if (_selectedCardIds.isNotEmpty) ...[
-                              Text(
-                                '已选择 ${_selectedCardIds.length} 项',
+            child: _isLoading || _isSearching
+                ? const Center(child: CircularProgressIndicator())
+                : _isShowingSearchResults
+                    ? _buildSearchResultsView(
+                        surfaceColor, textPrimary, textSecondary)
+                    : _batches.isEmpty
+                        ? Center(
+                            child: Text('暂无批次数据',
                                 style: TextStyle(
-                                  fontSize: 14.sp,
-                                  color: primaryColor,
-                                ),
-                              ),
-                              SizedBox(width: 8.w),
-                              SizedBox(
-                                height: 36.h,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(Icons.block,
-                                          color: Colors.red, size: 20.r),
-                                      tooltip: '批量禁用',
-                                      padding: EdgeInsets.all(4.r),
-                                      constraints: BoxConstraints(),
-                                      onPressed: _isBatchProcessing
-                                          ? null
-                                          : _batchDisableCards,
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.check_circle,
-                                          color: Colors.green, size: 20.r),
-                                      tooltip: '批量启用',
-                                      padding: EdgeInsets.all(4.r),
-                                      constraints: BoxConstraints(),
-                                      onPressed: _isBatchProcessing
-                                          ? null
-                                          : _batchEnableCards,
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.delete,
-                                          color: Colors.red.shade700,
-                                          size: 20.r),
-                                      tooltip: '批量删除',
-                                      padding: EdgeInsets.all(4.r),
-                                      constraints: BoxConstraints(),
-                                      onPressed: _isBatchProcessing
-                                          ? null
-                                          : _batchDeleteCards,
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.close, size: 20.r),
-                                      tooltip: '取消选择',
-                                      padding: EdgeInsets.all(4.r),
-                                      constraints: BoxConstraints(),
-                                      onPressed: _clearSelection,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ] else ...[
-                              IconButton(
-                                icon: Icon(Icons.copy, color: Colors.blue),
-                                tooltip: '复制未使用卡密到剪贴板',
-                                onPressed: _exportUnusedCards,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 8.h),
-
-                  // 使用SingleChildScrollView实现水平滑动
-                  Expanded(
-                    child: _isLoading
-                        ? Center(child: CircularProgressIndicator())
-                        : _cards.isEmpty
-                            ? Center(
-                                child: Text(
-                                  '暂无卡密数据',
-                                  style: TextStyle(
-                                    fontSize: 14.sp,
-                                    color: textSecondary,
-                                  ),
-                                ),
-                              )
-                            : Column(
-                                children: [
-                                  // 整个表格一起水平滚动
-                                  Expanded(
-                                    child: SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: SizedBox(
-                                        width: 1000.w, // 增加总宽度，确保所有列都有足够空间
-                                        child: Column(
-                                          children: [
-                                            // 表格头部
-                                            Container(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 12.h,
-                                                  horizontal: 16.w),
-                                              decoration: BoxDecoration(
-                                                color: surfaceColor
-                                                    .withOpacity(0.3),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  // 选择框
-                                                  SizedBox(
-                                                    width: 40.w,
-                                                    child: Checkbox(
-                                                      value:
-                                                          _cards.isNotEmpty &&
-                                                              _selectedCardIds
-                                                                      .length ==
-                                                                  _cards.length,
-                                                      onChanged: (value) {
-                                                        setState(() {
-                                                          if (value == true) {
-                                                            // 全选
-                                                            _selectedCardIds = _cards
-                                                                .map<int>((card) =>
-                                                                    card['id']
-                                                                        as int)
-                                                                .toList();
-                                                          } else {
-                                                            // 取消全选
-                                                            _selectedCardIds =
-                                                                [];
-                                                          }
-                                                        });
-                                                      },
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                    width: 180.w,
-                                                    child: Row(
-                                                      children: [
-                                                        Text(
-                                                          '卡密',
-                                                          style: TextStyle(
-                                                            fontSize: 14.sp,
-                                                            fontWeight:
-                                                                FontWeight.w500,
-                                                            color: textPrimary,
-                                                          ),
-                                                        ),
-                                                        SizedBox(width: 4.w),
-                                                        Tooltip(
-                                                          message: '点击可复制卡密',
-                                                          child: Icon(
-                                                            Icons.info_outline,
-                                                            size: 14.sp,
-                                                            color:
-                                                                textSecondary,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                    width: 80.w,
-                                                    child: Text(
-                                                      '类型',
-                                                      style: TextStyle(
-                                                        fontSize: 14.sp,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: textPrimary,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                    width: 60.w,
-                                                    child: Text(
-                                                      '面额',
-                                                      style: TextStyle(
-                                                        fontSize: 14.sp,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: textPrimary,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                    width: 100.w,
-                                                    child: Text(
-                                                      '批次号',
-                                                      style: TextStyle(
-                                                        fontSize: 14.sp,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: textPrimary,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                    width: 70.w,
-                                                    child: Text(
-                                                      '状态',
-                                                      style: TextStyle(
-                                                        fontSize: 14.sp,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: textPrimary,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                    width: 80.w,
-                                                    child: Text(
-                                                      '使用人ID',
-                                                      style: TextStyle(
-                                                        fontSize: 14.sp,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: textPrimary,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                    width: 100.w,
-                                                    child: Text(
-                                                      '创建时间',
-                                                      style: TextStyle(
-                                                        fontSize: 14.sp,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: textPrimary,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                    width: 120.w,
-                                                    child: Text(
-                                                      '使用时间',
-                                                      style: TextStyle(
-                                                        fontSize: 14.sp,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: textPrimary,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    child: Text(
-                                                      '操作',
-                                                      style: TextStyle(
-                                                        fontSize: 14.sp,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: textPrimary,
-                                                      ),
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-
-                                            // 列表内容
-                                            Expanded(
-                                              child: ListView.builder(
-                                                itemCount: _cards.length,
-                                                itemBuilder: (context, index) {
-                                                  final card = _cards[index];
-
-                                                  // 解析status值
-                                                  int statusCode = 0;
-                                                  if (card['status'] is int) {
-                                                    statusCode = card['status'];
-                                                  } else if (card['status']
-                                                      is String) {
-                                                    statusCode = int.tryParse(
-                                                            card['status']
-                                                                .toString()) ??
-                                                        0;
-                                                  }
-
-                                                  // 根据状态码确定显示文本和颜色
-                                                  String statusText;
-                                                  Color statusColor;
-                                                  bool isDisabled = false;
-                                                  bool isUsed = false;
-
-                                                  switch (statusCode) {
-                                                    case 1:
-                                                      statusText = '已使用';
-                                                      statusColor =
-                                                          AppTheme.warning;
-                                                      isUsed = true;
-                                                      break;
-                                                    case 2:
-                                                      statusText = '已禁用';
-                                                      statusColor =
-                                                          AppTheme.error;
-                                                      isDisabled = true;
-                                                      break;
-                                                    case 0:
-                                                    default:
-                                                      statusText = '未使用';
-                                                      statusColor =
-                                                          AppTheme.success;
-                                                      break;
-                                                  }
-
-                                                  // 格式化创建时间
-                                                  String createdAt = '';
-                                                  if (card['created_at'] !=
-                                                      null) {
-                                                    createdAt = _formatDateTime(
-                                                        card['created_at']
-                                                            .toString());
-                                                  }
-
-                                                  // 添加使用时间信息
-                                                  String usedAt = '';
-                                                  if (card['used_at'] != null) {
-                                                    usedAt = _formatDateTime(
-                                                        card['used_at']
-                                                            .toString());
-                                                  }
-
-                                                  return Container(
-                                                    padding:
-                                                        EdgeInsets.symmetric(
-                                                      vertical: 12.h,
-                                                      horizontal: 16.w,
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      color: index % 2 == 0
-                                                          ? Colors.transparent
-                                                          : surfaceColor
-                                                              .withOpacity(0.1),
-                                                    ),
-                                                    child: Row(
-                                                      children: [
-                                                        // 选择框
-                                                        SizedBox(
-                                                          width: 40.w,
-                                                          child: Checkbox(
-                                                            value: _selectedCardIds
-                                                                .contains(
-                                                                    card['id']),
-                                                            onChanged: (value) {
-                                                              _toggleCardSelection(
-                                                                  card['id']);
-                                                            },
-                                                          ),
-                                                        ),
-                                                        SizedBox(
-                                                          width: 180.w,
-                                                          child: InkWell(
-                                                            onTap: () {
-                                                              Clipboard.setData(
-                                                                  ClipboardData(
-                                                                      text: card[
-                                                                              'card_secret'] ??
-                                                                          ''));
-                                                              _showSuccessToast(
-                                                                  '卡密已复制到剪贴板');
-                                                            },
-                                                            child: Row(
-                                                              children: [
-                                                                Expanded(
-                                                                  child: Text(
-                                                                    card['card_secret'] ??
-                                                                        '-',
-                                                                    style:
-                                                                        TextStyle(
-                                                                      fontSize:
-                                                                          14.sp,
-                                                                      color:
-                                                                          textPrimary,
-                                                                    ),
-                                                                    overflow:
-                                                                        TextOverflow
-                                                                            .ellipsis,
-                                                                  ),
-                                                                ),
-                                                                Icon(
-                                                                  Icons.copy,
-                                                                  size: 16.sp,
-                                                                  color: Colors
-                                                                      .grey,
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        SizedBox(
-                                                          width: 80.w,
-                                                          child: Text(
-                                                            card['card_type'] ==
-                                                                    'coin'
-                                                                ? '小懿币卡'
-                                                                : '畅玩时长卡',
-                                                            style: TextStyle(
-                                                              fontSize: 14.sp,
-                                                              color:
-                                                                  textPrimary,
-                                                            ),
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                          ),
-                                                        ),
-                                                        SizedBox(
-                                                          width: 60.w,
-                                                          child: Text(
-                                                            '${card['amount'] ?? '0'}',
-                                                            style: TextStyle(
-                                                              fontSize: 14.sp,
-                                                              color:
-                                                                  textPrimary,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        SizedBox(
-                                                          width: 100.w,
-                                                          child: Text(
-                                                            card['batch_no'] ??
-                                                                '-',
-                                                            style: TextStyle(
-                                                              fontSize: 14.sp,
-                                                              color:
-                                                                  textPrimary,
-                                                            ),
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                          ),
-                                                        ),
-                                                        SizedBox(
-                                                          width: 70.w,
-                                                          child: Text(
-                                                            statusText,
-                                                            style: TextStyle(
-                                                              fontSize: 14.sp,
-                                                              color:
-                                                                  statusColor,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        SizedBox(
-                                                          width: 80.w,
-                                                          child: Text(
-                                                            isUsed
-                                                                ? '${card['used_by'] ?? '-'}'
-                                                                : '-',
-                                                            style: TextStyle(
-                                                              fontSize: 14.sp,
-                                                              color:
-                                                                  textPrimary,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        SizedBox(
-                                                          width: 100.w,
-                                                          child: Text(
-                                                            createdAt,
-                                                            style: TextStyle(
-                                                              fontSize: 14.sp,
-                                                              color:
-                                                                  textPrimary,
-                                                            ),
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                          ),
-                                                        ),
-                                                        SizedBox(
-                                                          width: 120.w,
-                                                          child: Text(
-                                                            usedAt,
-                                                            style: TextStyle(
-                                                              fontSize: 14.sp,
-                                                              color:
-                                                                  textPrimary,
-                                                            ),
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                          ),
-                                                        ),
-                                                        Expanded(
-                                                          child: Container(
-                                                            alignment: Alignment
-                                                                .center,
-                                                            child: Row(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .min,
-                                                              children: [
-                                                                // 根据状态显示不同操作按钮
-                                                                if (statusCode ==
-                                                                    0) // 未使用
-                                                                  IconButton(
-                                                                    icon: Icon(
-                                                                      Icons
-                                                                          .block,
-                                                                      color: Colors
-                                                                          .red,
-                                                                      size:
-                                                                          20.sp,
-                                                                    ),
-                                                                    tooltip:
-                                                                        '禁用',
-                                                                    onPressed: () =>
-                                                                        _disableCard(
-                                                                            card['id']),
-                                                                    padding: EdgeInsets
-                                                                        .all(4
-                                                                            .r),
-                                                                    constraints:
-                                                                        BoxConstraints(),
-                                                                  ),
-                                                                if (statusCode ==
-                                                                    2) // 已禁用
-                                                                  IconButton(
-                                                                    icon: Icon(
-                                                                      Icons
-                                                                          .check_circle,
-                                                                      color: Colors
-                                                                          .green,
-                                                                      size:
-                                                                          20.sp,
-                                                                    ),
-                                                                    tooltip:
-                                                                        '启用',
-                                                                    onPressed: () =>
-                                                                        _enableCard(
-                                                                            card['id']),
-                                                                    padding: EdgeInsets
-                                                                        .all(4
-                                                                            .r),
-                                                                    constraints:
-                                                                        BoxConstraints(),
-                                                                  ),
-                                                                IconButton(
-                                                                  icon: Icon(
-                                                                    Icons
-                                                                        .delete,
-                                                                    color: Colors
-                                                                        .red
-                                                                        .shade700,
-                                                                    size: 20.sp,
-                                                                  ),
-                                                                  tooltip: '删除',
-                                                                  onPressed: () =>
-                                                                      _confirmDeleteCard(
-                                                                          card[
-                                                                              'id']),
-                                                                  padding:
-                                                                      EdgeInsets
-                                                                          .all(4
-                                                                              .r),
-                                                                  constraints:
-                                                                      BoxConstraints(),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                  ),
-
-                  // 分页控制
-                  Container(
-                    padding: EdgeInsets.symmetric(vertical: 16.h),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '共 $_totalItems 条记录，每页 $_pageSize 条',
-                          style: TextStyle(
-                            fontSize: 14.sp,
-                            color: textSecondary,
+                                    fontSize: 14.sp, color: textSecondary)))
+                        : ListView.builder(
+                            padding: EdgeInsets.symmetric(horizontal: 16.r),
+                            itemCount: _batches.length,
+                            itemBuilder: (context, index) {
+                              final batch = _batches[index];
+                              return _buildBatchListItem(batch, surfaceColor,
+                                  primaryColor, textPrimary, textSecondary);
+                            },
                           ),
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(Icons.chevron_left),
-                              onPressed: (_currentPage > 1 && !_isLoading)
-                                  ? () {
-                                      setState(() {
-                                        _currentPage--;
-                                      });
-                                      _loadCards();
-                                    }
-                                  : null,
-                              color: _currentPage > 1 && !_isLoading
-                                  ? primaryColor
-                                  : Colors.grey.withOpacity(0.5),
-                            ),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 12.w, vertical: 4.h),
-                              child: Text(
-                                '$_currentPage / ${(_totalItems / _pageSize).ceil()}',
-                                style: TextStyle(
-                                  fontSize: 14.sp,
-                                  color: textPrimary,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.chevron_right),
-                              onPressed: (_currentPage <
-                                          (_totalItems / _pageSize).ceil() &&
-                                      !_isLoading)
-                                  ? () {
-                                      setState(() {
-                                        _currentPage++;
-                                      });
-                                      _loadCards();
-                                    }
-                                  : null,
-                              color: _currentPage <
-                                          (_totalItems / _pageSize).ceil() &&
-                                      !_isLoading
-                                  ? primaryColor
-                                  : Colors.grey.withOpacity(0.5),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+          ),
+          if (_totalPages > 1)
+            _buildPaginationControls(textPrimary, textSecondary, primaryColor),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchFilters() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _cardSecretController,
+                decoration: InputDecoration(
+                    labelText: '卡密搜索',
+                    hintText: '输入卡密关键词，搜索包含该卡密的批次',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4.r)),
+                    prefixIcon: const Icon(Icons.search),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h)),
+                onSubmitted: (_) => _search(),
               ),
             ),
+            SizedBox(width: 12.w),
+            ElevatedButton(
+                onPressed: _search,
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryLight,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                    minimumSize: Size(100.w, 56.h)),
+                child: const Text('搜索')),
+          ],
+        ),
+        SizedBox(height: 12.h),
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 56.h,
+                child: DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                      labelText: '卡密类型',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12.w),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4.r)),
+                      isDense: true),
+                  value: _selectedCardType,
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('全部类型')),
+                    DropdownMenuItem(value: 'coin', child: Text('小懿币卡')),
+                    DropdownMenuItem(value: 'play_time', child: Text('畅玩时长卡'))
+                  ],
+                  onChanged: (value) {
+                    setState(() => _selectedCardType = value);
+                    _search();
+                  },
+                ),
+              ),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: SizedBox(
+                height: 56.h,
+                child: DropdownButtonFormField<int?>(
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                      labelText: '批次状态',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12.w),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4.r)),
+                      isDense: true),
+                  value: _selectedStatus,
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('全部状态')),
+                    DropdownMenuItem(value: 0, child: Text('激活')),
+                    DropdownMenuItem(value: 1, child: Text('禁用'))
+                  ],
+                  onChanged: (value) {
+                    setState(() => _selectedStatus = value);
+                    _search();
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // 修改search方法
+  void _search() {
+    _currentPage = 1;
+
+    // 检查是否有卡密搜索关键词
+    if (_cardSecretController.text.trim().isNotEmpty) {
+      _searchCardsByKeyword();
+    } else {
+      // 重置搜索结果状态
+      setState(() {
+        _isShowingSearchResults = false;
+        _searchResultCards = [];
+      });
+      _loadBatches();
+    }
+  }
+
+  Widget _buildBatchListItem(Map<String, dynamic> batch, Color surfaceColor,
+      Color primaryColor, Color textPrimary, Color textSecondary) {
+    final bool isBatchDisabled = batch['status'] == 1;
+    final int totalCards = batch['total_cards'] ?? 0;
+    final int usedCards = batch['used_cards'] ?? 0;
+    final int unusedCards = totalCards - usedCards;
+
+    return Card(
+      elevation: 1,
+      margin: EdgeInsets.symmetric(vertical: 6.h),
+      color: surfaceColor,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.r),
+          side: BorderSide(
+              color: isBatchDisabled
+                  ? Colors.grey.shade400
+                  : primaryColor.withOpacity(0.5),
+              width: 0.8)),
+      child: InkWell(
+        onTap: () =>
+            _navigateToBatchCards(batch['id'], batch['batch_no'] ?? '批次详情'),
+        borderRadius: BorderRadius.circular(8.r),
+        child: Padding(
+          padding: EdgeInsets.all(12.r),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                      child: Text('批次号: ${batch['batch_no'] ?? '-'}',
+                          style: TextStyle(
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.bold,
+                              color: textPrimary),
+                          overflow: TextOverflow.ellipsis)),
+                  Chip(
+                      label: Text(isBatchDisabled ? '已禁用' : '激活',
+                          style: TextStyle(
+                              fontSize: 12.sp,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500)),
+                      backgroundColor: isBatchDisabled
+                          ? Colors.grey.shade600
+                          : AppTheme.success,
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                      labelPadding: EdgeInsets.zero,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                ],
+              ),
+              SizedBox(height: 8.h),
+              Row(children: [
+                Text('类型: ${batch['card_type'] == 'coin' ? '小懿币卡' : '畅玩时长卡'}',
+                    style: TextStyle(fontSize: 13.sp, color: textSecondary)),
+                SizedBox(width: 16.w),
+                Text('面额: ${batch['amount'] ?? '-'}',
+                    style: TextStyle(fontSize: 13.sp, color: textSecondary))
+              ]),
+              SizedBox(height: 4.h),
+              Text('卡密数: $totalCards (已用: $usedCards / 未用: $unusedCards)',
+                  style: TextStyle(fontSize: 13.sp, color: textSecondary)),
+              if (batch['remark'] != null && batch['remark'].isNotEmpty)
+                Padding(
+                    padding: EdgeInsets.only(top: 4.h),
+                    child: Text('备注: ${batch['remark']}',
+                        style: TextStyle(
+                            fontSize: 13.sp,
+                            color: textSecondary,
+                            overflow: TextOverflow.ellipsis),
+                        maxLines: 2)),
+              SizedBox(height: 4.h),
+              Text('创建: ${_formatDateTime(batch['created_at'])}',
+                  style:
+                      TextStyle(fontSize: 12.sp, color: Colors.grey.shade600)),
+              SizedBox(height: 10.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                      icon: Icon(
+                          isBatchDisabled
+                              ? Icons.check_circle_outline
+                              : Icons.block,
+                          size: 18.sp,
+                          color: isBatchDisabled
+                              ? Colors.green
+                              : Colors.red.shade600),
+                      label: Text(isBatchDisabled ? '启用' : '禁用',
+                          style: TextStyle(
+                              fontSize: 13.sp,
+                              color: isBatchDisabled
+                                  ? Colors.green
+                                  : Colors.red.shade600)),
+                      onPressed: () => isBatchDisabled
+                          ? _enableBatch(batch['id'])
+                          : _disableBatch(batch['id']),
+                      style: TextButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.w, vertical: 4.h))),
+                  SizedBox(width: 8.w),
+                  TextButton.icon(
+                      icon: Icon(Icons.delete_forever,
+                          size: 18.sp, color: Colors.red.shade800),
+                      label: Text('删批次',
+                          style: TextStyle(
+                              fontSize: 13.sp, color: Colors.red.shade800)),
+                      onPressed: () => _deleteBatch(batch['id']),
+                      style: TextButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.w, vertical: 4.h))),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaginationControls(
+      Color textPrimary, Color textSecondary, Color primaryColor) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 16.r),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('共 $_totalItems 条记录，每页 $_pageSize 条',
+              style: TextStyle(fontSize: 14.sp, color: textSecondary)),
+          Row(
+            children: [
+              IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: (_currentPage > 1 && !_isLoading)
+                      ? () => setState(() {
+                            _currentPage--;
+                            _loadBatches();
+                          })
+                      : null,
+                  color: _currentPage > 1 && !_isLoading
+                      ? primaryColor
+                      : Colors.grey.withOpacity(0.5)),
+              Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+                  child: Text('$_currentPage / $_totalPages',
+                      style: TextStyle(fontSize: 14.sp, color: textPrimary))),
+              IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: (_currentPage < _totalPages && !_isLoading)
+                      ? () => setState(() {
+                            _currentPage++;
+                            _loadBatches();
+                          })
+                      : null,
+                  color: _currentPage < _totalPages && !_isLoading
+                      ? primaryColor
+                      : Colors.grey.withOpacity(0.5)),
+            ],
           ),
         ],
       ),
     );
   }
 
-  // 格式化日期时间
-  String _formatDateTime(String dateTimeStr) {
+  String _formatDateTime(String? dateTimeStr) {
+    if (dateTimeStr == null || dateTimeStr.isEmpty) return '-';
     try {
       final dateTime =
-          DateTime.parse(dateTimeStr).add(const Duration(hours: 8)); // 添加8小时时差
+          DateTime.parse(dateTimeStr).add(const Duration(hours: 8));
       return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
     } catch (e) {
       return dateTimeStr;
     }
   }
 
-  // 显示错误提示
-  void _showErrorToast(String message) {
-    CustomToast.show(
-      context,
-      message: message,
-      type: ToastType.error,
+  void _showErrorToast(String message) =>
+      CustomToast.show(context, message: message, type: ToastType.error);
+  void _showSuccessToast(String message) =>
+      CustomToast.show(context, message: message, type: ToastType.success);
+
+  Widget _buildSearchResultsView(
+      Color surfaceColor, Color textPrimary, Color textSecondary) {
+    if (_searchResultCards.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_off, size: 48.r, color: Colors.grey.shade400),
+            SizedBox(height: 16.h),
+            Text('未找到匹配的卡密',
+                style: TextStyle(fontSize: 16.sp, color: textSecondary)),
+            SizedBox(height: 24.h),
+            TextButton.icon(
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('返回批次列表'),
+              onPressed: () {
+                setState(() {
+                  _cardSecretController.clear();
+                  _isShowingSearchResults = false;
+                  _searchResultCards = [];
+                });
+                _loadBatches();
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.r, vertical: 8.h),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '卡密搜索结果',
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
+                  color: textPrimary,
+                ),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('返回批次列表'),
+                onPressed: () {
+                  setState(() {
+                    _cardSecretController.clear();
+                    _isShowingSearchResults = false;
+                    _searchResultCards = [];
+                  });
+                  _loadBatches();
+                },
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: EdgeInsets.symmetric(horizontal: 16.r),
+            itemCount: _searchResultCards.length,
+            itemBuilder: (context, index) {
+              final card = _searchResultCards[index];
+              return _buildCardListItem(
+                  card, surfaceColor, textPrimary, textSecondary);
+            },
+          ),
+        ),
+      ],
     );
   }
 
-  // 显示成功提示
-  void _showSuccessToast(String message) {
-    CustomToast.show(
-      context,
-      message: message,
-      type: ToastType.success,
+  Widget _buildCardListItem(Map<String, dynamic> card, Color surfaceColor,
+      Color textPrimary, Color textSecondary) {
+    int statusCode = 0;
+    if (card['status'] is int) {
+      statusCode = card['status'];
+    } else if (card['status'] is String) {
+      statusCode = int.tryParse(card['status'].toString()) ?? 0;
+    }
+
+    String statusText;
+    Color statusColor;
+    switch (statusCode) {
+      case 1:
+        statusText = '已使用';
+        statusColor = AppTheme.warning;
+        break;
+      case 2:
+        statusText = '已禁用';
+        statusColor = AppTheme.error;
+        break;
+      default:
+        statusText = '未使用';
+        statusColor = AppTheme.success;
+        break;
+    }
+
+    final batchId = card['batch_id'];
+
+    return Card(
+      elevation: 1,
+      margin: EdgeInsets.symmetric(vertical: 4.h),
+      color: surfaceColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(12.r),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: () {
+                Clipboard.setData(
+                    ClipboardData(text: card['card_secret'] ?? ''));
+                _showSuccessToast('卡密已复制到剪贴板');
+              },
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(Icons.vpn_key, size: 18.r, color: AppTheme.primaryLight),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      card['card_secret'] ?? '-',
+                      style: TextStyle(
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: Text(
+                      statusText,
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: statusColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Row(
+              children: [
+                Text(
+                  '批次ID: $batchId',
+                  style: TextStyle(fontSize: 13.sp, color: textSecondary),
+                ),
+                SizedBox(width: 16.w),
+                if (statusCode == 1)
+                  Text(
+                    '使用者ID: ${card['used_by'] ?? '-'}',
+                    style: TextStyle(fontSize: 13.sp, color: textSecondary),
+                  ),
+              ],
+            ),
+            SizedBox(height: 4.h),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '创建时间: ${_formatDateTime(card['created_at'])}',
+                    style:
+                        TextStyle(fontSize: 12.sp, color: Colors.grey.shade600),
+                  ),
+                ),
+                if (statusCode == 1)
+                  Expanded(
+                    child: Text(
+                      '使用时间: ${_formatDateTime(card['used_at'])}',
+                      style: TextStyle(
+                          fontSize: 12.sp, color: Colors.grey.shade600),
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(height: 8.h),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  icon: Icon(
+                    Icons.info_outline,
+                    size: 16.sp,
+                    color: AppTheme.primaryLight,
+                  ),
+                  label: Text(
+                    '查看批次',
+                    style: TextStyle(
+                      fontSize: 13.sp,
+                      color: AppTheme.primaryLight,
+                    ),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _cardSecretController.clear();
+                      _isShowingSearchResults = false;
+                      _searchResultCards = [];
+                    });
+
+                    // 根据批次ID查询批次信息并跳转
+                    _navigateToBatchCardsByBatchId(batchId);
+                  },
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 4.h,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                if (statusCode == 0)
+                  TextButton.icon(
+                    icon: Icon(
+                      Icons.block,
+                      size: 16.sp,
+                      color: Colors.red.shade600,
+                    ),
+                    label: Text(
+                      '禁用',
+                      style: TextStyle(
+                        fontSize: 13.sp,
+                        color: Colors.red.shade600,
+                      ),
+                    ),
+                    onPressed: () => _disableCard(card['id']),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 8.w,
+                        vertical: 4.h,
+                      ),
+                    ),
+                  ),
+                if (statusCode == 2)
+                  TextButton.icon(
+                    icon: Icon(
+                      Icons.check_circle_outline,
+                      size: 16.sp,
+                      color: Colors.green,
+                    ),
+                    label: Text(
+                      '启用',
+                      style: TextStyle(
+                        fontSize: 13.sp,
+                        color: Colors.green,
+                      ),
+                    ),
+                    onPressed: () => _enableCard(card['id']),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 8.w,
+                        vertical: 4.h,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  Future<void> _disableCard(int cardId) async {
+    try {
+      await _cardService.disableCard(cardId);
+      _showSuccessToast('卡密已禁用');
+      // 刷新搜索结果
+      if (_isShowingSearchResults) {
+        _searchCardsByKeyword();
+      } else {
+        _loadBatches();
+      }
+    } catch (e) {
+      _showErrorToast('禁用卡密失败: $e');
+    }
+  }
+
+  Future<void> _enableCard(int cardId) async {
+    try {
+      await _cardService.enableCard(cardId);
+      _showSuccessToast('卡密已启用');
+      // 刷新搜索结果
+      if (_isShowingSearchResults) {
+        _searchCardsByKeyword();
+      } else {
+        _loadBatches();
+      }
+    } catch (e) {
+      _showErrorToast('启用卡密失败: $e');
+    }
+  }
+
+  Future<void> _navigateToBatchCardsByBatchId(int batchId) async {
+    setState(() => _isLoading = true);
+    try {
+      // 获取批次详情
+      final result = await _cardService.getBatchDetail(batchId);
+      if (result['code'] == 0) {
+        final batchInfo = result['data'];
+        if (batchInfo != null) {
+          // 导航到批次卡密列表页面
+          _navigateToBatchCards(batchId, batchInfo['batch_no'] ?? '批次详情');
+        } else {
+          _showErrorToast('未找到批次信息');
+        }
+      } else {
+        _showErrorToast('获取批次信息失败: ${result['message']}');
+      }
+    } catch (e) {
+      _showErrorToast('获取批次信息失败: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 }

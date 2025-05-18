@@ -18,8 +18,14 @@ class NetworkMonitorService {
 
   static const List<String> _apiEndpoints = [
     'https://hk2.xiaoyi.ink',
-    'https://xjp.xiaoyi.ink',
+    'https://jp.xiaoyi.ink',
   ];
+
+  // 定义日本节点常量，用于权重比较
+  static const String _jpEndpoint = 'https://jp.xiaoyi.ink';
+
+  // 日本节点权重因子 (小于1，使其响应时间看起来更快)
+  static const double _jpWeightFactor = 0.7;
 
   // 默认线路（如果都不可用时使用）
   static const String _defaultEndpoint = 'https://hk2.xiaoyi.ink';
@@ -90,8 +96,8 @@ class NetworkMonitorService {
     final statusInfo = StringBuffer('[网络监控] 线路状态: ');
     final availableEndpoints = <String>[];
     bool hasFoundHealthyEndpoint = false;
-    String? firstHealthyEndpoint;
-    int? fastestResponseTime;
+    String? bestEndpoint;
+    double? bestWeightedResponseTime;
 
     // 创建一个List来存储所有端点检查的Future
     List<Future<void>> checkFutures = [];
@@ -106,17 +112,26 @@ class NetworkMonitorService {
           _endpointResponseTimes[endpoint] = responseTime;
           availableEndpoints.add(endpoint);
 
+          // 计算加权响应时间 (日本线路有更高权重)
+          double weightedResponseTime = responseTime.toDouble();
+          if (endpoint == _jpEndpoint) {
+            weightedResponseTime *= _jpWeightFactor; // 日本线路响应时间加权
+            debugPrint(
+                '[网络监控] JP线路加权: 原始${responseTime}ms, 加权后${weightedResponseTime.toInt()}ms');
+          }
+
           // 检查是否是第一个健康的端点或比现有最快端点还快
           if (!hasFoundHealthyEndpoint ||
-              responseTime < (fastestResponseTime ?? 9999)) {
+              weightedResponseTime < (bestWeightedResponseTime ?? 9999)) {
             hasFoundHealthyEndpoint = true;
-            firstHealthyEndpoint = endpoint;
-            fastestResponseTime = responseTime;
+            bestEndpoint = endpoint;
+            bestWeightedResponseTime = weightedResponseTime;
 
             // 立即切换到这个健康端点
             if (_currentApiUrl != endpoint) {
               _switchApiEndpoint(endpoint);
-              debugPrint('[网络监控] 立即切换到可用端点: $endpoint (${responseTime}ms)');
+              debugPrint(
+                  '[网络监控] 切换到线路: $endpoint (原始: ${responseTime}ms, 加权: ${weightedResponseTime.toInt()}ms)');
             }
           }
         }
@@ -133,8 +148,14 @@ class NetworkMonitorService {
       final responseTime = _endpointResponseTimes[endpoint];
       final isAvailable = _endpointAvailability[endpoint] ?? false;
 
-      if (isAvailable) {
-        statusInfo.write('$endpoint(${responseTime}ms) ');
+      if (isAvailable && responseTime != null) {
+        if (endpoint == _jpEndpoint) {
+          final weightedTime = (responseTime * _jpWeightFactor).toInt();
+          statusInfo
+              .write('$endpoint(${responseTime}ms, 加权: ${weightedTime}ms) ');
+        } else {
+          statusInfo.write('$endpoint(${responseTime}ms) ');
+        }
       } else {
         statusInfo.write('$endpoint(不可用) ');
       }
@@ -182,10 +203,17 @@ class NetworkMonitorService {
   Map<String, dynamic> getEndpointsStatus() {
     final result = <String, dynamic>{};
     for (final endpoint in _apiEndpoints) {
+      final isJpEndpoint = endpoint == _jpEndpoint;
+      final responseTime = _endpointResponseTimes[endpoint] ?? -1;
+
       result[endpoint] = {
         'available': _endpointAvailability[endpoint] ?? false,
-        'responseTime': _endpointResponseTimes[endpoint] ?? -1,
+        'responseTime': responseTime,
+        'weightedResponseTime': isJpEndpoint && responseTime > 0
+            ? (responseTime * _jpWeightFactor).toInt()
+            : responseTime,
         'isCurrent': endpoint == _currentApiUrl,
+        'isWeighted': isJpEndpoint,
       };
     }
     return result;

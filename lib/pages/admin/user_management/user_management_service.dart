@@ -9,7 +9,8 @@ class UserManagementService {
     int pageSize = 10,
     String? status,
     String? role,
-    String? keyword,
+    String? search,
+    String? searchType,
   }) async {
     Map<String, dynamic> queryParams = {
       'page': page,
@@ -18,7 +19,10 @@ class UserManagementService {
 
     if (status != null) queryParams['status'] = status;
     if (role != null) queryParams['role'] = role;
-    if (keyword != null && keyword.isNotEmpty) queryParams['keyword'] = keyword;
+    if (search != null && search.isNotEmpty) {
+      queryParams['search'] = search;
+      if (searchType != null) queryParams['search_type'] = searchType;
+    }
 
     try {
       final response = await _httpClient.get(

@@ -367,9 +367,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         });
       });
 
-      // 存储用户原始消息以便错误时恢复
-      final String originalUserMessage = message;
-
       // 订阅消息流
       await for (final SseResponse response in _chatService.sendMessage(
         widget.sessionData['id'],
@@ -395,7 +392,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
               _messages[0]['statusBar'] = response.statusBar;
             }
 
-            // 保存增强状态 - 修改为enhanced
+            // 保存增强状态
             if (response.enhanced != null) {
               _messages[0]['enhanced'] = response.enhanced;
             }
@@ -408,9 +405,45 @@ class _CharacterChatPageState extends State<CharacterChatPage>
               _messages[0]['statusBar'] = response.statusBar;
             }
 
-            // 保存增强状态 - 修改为enhanced
+            // 保存增强状态
             if (response.enhanced != null) {
               _messages[0]['enhanced'] = response.enhanced;
+            }
+          } else if (response.isError) {
+            // 处理错误消息
+            final errorContent =
+                response.content ?? response.errorMsg ?? '未知错误';
+
+            setState(() {
+              // 错误消息不应显示为气泡，直接移除AI消息占位
+              _messages.removeAt(0);
+
+              // 同时将用户的消息也移除，并恢复到输入框中
+              if (_messages.isNotEmpty && _messages[0]['isUser']) {
+                final userMessage = _messages.removeAt(0);
+                // 将用户消息放回输入框
+                _messageController.text = userMessage['content'];
+                _messageController.selection = TextSelection.fromPosition(
+                  TextPosition(offset: _messageController.text.length),
+                );
+              }
+            });
+
+            // 显示错误提示
+            if (mounted) {
+              CustomToast.show(context,
+                  message: errorContent, type: ToastType.error);
+            }
+
+            // 检查是否是令牌失效
+            if (errorContent.contains('令牌失效') || errorContent.contains('未登录')) {
+              if (mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                  (route) => false,
+                );
+              }
             }
           }
         });
@@ -427,7 +460,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       debugPrint('发送消息错误: $e');
       if (mounted) {
         setState(() {
-          // 错误处理 - 始终删除AI回复和用户消息，把用户消息恢复到输入框
+          // 错误处理 - 移除AI回复和用户消息，把用户消息恢复到输入框
           if (_messages.isNotEmpty) {
             // 如果AI回复已经显示，先删除它
             if (!_messages[0]['isUser']) {
@@ -1064,7 +1097,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                   message: message['content'],
                                   isUser: message['isUser'],
                                   isLoading: message['isLoading'] ?? false,
-                                  isError: message['isError'] ?? false,
                                   status: message['status'],
                                   bubbleColor: message['isUser']
                                       ? _userBubbleColor

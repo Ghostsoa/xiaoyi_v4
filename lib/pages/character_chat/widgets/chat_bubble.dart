@@ -13,7 +13,6 @@ class ChatBubble extends StatefulWidget {
   final String message;
   final bool isUser;
   final bool isLoading;
-  final bool isError;
   final String? status;
   final Color bubbleColor;
   final double bubbleOpacity;
@@ -29,7 +28,6 @@ class ChatBubble extends StatefulWidget {
     required this.message,
     required this.isUser,
     this.isLoading = false,
-    this.isError = false,
     this.status,
     required this.bubbleColor,
     required this.bubbleOpacity,
@@ -331,29 +329,6 @@ class _ChatBubbleState extends State<ChatBubble> {
       );
     }
 
-    if (widget.isError) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.error_outline,
-            color: Colors.red,
-            size: 20.sp,
-          ),
-          SizedBox(width: 8.w),
-          Flexible(
-            child: Text(
-              widget.message,
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: 14.sp,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
     final baseStyle = TextStyle(
       color: widget.textColor,
       fontSize: 14.sp,
@@ -420,14 +395,13 @@ class _ChatBubbleState extends State<ChatBubble> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onLongPress: widget.isLoading || widget.isError || widget.isUser
+            onLongPress: widget.isLoading || widget.isUser
                 ? null
                 : () {
                     print('长按消息调试信息:');
                     print('- 消息ID: ${widget.msgId}');
                     print('- 是否用户消息: ${widget.isUser}');
                     print('- 是否加载中: ${widget.isLoading}');
-                    print('- 是否错误: ${widget.isError}');
                     print('- 是否有编辑回调: ${widget.onEdit != null}');
                     _startEditing();
                   },
