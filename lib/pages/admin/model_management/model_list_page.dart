@@ -66,13 +66,14 @@ class _ModelListPageState extends State<ModelListPage> {
 
   // 创建模型
   Future<void> _createModel() async {
-    final result = await _showCreateDialog();
+    final result = await _showCreateEditDialog();
     if (result != null) {
       try {
         final response = await _modelService.createModel(
           seriesId: widget.seriesId,
           name: result['name'],
           displayName: result['displayName'],
+          description: result['description'],
           inputPrice: result['inputPrice'],
           outputPrice: result['outputPrice'],
           status: result['status'],
@@ -86,6 +87,37 @@ class _ModelListPageState extends State<ModelListPage> {
         }
       } catch (e) {
         _showErrorDialog('创建失败：$e');
+      }
+    }
+  }
+
+  // 更新模型
+  Future<void> _updateModel(Map<String, dynamic> model) async {
+    final result = await _showCreateEditDialog(
+      isEdit: true,
+      initialData: model,
+    );
+
+    if (result != null) {
+      try {
+        final response = await _modelService.updateModel(
+          id: model['id'],
+          name: result['name'],
+          displayName: result['displayName'],
+          description: result['description'],
+          inputPrice: result['inputPrice'],
+          outputPrice: result['outputPrice'],
+          status: result['status'],
+        );
+
+        if (response.data['code'] == 0) {
+          _showSuccessSnackBar('更新成功');
+          _loadModels();
+        } else {
+          _showErrorDialog(response.data['msg']);
+        }
+      } catch (e) {
+        _showErrorDialog('更新失败：$e');
       }
     }
   }
@@ -125,24 +157,39 @@ class _ModelListPageState extends State<ModelListPage> {
     }
   }
 
-  // 显示创建对话框
-  Future<Map<String, dynamic>?> _showCreateDialog() async {
-    final TextEditingController nameController = TextEditingController();
-    final TextEditingController displayNameController = TextEditingController();
-    final TextEditingController inputPriceController = TextEditingController();
-    final TextEditingController outputPriceController = TextEditingController();
-    int status = 1;
+  // 显示创建/编辑对话框
+  Future<Map<String, dynamic>?> _showCreateEditDialog({
+    bool isEdit = false,
+    Map<String, dynamic>? initialData,
+  }) async {
+    final TextEditingController nameController = TextEditingController(
+      text: initialData?['name'] ?? '',
+    );
+    final TextEditingController displayNameController = TextEditingController(
+      text: initialData?['displayName'] ?? '',
+    );
+    final TextEditingController descriptionController = TextEditingController(
+      text: initialData?['description'] ?? '',
+    );
+    final TextEditingController inputPriceController = TextEditingController(
+      text: initialData != null ? initialData['inputPrice'].toString() : '',
+    );
+    final TextEditingController outputPriceController = TextEditingController(
+      text: initialData != null ? initialData['outputPrice'].toString() : '',
+    );
+    int status = initialData?['status'] ?? 1;
 
     return showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('创建模型'),
+        title: Text(isEdit ? '编辑模型' : '创建模型'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
+                enabled: !isEdit, // 编辑模式下不允许修改名称
                 decoration: const InputDecoration(
                   labelText: '模型名称',
                   hintText: '请输入模型名称',
@@ -154,6 +201,14 @@ class _ModelListPageState extends State<ModelListPage> {
                 decoration: const InputDecoration(
                   labelText: '显示名称',
                   hintText: '请输入显示名称',
+                ),
+              ),
+              SizedBox(height: 16.h),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  labelText: '模型描述',
+                  hintText: '请输入模型描述',
                 ),
               ),
               SizedBox(height: 16.h),
@@ -202,11 +257,12 @@ class _ModelListPageState extends State<ModelListPage> {
           ),
           TextButton(
             onPressed: () {
-              if (nameController.text.isEmpty ||
-                  displayNameController.text.isEmpty ||
-                  inputPriceController.text.isEmpty ||
-                  outputPriceController.text.isEmpty) {
-                _showErrorDialog('请填写所有字段');
+              if (!isEdit && nameController.text.isEmpty) {
+                _showErrorDialog('请输入模型名称');
+                return;
+              }
+              if (displayNameController.text.isEmpty) {
+                _showErrorDialog('请输入显示名称');
                 return;
               }
 
@@ -221,12 +277,13 @@ class _ModelListPageState extends State<ModelListPage> {
               Navigator.pop(context, {
                 'name': nameController.text,
                 'displayName': displayNameController.text,
+                'description': descriptionController.text,
                 'inputPrice': inputPrice,
                 'outputPrice': outputPrice,
                 'status': status,
               });
             },
-            child: const Text('创建'),
+            child: Text(isEdit ? '保存' : '创建'),
           ),
         ],
       ),
@@ -311,79 +368,199 @@ class _ModelListPageState extends State<ModelListPage> {
           Expanded(
             child: _isLoading && _modelList.isEmpty
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    controller: _scrollController,
-                    itemCount: _modelList.length,
-                    itemBuilder: (context, index) {
-                      final model = _modelList[index];
-                      return Card(
-                        margin: EdgeInsets.symmetric(
-                          horizontal: 16.w,
-                          vertical: 8.h,
-                        ),
-                        child: ListTile(
-                          title: Text(
-                            model['displayName'],
-                            style: TextStyle(
-                              color: textPrimary,
-                              fontWeight: FontWeight.w500,
+                : _modelList.isEmpty
+                    ? const Center(child: Text('暂无模型'))
+                    : ListView.builder(
+                        controller: _scrollController,
+                        itemCount: _modelList.length,
+                        itemBuilder: (context, index) {
+                          final model = _modelList[index];
+                          return Card(
+                            margin: EdgeInsets.symmetric(
+                              horizontal: 16.w,
+                              vertical: 8.h,
                             ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                model['name'],
-                                style: TextStyle(
-                                  color: textPrimary.withOpacity(0.7),
-                                ),
-                              ),
-                              SizedBox(height: 4.h),
-                              Text(
-                                '输入：¥${model['inputPrice']}/1k tokens  输出：¥${model['outputPrice']}/1k tokens',
-                                style: TextStyle(
-                                  color: textPrimary.withOpacity(0.7),
-                                  fontSize: 12.sp,
-                                ),
-                              ),
-                            ],
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 8.w,
-                                  vertical: 4.h,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: model['status'] == 1
-                                      ? Colors.green.withOpacity(0.1)
-                                      : Colors.red.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4.r),
-                                ),
-                                child: Text(
-                                  model['status'] == 1 ? '启用' : '禁用',
-                                  style: TextStyle(
-                                    color: model['status'] == 1
-                                        ? Colors.green
-                                        : Colors.red,
-                                    fontSize: 12.sp,
+                            color: Colors.grey[900],
+                            child: Padding(
+                              padding: EdgeInsets.all(16.w),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              model['displayName'],
+                                              style: TextStyle(
+                                                color: textPrimary,
+                                                fontWeight: FontWeight.w500,
+                                                fontSize: 18.sp,
+                                              ),
+                                            ),
+                                            SizedBox(height: 4.h),
+                                            Text(
+                                              model['name'],
+                                              style: TextStyle(
+                                                color: textPrimary
+                                                    .withOpacity(0.7),
+                                                fontSize: 14.sp,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 12.w,
+                                              vertical: 6.h,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: model['status'] == 1
+                                                  ? Colors.green
+                                                      .withOpacity(0.2)
+                                                  : Colors.red.withOpacity(0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(4.r),
+                                            ),
+                                            child: Text(
+                                              model['status'] == 1
+                                                  ? '启用'
+                                                  : '禁用',
+                                              style: TextStyle(
+                                                color: model['status'] == 1
+                                                    ? Colors.green
+                                                    : Colors.red,
+                                                fontSize: 14.sp,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                ),
+                                  if (model['description'] != null &&
+                                      model['description']
+                                          .toString()
+                                          .isNotEmpty)
+                                    Padding(
+                                      padding: EdgeInsets.only(top: 8.h),
+                                      child: Text(
+                                        model['description'],
+                                        style: TextStyle(
+                                          color: textPrimary.withOpacity(0.7),
+                                          fontSize: 14.sp,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  SizedBox(height: 16.h),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        '使用次数: ${model['usageCount'] ?? 0}',
+                                        style: TextStyle(
+                                          color: textPrimary.withOpacity(0.8),
+                                          fontSize: 14.sp,
+                                        ),
+                                      ),
+                                      Row(
+                                        children: [
+                                          IconButton(
+                                            icon:
+                                                const Icon(Icons.edit_outlined),
+                                            onPressed: () =>
+                                                _updateModel(model),
+                                            color: primaryColor,
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                          SizedBox(width: 20.w),
+                                          IconButton(
+                                            icon: const Icon(
+                                                Icons.delete_outline),
+                                            onPressed: () =>
+                                                _deleteModel(model['id']),
+                                            color: Colors.red,
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 12.h),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '输入:',
+                                              style: TextStyle(
+                                                color: textPrimary
+                                                    .withOpacity(0.7),
+                                                fontSize: 14.sp,
+                                              ),
+                                            ),
+                                            SizedBox(height: 4.h),
+                                            Text(
+                                              '¥${model['inputPrice']}/1k tokens',
+                                              style: TextStyle(
+                                                color: textPrimary,
+                                                fontSize: 16.sp,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '输出:',
+                                              style: TextStyle(
+                                                color: textPrimary
+                                                    .withOpacity(0.7),
+                                                fontSize: 14.sp,
+                                              ),
+                                            ),
+                                            SizedBox(height: 4.h),
+                                            Text(
+                                              '¥${model['outputPrice']}/1k tokens',
+                                              style: TextStyle(
+                                                color: textPrimary,
+                                                fontSize: 16.sp,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                              SizedBox(width: 16.w),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline),
-                                onPressed: () => _deleteModel(model['id']),
-                                color: Colors.red,
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                            ),
+                          );
+                        },
+                      ),
           ),
         ],
       ),

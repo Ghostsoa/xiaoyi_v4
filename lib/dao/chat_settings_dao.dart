@@ -15,6 +15,7 @@ class ChatSettingsDao {
   static const String _keyUserBubbleColor = 'chat_user_bubble_color';
   static const String _keyUserBubbleOpacity = 'chat_user_bubble_opacity';
   static const String _keyUserTextColor = 'chat_user_text_color';
+  static const String _keyFontSize = 'chat_font_size';
 
   // UI设置相关的key
   static const String _keyUiMode = 'ui_mode';
@@ -30,6 +31,7 @@ class ChatSettingsDao {
   static const String defaultUserBubbleColor = '#3D5CFF';
   static const String defaultUserTextColor = '#FFFFFF';
   static const double defaultUserBubbleOpacity = 1.0;
+  static const double defaultFontSize = 14.0;
 
   // 保存背景透明度
   Future<void> saveBackgroundOpacity(double opacity) async {
@@ -127,6 +129,18 @@ class ChatSettingsDao {
     return prefs.getString(_keyUserTextColor) ?? defaultUserTextColor;
   }
 
+  // 保存字体大小
+  Future<void> saveFontSize(double size) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_keyFontSize, size);
+  }
+
+  // 获取字体大小
+  Future<double> getFontSize() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_keyFontSize) ?? defaultFontSize;
+  }
+
   // 保存所有设置
   Future<void> saveAllSettings(Map<String, dynamic> settings) async {
     await saveBackgroundOpacity(settings['backgroundOpacity']);
@@ -136,6 +150,9 @@ class ChatSettingsDao {
     await saveUserBubbleColor(settings['userBubbleColor']);
     await saveUserBubbleOpacity(settings['userBubbleOpacity']);
     await saveUserTextColor(settings['userTextColor']);
+    if (settings.containsKey('fontSize')) {
+      await saveFontSize(settings['fontSize']);
+    }
   }
 
   // 获取所有设置
@@ -148,6 +165,7 @@ class ChatSettingsDao {
       'userBubbleColor': await getUserBubbleColor(),
       'userBubbleOpacity': await getUserBubbleOpacity(),
       'userTextColor': await getUserTextColor(),
+      'fontSize': await getFontSize(),
     };
   }
 

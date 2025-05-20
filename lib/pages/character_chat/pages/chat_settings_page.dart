@@ -30,6 +30,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
   Color _userBubbleColor = AppTheme.primaryColor;
   double _userBubbleOpacity = 0.8;
   Color _userTextColor = Colors.white;
+  double _fontSize = 14.0;
 
   @override
   void initState() {
@@ -47,6 +48,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
       _userBubbleColor = _hexToColor(settings['userBubbleColor']);
       _userBubbleOpacity = settings['userBubbleOpacity'];
       _userTextColor = _hexToColor(settings['userTextColor']);
+      _fontSize = settings['fontSize'] ?? 14.0;
     });
   }
 
@@ -72,6 +74,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
         'userBubbleColor': _colorToHex(_userBubbleColor),
         'userBubbleOpacity': _userBubbleOpacity,
         'userTextColor': _colorToHex(_userTextColor),
+        'fontSize': _fontSize,
       });
 
       if (mounted) {
@@ -287,6 +290,20 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                         _showColorPicker(_userTextColor, (color) {
                           setState(() => _userTextColor = color);
                         });
+                      },
+                    ),
+                    Divider(
+                      color: AppTheme.border,
+                      height: 1,
+                    ),
+                    _buildSliderItem(
+                      title: '字体大小',
+                      subtitle: '调整聊天消息的字体大小',
+                      value: _fontSize,
+                      min: 8.0,
+                      max: 24.0,
+                      onChanged: (value) {
+                        setState(() => _fontSize = value);
                       },
                     ),
                   ],

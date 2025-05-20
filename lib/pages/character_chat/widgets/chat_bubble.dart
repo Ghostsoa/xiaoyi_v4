@@ -22,6 +22,7 @@ class ChatBubble extends StatefulWidget {
   final String formatMode;
   final Map<String, dynamic>? statusBar;
   final bool? enhance;
+  final double fontSize;
 
   const ChatBubble({
     super.key,
@@ -37,6 +38,7 @@ class ChatBubble extends StatefulWidget {
     this.formatMode = 'none',
     this.statusBar,
     this.enhance,
+    this.fontSize = 14.0,
   });
 
   @override
@@ -262,7 +264,7 @@ class _ChatBubbleState extends State<ChatBubble> {
               maxLines: null,
               style: TextStyle(
                 color: widget.textColor,
-                fontSize: 14.sp,
+                fontSize: widget.fontSize.sp,
                 height: 1.5,
               ),
               decoration: InputDecoration(
@@ -274,7 +276,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                 hintText: '编辑消息...',
                 hintStyle: TextStyle(
                   color: widget.textColor.withOpacity(0.5),
-                  fontSize: 14.sp,
+                  fontSize: widget.fontSize.sp,
                 ),
               ),
             ),
@@ -331,7 +333,7 @@ class _ChatBubbleState extends State<ChatBubble> {
 
     final baseStyle = TextStyle(
       color: widget.textColor,
-      fontSize: 14.sp,
+      fontSize: widget.fontSize.sp,
       height: 1.5,
     );
 

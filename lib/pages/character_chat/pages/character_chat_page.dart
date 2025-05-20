@@ -48,6 +48,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   Color _userBubbleColor = AppTheme.primaryColor;
   double _userBubbleOpacity = 0.8;
   Color _userTextColor = Colors.white;
+  double _fontSize = 14.0; // 添加字体大小设置
 
   Uint8List? _backgroundImage;
   bool _isLoadingBackground = false;
@@ -172,6 +173,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
             AppTheme.primaryColor.value.toRadixString(16));
         _userBubbleOpacity = settings['userBubbleOpacity'] ?? 0.8;
         _userTextColor = _hexToColor(settings['userTextColor'] ?? '#FFFFFF');
+        _fontSize = settings['fontSize'] ?? 14.0; // 加载字体大小设置
       });
     } catch (e) {
       debugPrint('加载设置失败: $e');
@@ -185,6 +187,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           _userBubbleColor = AppTheme.primaryColor;
           _userBubbleOpacity = 0.8;
           _userTextColor = Colors.white;
+          _fontSize = 14.0; // 默认字体大小
         });
       }
     }
@@ -1115,6 +1118,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                   formatMode: _formatMode,
                                   statusBar: message['statusBar'],
                                   enhance: message['enhanced'],
+                                  fontSize: _fontSize, // 传递字体大小设置
                                 );
                               },
                               // 性能优化选项
