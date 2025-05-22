@@ -21,6 +21,7 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   bool _isLoading = false;
+  bool _isSyncingAssets = false;
   int _userId = 0;
   bool _isLoadingUserId = true;
 
@@ -230,6 +231,208 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
         );
       }
     }
+  }
+
+  Future<void> _syncOldAssets() async {
+    setState(() {
+      _isSyncingAssets = true;
+    });
+
+    try {
+      final result = await _profileServer.syncOldAssets();
+
+      if (mounted) {
+        if (result['success']) {
+          // 同步成功
+          CustomToast.show(
+            context,
+            message: result['msg'],
+            type: ToastType.success,
+          );
+
+          // 获取同步信息
+          final syncData = result['data'];
+          if (syncData != null && syncData['sync_result'] != null) {
+            final syncResult = syncData['sync_result'];
+            final currentAssets = syncData['current_assets'] ?? {};
+
+            // 显示同步结果
+            _showSyncResultDialog(
+              syncResult: syncResult,
+              currentAssets: currentAssets,
+              playTimeExpireAt: syncData['play_time_expire_at'],
+            );
+          }
+        } else {
+          // 同步失败
+          CustomToast.show(
+            context,
+            message: result['msg'],
+            type: ToastType.error,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '同步失败: $e',
+          type: ToastType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncingAssets = false;
+        });
+      }
+    }
+  }
+
+  void _showSyncResultDialog({
+    required Map<String, dynamic> syncResult,
+    required Map<String, dynamic> currentAssets,
+    String? playTimeExpireAt,
+  }) {
+    List<Widget> resultItems = [];
+
+    // 添加同步的小懿币信息
+    if (syncResult.containsKey('coin') && syncResult['coin'] != null) {
+      resultItems.add(_buildSyncResultItem(
+        '小懿币',
+        '+${syncResult['coin']}',
+        '当前余额: ${currentAssets['coin'] ?? 0}',
+      ));
+    }
+
+    // 添加同步的经验值信息
+    if (syncResult.containsKey('exp') && syncResult['exp'] != null) {
+      resultItems.add(_buildSyncResultItem(
+        '经验值',
+        '+${syncResult['exp']}',
+        '当前经验: ${currentAssets['exp'] ?? 0}',
+      ));
+    }
+
+    // 添加同步的畅玩时长信息
+    if (syncResult.containsKey('play_time') &&
+        syncResult['play_time'] != null) {
+      String subtitle = '当前时长: ${currentAssets['play_time'] ?? 0}小时';
+      if (playTimeExpireAt != null) {
+        final expiryDateStr =
+            playTimeExpireAt.toString().substring(0, 16).replaceAll('T', ' ');
+        subtitle += '\n有效期至: $expiryDateStr';
+      }
+
+      resultItems.add(_buildSyncResultItem(
+        '畅玩时长',
+        '+${syncResult['play_time']}小时',
+        subtitle,
+      ));
+    }
+
+    // 如果没有同步到任何资产
+    if (resultItems.isEmpty) {
+      resultItems.add(
+        Text(
+          '未找到可同步的旧资产数据',
+          style: TextStyle(
+            fontSize: 16.sp,
+            color: AppTheme.textSecondary,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r),
+          ),
+          title: Column(
+            children: [
+              Icon(
+                Icons.sync_outlined,
+                color: Colors.green,
+                size: 60.sp,
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                '资产同步成功',
+                style: TextStyle(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: resultItems,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                '确定',
+                style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSyncResultItem(String title, String value, String subtitle) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          SizedBox(height: 4.h),
+          Divider(color: AppTheme.textSecondary.withOpacity(0.3)),
+        ],
+      ),
+    );
   }
 
   @override
@@ -664,6 +867,113 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
                       color: AppTheme.textSecondary,
                     ),
                     textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 24.h),
+
+            // 同步旧资产卡片
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(20.w),
+              decoration: BoxDecoration(
+                color: AppTheme.cardBackground,
+                borderRadius: BorderRadius.circular(16.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 标题
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.sync_outlined,
+                        color: AppTheme.primaryColor,
+                        size: 24.sp,
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        '同步旧资产',
+                        style: TextStyle(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16.h),
+
+                  Text(
+                    '如果您在旧版应用中有未同步的资产，可以点击下方按钮进行同步。',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+
+                  SizedBox(height: 16.h),
+
+                  // 同步旧资产说明列表
+                  _buildRuleItem(
+                    '1. 系统会自动查找与您账号关联的旧资产数据',
+                    AppTheme.textSecondary,
+                  ),
+                  SizedBox(height: 8.h),
+                  _buildRuleItem(
+                    '2. 同步成功后，旧资产将自动添加到您的当前账户',
+                    AppTheme.textSecondary,
+                  ),
+                  SizedBox(height: 8.h),
+                  _buildRuleItem(
+                    '3. 每个账户仅能同步一次旧资产数据',
+                    AppTheme.textSecondary,
+                  ),
+
+                  SizedBox(height: 24.h),
+
+                  // 同步按钮
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isSyncingAssets ? null : _syncOldAssets,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        padding: EdgeInsets.symmetric(vertical: 12.h),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusMedium),
+                        ),
+                        disabledBackgroundColor:
+                            AppTheme.primaryColor.withOpacity(0.6),
+                      ),
+                      child: _isSyncingAssets
+                          ? SizedBox(
+                              width: 20.w,
+                              height: 20.w,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.w,
+                              ),
+                            )
+                          : Text(
+                              '立即同步',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    ),
                   ),
                 ],
               ),

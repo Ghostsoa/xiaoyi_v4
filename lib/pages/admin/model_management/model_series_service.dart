@@ -28,16 +28,14 @@ class ModelSeriesService {
     required String name,
     required String displayName,
     required String endpoint,
-    String? description,
     required int status,
   }) async {
     return await _httpClient.post(
       '/admin/models/series',
       data: {
         'name': name,
-        'displayName': displayName,
+        'display_name': displayName,
         'endpoint': endpoint,
-        'description': description,
         'status': status,
       },
     );
@@ -49,14 +47,12 @@ class ModelSeriesService {
     String? name,
     String? displayName,
     String? endpoint,
-    String? description,
     int? status,
   }) async {
     final Map<String, dynamic> data = {};
     if (name != null) data['name'] = name;
-    if (displayName != null) data['displayName'] = displayName;
+    if (displayName != null) data['display_name'] = displayName;
     if (endpoint != null) data['endpoint'] = endpoint;
-    if (description != null) data['description'] = description;
     if (status != null) data['status'] = status;
 
     return await _httpClient.put(

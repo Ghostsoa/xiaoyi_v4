@@ -67,7 +67,6 @@ class _ModelManagementPageState extends State<ModelManagementPage> {
           name: result['name'],
           displayName: result['displayName'],
           endpoint: result['endpoint'],
-          description: result['description'],
           status: result['status'],
         );
 
@@ -97,7 +96,6 @@ class _ModelManagementPageState extends State<ModelManagementPage> {
           name: result['name'],
           displayName: result['displayName'],
           endpoint: result['endpoint'],
-          description: result['description'],
           status: result['status'],
         );
 
@@ -162,9 +160,6 @@ class _ModelManagementPageState extends State<ModelManagementPage> {
     final TextEditingController endpointController = TextEditingController(
       text: initialData?['endpoint'] ?? '',
     );
-    final TextEditingController descriptionController = TextEditingController(
-      text: initialData?['description'] ?? '',
-    );
     int status = initialData?['status'] ?? 1;
 
     return showDialog<Map<String, dynamic>>(
@@ -189,14 +184,6 @@ class _ModelManagementPageState extends State<ModelManagementPage> {
                 decoration: const InputDecoration(
                   labelText: '显示名称',
                   hintText: '请输入显示名称',
-                ),
-              ),
-              SizedBox(height: 16.h),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: '系列描述',
-                  hintText: '请输入系列描述',
                 ),
               ),
               SizedBox(height: 16.h),
@@ -250,7 +237,6 @@ class _ModelManagementPageState extends State<ModelManagementPage> {
                 if (!isEdit) 'name': nameController.text,
                 'displayName': displayNameController.text,
                 'endpoint': endpointController.text,
-                'description': descriptionController.text,
                 'status': status,
               });
             },
@@ -353,20 +339,6 @@ class _ModelManagementPageState extends State<ModelManagementPage> {
                                   color: textPrimary.withOpacity(0.7),
                                 ),
                               ),
-                              if (series['description'] != null &&
-                                  series['description'].toString().isNotEmpty)
-                                Padding(
-                                  padding: EdgeInsets.only(top: 4.h),
-                                  child: Text(
-                                    series['description'],
-                                    style: TextStyle(
-                                      color: textPrimary.withOpacity(0.7),
-                                      fontSize: 12.sp,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
                             ],
                           ),
                           trailing: Row(
