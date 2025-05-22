@@ -7,6 +7,7 @@ enum SettingItemType {
   help,
   about,
   admin,
+  apiKey,
   logout,
 }
 
@@ -51,6 +52,11 @@ class SettingsWidget extends StatelessWidget {
             icon: Icons.info_outline,
             title: '关于我们',
             onTap: () => onSettingTap(SettingItemType.about),
+          ),
+          _buildSettingItem(
+            icon: Icons.vpn_key_outlined,
+            title: 'API Key管理',
+            onTap: () => onSettingTap(SettingItemType.apiKey),
           ),
           if (showAdminEntry)
             _buildSettingItem(

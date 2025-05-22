@@ -13,7 +13,7 @@ class SelectModelPage extends StatefulWidget {
 class _SelectModelPageState extends State<SelectModelPage> {
   final ModelService _modelService = ModelService();
   bool _isLoading = false;
-  List<Map<String, dynamic>> _modelSeriesList = [];
+  List<Map<String, dynamic>> _modelsList = [];
 
   @override
   void initState() {
@@ -31,7 +31,7 @@ class _SelectModelPageState extends State<SelectModelPage> {
     try {
       final models = await _modelService.getAvailableModels();
       setState(() {
-        _modelSeriesList = models;
+        _modelsList = models;
       });
     } catch (e) {
       _showErrorDialog('加载模型列表失败：$e');
@@ -144,11 +144,9 @@ class _SelectModelPageState extends State<SelectModelPage> {
             )
           : ListView.builder(
               padding: EdgeInsets.all(16.w),
-              itemCount: _modelSeriesList.length,
+              itemCount: _modelsList.length,
               itemBuilder: (context, index) {
-                final series = _modelSeriesList[index];
-                final models =
-                    List<Map<String, dynamic>>.from(series['models']);
+                final model = _modelsList[index];
 
                 return Container(
                   margin: EdgeInsets.only(bottom: 16.h),
@@ -156,45 +154,41 @@ class _SelectModelPageState extends State<SelectModelPage> {
                     color: AppTheme.cardBackground,
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.all(16.w),
-                        child: Text(
-                          series['displayName'] ?? '未命名模型',
-                          style: AppTheme.titleStyle,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                      vertical: 12.h,
+                    ),
+                    title: Text(
+                      model['name'] ?? '未命名',
+                      style: AppTheme.bodyStyle,
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(height: 4.h),
+                        Text(
+                          model['description'] ?? '暂无描述',
+                          style: AppTheme.secondaryStyle,
                         ),
-                      ),
-                      Divider(
-                        height: 1,
-                        color: AppTheme.border.withOpacity(0.1),
-                      ),
-                      ...models.map((model) {
-                        return ListTile(
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 16.w,
-                            vertical: 8.h,
+                        SizedBox(height: 2.h),
+                        Text(
+                          '提供商：${model['provider'] ?? '未知'}',
+                          style: AppTheme.secondaryStyle.copyWith(
+                            fontSize: 12.sp,
+                            color: AppTheme.textSecondary.withOpacity(0.7),
                           ),
-                          title: Text(
-                            model['displayName'] ?? '未命名',
-                            style: AppTheme.bodyStyle,
-                          ),
-                          subtitle: Text(
-                            '输入：${model['inputPrice']}/1K tokens  输出：${model['outputPrice']}/1K tokens',
-                            style: AppTheme.secondaryStyle,
-                          ),
-                          trailing: Icon(
-                            Icons.arrow_forward_ios,
-                            size: 16.sp,
-                            color: AppTheme.textSecondary,
-                          ),
-                          onTap: () {
-                            Navigator.pop(context, model['name']);
-                          },
-                        );
-                      }),
-                    ],
+                        ),
+                      ],
+                    ),
+                    trailing: Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16.sp,
+                      color: AppTheme.textSecondary,
+                    ),
+                    onTap: () {
+                      Navigator.pop(context, model['name']);
+                    },
                   ),
                 );
               },

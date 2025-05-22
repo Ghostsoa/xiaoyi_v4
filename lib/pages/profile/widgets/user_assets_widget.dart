@@ -182,7 +182,7 @@ class UserAssetsWidget extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              fontSize: 18.sp,
+              fontSize: 15.sp,
               fontWeight: FontWeight.bold,
               color: AppTheme.textPrimary,
             ),

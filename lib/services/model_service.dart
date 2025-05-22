@@ -8,35 +8,20 @@ class ModelService {
   factory ModelService() => _instance;
   ModelService._internal();
 
-  /// 获取所有可用的模型系列和模型
+  /// 获取所有可用的模型
   /// 返回格式：
   /// [
   ///   {
-  ///     "id": 1,
-  ///     "name": "gemini",
-  ///     "displayName": "哈基米",
-  ///     "endpoint": "",
-  ///     "status": 1,
-  ///     "createdAt": "2025-05-02T07:58:18.37259Z",
-  ///     "updatedAt": "2025-05-02T07:58:18.37259Z",
-  ///     "models": [
-  ///       {
-  ///         "id": 1,
-  ///         "seriesId": 1,
-  ///         "name": "gemini-2.0-flash",
-  ///         "displayName": "哈基米2.0",
-  ///         "inputPrice": 1000,
-  ///         "outputPrice": 2000,
-  ///         "status": 1,
-  ///         "createdAt": "2025-05-02T08:01:23.5214Z",
-  ///         "updatedAt": "2025-05-02T08:01:23.5214Z"
-  ///       }
-  ///     ]
-  ///   }
+  ///     "id": "1",
+  ///     "name": "gemini-2.5-flash-preview-05-20",
+  ///     "description": "Gemini 2.5 Flash 预览版 (2024年5月20日)",
+  ///     "provider": "Google"
+  ///   },
+  ///   ...
   /// ]
   Future<List<Map<String, dynamic>>> getAvailableModels() async {
     try {
-      final response = await _httpClient.get('/models');
+      final response = await _httpClient.get('/available-models');
 
       if (response.data['code'] == 0) {
         return List<Map<String, dynamic>>.from(response.data['data']);

@@ -11,6 +11,7 @@ import 'asset_records_page.dart';
 import 'edit_profile_page.dart';
 import 'earn_coin_page.dart';
 import 'theme_settings_page.dart';
+import 'api_key_manage_page.dart';
 import 'widgets/user_info_widget.dart';
 import 'widgets/user_assets_widget.dart';
 import 'widgets/settings_widget.dart';
@@ -225,6 +226,16 @@ class ProfilePageState extends State<ProfilePage> {
 
       case SettingItemType.about:
         _showInfoToast('查看关于我们');
+        break;
+
+      case SettingItemType.apiKey:
+        // 跳转到API Key管理页面
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const ApiKeyManagePage(),
+          ),
+        );
         break;
 
       case SettingItemType.admin:
