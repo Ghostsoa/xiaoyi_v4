@@ -77,6 +77,19 @@ class HomeService {
     }
   }
 
+  /// 激励卡片
+  Future<Map<String, dynamic>> rewardItem(String id, double amount) async {
+    try {
+      final response = await _httpClient.post(
+        '/hall/items/$id/reward',
+        data: {'amount': amount},
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception('激励失败: $e');
+    }
+  }
+
   /// 获取全部列表
   Future<Map<String, dynamic>> getAllItems({
     int page = 1,

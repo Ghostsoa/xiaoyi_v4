@@ -174,6 +174,39 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
     }
   }
 
+  // 更新API密钥状态
+  Future<void> _updateApiKeyStatus(int id, int status) async {
+    try {
+      final result = await _profileServer.updateApiKeyStatus(
+        id: id,
+        status: status,
+      );
+
+      if (mounted) {
+        if (result['success']) {
+          // 显示成功消息
+          _showToast(result['msg'], ToastType.success);
+
+          // 重新加载API密钥列表
+          _loadApiKeys();
+        } else {
+          // 显示错误消息
+          _showToast(result['msg'], ToastType.error);
+
+          // 重新加载API密钥列表以恢复原状态
+          _loadApiKeys();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showToast('更新API密钥状态失败: $e', ToastType.error);
+
+        // 重新加载API密钥列表以恢复原状态
+        _loadApiKeys();
+      }
+    }
+  }
+
   // 删除API密钥
   Future<void> _deleteApiKey(int id) async {
     // 显示加载指示器
@@ -624,20 +657,37 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 8.w,
-                    vertical: 4.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Text(
-                    statusText,
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      color: statusColor,
+                GestureDetector(
+                  onTap: () {
+                    // 切换状态 (1 -> 0 或 0 -> 1)
+                    _updateApiKeyStatus(apiKey['id'], status == 1 ? 0 : 1);
+                  },
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 4.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          status == 1 ? Icons.check_circle : Icons.cancel,
+                          size: 14.sp,
+                          color: statusColor,
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          statusText,
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            color: statusColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -681,50 +731,74 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
               bottom: 12.h,
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                TextButton.icon(
-                  onPressed: () => _showEditApiKeyDialog(apiKey),
-                  icon: Icon(
-                    Icons.edit_outlined,
-                    size: 16.sp,
-                    color: AppTheme.primaryColor,
-                  ),
-                  label: Text(
-                    '编辑',
-                    style: TextStyle(
-                      color: AppTheme.primaryColor,
-                      fontSize: 14.sp,
+                // 添加状态开关
+                Row(
+                  children: [
+                    Text(
+                      '启用状态:',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
-                  ),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 12.w,
-                      vertical: 8.h,
+                    SizedBox(width: 8.w),
+                    Switch(
+                      value: status == 1,
+                      onChanged: (value) {
+                        _updateApiKeyStatus(apiKey['id'], value ? 1 : 0);
+                      },
+                      activeColor: AppTheme.primaryColor,
                     ),
-                  ),
+                  ],
                 ),
-                SizedBox(width: 8.w),
-                TextButton.icon(
-                  onPressed: () => _showDeleteConfirmDialog(apiKey),
-                  icon: Icon(
-                    Icons.delete_outline,
-                    size: 16.sp,
-                    color: Colors.red,
-                  ),
-                  label: Text(
-                    '删除',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 14.sp,
+                Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _showEditApiKeyDialog(apiKey),
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        size: 16.sp,
+                        color: AppTheme.primaryColor,
+                      ),
+                      label: Text(
+                        '编辑',
+                        style: TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontSize: 14.sp,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 8.h,
+                        ),
+                      ),
                     ),
-                  ),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 12.w,
-                      vertical: 8.h,
+                    SizedBox(width: 8.w),
+                    TextButton.icon(
+                      onPressed: () => _showDeleteConfirmDialog(apiKey),
+                      icon: Icon(
+                        Icons.delete_outline,
+                        size: 16.sp,
+                        color: Colors.red,
+                      ),
+                      label: Text(
+                        '删除',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 14.sp,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 8.h,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),

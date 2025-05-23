@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../theme/app_theme.dart';
 import '../../../dao/user_dao.dart';
 import '../../../services/file_service.dart';
@@ -69,8 +70,52 @@ class _UserInfoWidgetState extends State<UserInfoWidget> {
     }
   }
 
+  // 根据等级返回对应的颜色配置
+  Map<String, Color> _getLevelColors(int level) {
+    switch (level) {
+      case 1:
+        return {'start': Colors.white, 'end': Colors.white}; // 纯白色
+      case 2:
+        return {
+          'start': const Color(0xFFE0E0E0),
+          'end': const Color(0xFFAAAAAA)
+        }; // 银色
+      case 3:
+        return {
+          'start': const Color(0xFFFFFFFF),
+          'end': const Color(0xFFD0D0D0)
+        }; // 银白流光
+      case 4:
+        return {
+          'start': const Color(0xFFFFF8E1),
+          'end': const Color(0xFFFFD54F)
+        }; // 金色流光
+      case 5:
+        return {
+          'start': const Color(0xFFFFF9C4),
+          'end': const Color(0xFFFFD700)
+        }; // 金色流光（基础颜色）
+      default:
+        return {'start': Colors.white, 'end': Colors.white};
+    }
+  }
+
+  // 获取5级彩虹渐变颜色
+  List<Color> _getRainbowColors() {
+    return [
+      const Color(0xFFFF5252), // 红
+      const Color(0xFFFF7043), // 橙
+      const Color(0xFFFFCA28), // 黄
+      const Color(0xFF66BB6A), // 绿
+      const Color(0xFF29B6F6), // 蓝
+      const Color(0xFF7E57C2), // 紫
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
+    final levelColors = _getLevelColors(widget.level);
+
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
@@ -180,41 +225,8 @@ class _UserInfoWidgetState extends State<UserInfoWidget> {
                     fontSize: 14.sp,
                   ),
                 ),
-                SizedBox(height: 4.h),
-                Row(
-                  children: [
-                    Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.primaryColor.withOpacity(0.8),
-                            AppTheme.primaryColor,
-                          ],
-                        ),
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusSmall),
-                      ),
-                      child: Text(
-                        'LV.${widget.level}',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 8.w),
-                    Text(
-                      widget.levelName,
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 14.sp,
-                      ),
-                    ),
-                  ],
-                ),
+                SizedBox(height: 8.h),
+                _buildLevelText(levelColors),
               ],
             ),
           ),
@@ -230,5 +242,80 @@ class _UserInfoWidgetState extends State<UserInfoWidget> {
         ],
       ),
     );
+  }
+
+  // 构建等级文本
+  Widget _buildLevelText(Map<String, Color> levelColors) {
+    // 创建基本的文本行
+    final levelTextRow = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 5级前面添加星星图标
+        if (widget.level == 5) ...[
+          Icon(
+            Icons.star,
+            color: const Color(0xFFFFD700),
+            size: 16.sp,
+          ),
+          SizedBox(width: 2.w),
+        ],
+        Text(
+          'LV.${widget.level}',
+          style: TextStyle(
+            color: widget.level <= 2 ? levelColors['end'] : levelColors['end'],
+            fontSize: 14.sp,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(width: 4.w),
+        Text(
+          widget.levelName,
+          style: TextStyle(
+            color: widget.level <= 2 ? levelColors['end'] : levelColors['end'],
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+
+    // 5级使用彩虹渐变流光
+    if (widget.level == 5) {
+      return ShaderMask(
+        blendMode: BlendMode.srcIn,
+        shaderCallback: (bounds) {
+          return LinearGradient(
+            colors: _getRainbowColors(),
+            stops: const [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
+            tileMode: TileMode.mirror,
+          ).createShader(
+            Rect.fromLTWH(
+              0,
+              0,
+              bounds.width,
+              bounds.height,
+            ),
+          );
+        },
+        child: Shimmer.fromColors(
+          baseColor: Colors.white.withOpacity(0.8),
+          highlightColor: Colors.white,
+          period: const Duration(milliseconds: 2000),
+          child: levelTextRow,
+        ),
+      );
+    }
+    // 3-4级添加普通流光效果
+    else if (widget.level >= 3) {
+      return Shimmer.fromColors(
+        baseColor: levelColors['start']!,
+        highlightColor: levelColors['end']!,
+        period: const Duration(milliseconds: 2000),
+        child: levelTextRow,
+      );
+    } else {
+      // 1-2级没有流光效果
+      return levelTextRow;
+    }
   }
 }

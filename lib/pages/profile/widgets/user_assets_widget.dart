@@ -11,6 +11,7 @@ class UserAssetsWidget extends StatelessWidget {
   final bool refreshSuccess;
   final VoidCallback onRefresh;
   final Function(String) onAssetTap;
+  final VoidCallback onExchangeTap;
 
   const UserAssetsWidget({
     super.key,
@@ -22,6 +23,7 @@ class UserAssetsWidget extends StatelessWidget {
     required this.refreshSuccess,
     required this.onRefresh,
     required this.onAssetTap,
+    required this.onExchangeTap,
   });
 
   @override
@@ -47,13 +49,48 @@ class UserAssetsWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '我的资产',
-                style: TextStyle(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
-                ),
+              Row(
+                children: [
+                  Text(
+                    '我的资产',
+                    style: TextStyle(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  GestureDetector(
+                    onTap: onExchangeTap,
+                    child: Container(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        borderRadius: BorderRadius.circular(4.r),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.swap_horiz,
+                            size: 14.sp,
+                            color: Colors.white,
+                          ),
+                          SizedBox(width: 4.w),
+                          Text(
+                            '兑换',
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
               // 刷新按钮
               GestureDetector(

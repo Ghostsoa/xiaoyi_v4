@@ -12,6 +12,7 @@ import 'edit_profile_page.dart';
 import 'earn_coin_page.dart';
 import 'theme_settings_page.dart';
 import 'api_key_manage_page.dart';
+import 'exchange_page.dart';
 import 'widgets/user_info_widget.dart';
 import 'widgets/user_assets_widget.dart';
 import 'widgets/settings_widget.dart';
@@ -436,6 +437,19 @@ class ProfilePageState extends State<ProfilePage> {
                           refreshSuccess: _refreshSuccess,
                           onRefresh: _refreshAssets,
                           onAssetTap: _handleAssetTap,
+                          onExchangeTap: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ExchangePage(),
+                              ),
+                            );
+
+                            // 如果返回true，表示兑换成功，刷新资产
+                            if (result == true) {
+                              _refreshAssets();
+                            }
+                          },
                         ),
                         SizedBox(height: 32.h),
                         // 获取小懿币组件

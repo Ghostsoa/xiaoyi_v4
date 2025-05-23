@@ -6,6 +6,7 @@ import '../../../services/file_service.dart';
 import '../services/home_service.dart';
 import '../../../pages/character_chat/pages/character_init_page.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/custom_toast.dart';
 
 class ItemDetailPage extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -23,6 +24,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   late bool _isLiked;
   late int _likeCount;
   bool _isLiking = false;
+  bool _isRewarding = false;
 
   // 缓存图片数据
   Uint8List? _cachedCoverImage;
@@ -65,11 +67,10 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     final String? itemId = widget.item['id']?.toString();
     if (itemId == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('操作失败：无效的内容ID'),
-            duration: Duration(seconds: 2),
-          ),
+        CustomToast.show(
+          context,
+          message: '操作失败：无效的内容ID',
+          type: ToastType.error,
         );
       }
       return;
@@ -96,11 +97,10 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${_isLiked ? '取消点赞' : '点赞'}失败: $e'),
-            duration: const Duration(seconds: 2),
-          ),
+        CustomToast.show(
+          context,
+          message: '${_isLiked ? '取消点赞' : '点赞'}失败: $e',
+          type: ToastType.error,
         );
       }
     } finally {
@@ -108,6 +108,69 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         setState(() => _isLiking = false);
       }
     }
+  }
+
+  Future<void> _rewardItem(double amount) async {
+    if (_isRewarding) return;
+
+    final String? itemId = widget.item['id']?.toString();
+    if (itemId == null) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '操作失败：无效的内容ID',
+          type: ToastType.error,
+        );
+      }
+      return;
+    }
+
+    setState(() => _isRewarding = true);
+    try {
+      final response = await _homeService.rewardItem(itemId, amount);
+      if (response['code'] == 0) {
+        if (mounted) {
+          CustomToast.show(
+            context,
+            message: '激励成功，感谢您的支持！',
+            type: ToastType.success,
+          );
+        }
+      } else {
+        if (mounted) {
+          CustomToast.show(
+            context,
+            message: '激励失败: ${response['message']}',
+            type: ToastType.error,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '激励失败: $e',
+          type: ToastType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRewarding = false);
+      }
+    }
+  }
+
+  void _showRewardDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _RewardBottomSheet(
+        onReward: (amount) {
+          Navigator.pop(context);
+          _rewardItem(amount);
+        },
+      ),
+    );
   }
 
   String _getItemTypeText(String type) {
@@ -423,16 +486,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                 ),
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    // TODO: 实现激励功能
-                  },
+                  onPressed: _isRewarding ? null : _showRewardDialog,
                   icon: Icon(
                     Icons.workspace_premium_rounded,
                     size: 20.sp,
                     color: Colors.white,
                   ),
                   label: Text(
-                    '激励',
+                    _isRewarding ? '激励中...' : '激励',
                     style: TextStyle(color: Colors.white),
                   ),
                   style: OutlinedButton.styleFrom(
@@ -553,5 +614,147 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
   String _formatDateTime(DateTime dateTime) {
     return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _RewardBottomSheet extends StatefulWidget {
+  final Function(double) onReward;
+
+  const _RewardBottomSheet({required this.onReward});
+
+  @override
+  State<_RewardBottomSheet> createState() => _RewardBottomSheetState();
+}
+
+class _RewardBottomSheetState extends State<_RewardBottomSheet> {
+  double _selectedAmount = 10;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(24.w),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBackground,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '激励创作者',
+                style: TextStyle(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(Icons.close, color: AppTheme.textSecondary),
+              ),
+            ],
+          ),
+          SizedBox(height: 16.h),
+          Text(
+            '选择激励金额',
+            style: TextStyle(
+              fontSize: 16.sp,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          SizedBox(height: 16.h),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildRewardOption(context, 10),
+              _buildRewardOption(context, 50),
+              _buildRewardOption(context, 100),
+            ],
+          ),
+          SizedBox(height: 24.h),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                widget.onReward(_selectedAmount);
+              },
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                backgroundColor: Colors.amber[700],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+              ),
+              child: Text(
+                '确认激励 $_selectedAmount 小懿币',
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: MediaQuery.of(context).padding.bottom),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRewardOption(BuildContext context, double amount) {
+    final bool isSelected = _selectedAmount == amount;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedAmount = amount;
+        });
+      },
+      child: Container(
+        width: 80.w,
+        padding: EdgeInsets.symmetric(vertical: 16.h),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.amber.withOpacity(0.3)
+              : Colors.amber.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border: Border.all(
+            color: isSelected ? Colors.amber : Colors.amber.withOpacity(0.3),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.workspace_premium_rounded,
+              size: 24.sp,
+              color: isSelected ? Colors.amber[700] : Colors.amber[300],
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              '${amount.toInt()}',
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Colors.amber[700] : Colors.amber[300],
+              ),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              '小懿币',
+              style: TextStyle(
+                fontSize: 12.sp,
+                color:
+                    isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

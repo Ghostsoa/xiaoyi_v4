@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shimmer/shimmer.dart';
+import 'dart:typed_data';
 import '../../../theme/app_theme.dart';
 import '../services/characte_service.dart';
 import '../../../services/file_service.dart';
@@ -17,23 +18,47 @@ class DraftPage extends StatefulWidget {
 class _DraftPageState extends State<DraftPage> {
   int _selectedIndex = 0; // 0: 角色卡, 1: 小说
   final _characterService = CharacterService();
+  final ScrollController _scrollController = ScrollController();
+  final Map<String, Uint8List> _imageCache = {}; // 图片缓存
 
   bool _isLoading = false;
+  bool _isLoadingMore = false;
   List<Map<String, dynamic>> _characterList = [];
   int _total = 0;
-  final int _currentPage = 1;
+  int _currentPage = 1;
   final int _pageSize = 10;
+  bool _hasMoreData = true;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _scrollController.addListener(_scrollListener);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_scrollListener);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollListener() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 100 &&
+        !_isLoadingMore &&
+        _hasMoreData) {
+      _loadMoreData();
+    }
   }
 
   Future<void> _loadData() async {
     if (_selectedIndex == 1) return; // 暂时不处理小说列表
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _currentPage = 1;
+    });
 
     try {
       final response = await _characterService.getCharacterList(
@@ -47,7 +72,11 @@ class _DraftPageState extends State<DraftPage> {
           _characterList =
               List<Map<String, dynamic>>.from(response['data']['items']);
           _total = response['data']['total'];
+          _hasMoreData = _characterList.length < _total;
         });
+
+        // 预加载图片
+        _preloadImages();
       } else {
         _showToast('加载失败：${response['message']}', type: ToastType.error);
       }
@@ -55,6 +84,74 @@ class _DraftPageState extends State<DraftPage> {
       _showToast('加载失败：$e', type: ToastType.error);
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  // 预加载图片到缓存
+  Future<void> _preloadImages() async {
+    for (final character in _characterList) {
+      if (character['coverUri'] != null &&
+          !_imageCache.containsKey(character['coverUri'])) {
+        try {
+          final fileData = await FileService().getFile(character['coverUri']);
+          if (fileData != null && fileData.data != null) {
+            _imageCache[character['coverUri']] = fileData.data;
+          }
+        } catch (e) {
+          // 忽略加载失败的图片
+        }
+      }
+    }
+  }
+
+  Future<void> _loadMoreData() async {
+    if (_selectedIndex == 1 || !_hasMoreData) return;
+
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final response = await _characterService.getCharacterList(
+        page: _currentPage + 1,
+        pageSize: _pageSize,
+        status: 'draft',
+      );
+
+      if (response['code'] == 0) {
+        final newItems =
+            List<Map<String, dynamic>>.from(response['data']['items']);
+
+        if (newItems.isNotEmpty) {
+          setState(() {
+            _characterList.addAll(newItems);
+            _currentPage += 1;
+            _hasMoreData = _characterList.length < _total;
+          });
+
+          // 预加载新加载的图片
+          for (final character in newItems) {
+            if (character['coverUri'] != null &&
+                !_imageCache.containsKey(character['coverUri'])) {
+              try {
+                final fileData =
+                    await FileService().getFile(character['coverUri']);
+                if (fileData != null && fileData.data != null) {
+                  _imageCache[character['coverUri']] = fileData.data;
+                }
+              } catch (e) {
+                // 忽略加载失败的图片
+              }
+            }
+          }
+        } else {
+          setState(() => _hasMoreData = false);
+        }
+      } else {
+        _showToast('加载更多失败：${response['message']}', type: ToastType.error);
+      }
+    } catch (e) {
+      _showToast('加载更多失败：$e', type: ToastType.error);
+    } finally {
+      setState(() => _isLoadingMore = false);
     }
   }
 
@@ -177,9 +274,16 @@ class _DraftPageState extends State<DraftPage> {
     }
 
     return ListView.builder(
+      controller: _scrollController,
       padding: EdgeInsets.symmetric(horizontal: 24.w),
-      itemCount: _characterList.length,
+      itemCount:
+          _characterList.length + (_isLoadingMore || _hasMoreData ? 1 : 0),
       itemBuilder: (context, index) {
+        // 显示加载更多的指示器
+        if (index == _characterList.length) {
+          return _buildLoadMoreIndicator();
+        }
+
         final character = _characterList[index];
         return Container(
           padding: EdgeInsets.symmetric(vertical: 12.h),
@@ -198,32 +302,7 @@ class _DraftPageState extends State<DraftPage> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(4.r),
                 child: character['coverUri'] != null
-                    ? FutureBuilder(
-                        future: FileService().getFile(character['coverUri']),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return _buildShimmerImage();
-                          }
-                          if (!snapshot.hasData || snapshot.hasError) {
-                            return Container(
-                              width: 96.h,
-                              height: 96.h,
-                              color: AppTheme.cardBackground,
-                              child: Icon(
-                                Icons.image_not_supported_outlined,
-                                color: AppTheme.textSecondary,
-                              ),
-                            );
-                          }
-                          return Image.memory(
-                            snapshot.data!.data,
-                            width: 96.h,
-                            height: 96.h,
-                            fit: BoxFit.cover,
-                          );
-                        },
-                      )
+                    ? _buildCachedImage(character['coverUri'])
                     : Container(
                         width: 96.h,
                         height: 96.h,
@@ -370,6 +449,87 @@ class _DraftPageState extends State<DraftPage> {
           ),
         );
       },
+    );
+  }
+
+  // 构建缓存图片组件
+  Widget _buildCachedImage(String uri) {
+    // 如果图片已经在缓存中
+    if (_imageCache.containsKey(uri)) {
+      return Image.memory(
+        _imageCache[uri]!,
+        width: 96.h,
+        height: 96.h,
+        fit: BoxFit.cover,
+      );
+    }
+
+    // 图片不在缓存中，需要加载
+    return FutureBuilder(
+      future: () async {
+        try {
+          final fileData = await FileService().getFile(uri);
+          if (fileData != null && fileData.data != null) {
+            // 添加到缓存
+            _imageCache[uri] = fileData.data;
+            return fileData;
+          }
+        } catch (e) {
+          // 加载失败
+        }
+        return null;
+      }(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildShimmerImage();
+        }
+        if (!snapshot.hasData || snapshot.hasError) {
+          return Container(
+            width: 96.h,
+            height: 96.h,
+            color: AppTheme.cardBackground,
+            child: Icon(
+              Icons.image_not_supported_outlined,
+              color: AppTheme.textSecondary,
+            ),
+          );
+        }
+        return Image.memory(
+          snapshot.data!.data,
+          width: 96.h,
+          height: 96.h,
+          fit: BoxFit.cover,
+        );
+      },
+    );
+  }
+
+  Widget _buildLoadMoreIndicator() {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 16.h),
+      alignment: Alignment.center,
+      child: _isLoadingMore
+          ? SizedBox(
+              width: 24.w,
+              height: 24.w,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.w,
+                valueColor:
+                    AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+              ),
+            )
+          : GestureDetector(
+              onTap: _hasMoreData ? _loadMoreData : null,
+              child: Text(
+                _hasMoreData ? '加载更多' : '没有更多数据了',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: _hasMoreData
+                      ? AppTheme.primaryColor
+                      : AppTheme.textSecondary,
+                ),
+              ),
+            ),
     );
   }
 

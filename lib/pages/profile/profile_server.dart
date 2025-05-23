@@ -188,6 +188,54 @@ class ProfileServer {
     }
   }
 
+  // 兑换小懿币为畅玩时长
+  Future<Map<String, dynamic>> exchangePlayTime({
+    required double coin,
+    String? description,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'coin': coin,
+      };
+
+      if (description != null && description.isNotEmpty) {
+        data['description'] = description;
+      }
+
+      final response = await _httpClient.post(
+        '/assets/exchange/play-time',
+        data: data,
+      );
+
+      if (response.data is Map<String, dynamic>) {
+        final responseData = response.data as Map<String, dynamic>;
+
+        if (responseData.containsKey('code')) {
+          return {
+            'success': responseData['code'] == 0,
+            'data': responseData['data'] ?? {},
+            'msg': responseData['message'] ??
+                (responseData['code'] == 0 ? '兑换成功' : '兑换失败'),
+            'code': responseData['code']
+          };
+        }
+      }
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': {}, 'msg': '兑换成功', 'code': 0};
+      } else {
+        return {
+          'success': false,
+          'data': {},
+          'msg': '${response.statusCode}',
+          'code': response.statusCode
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'data': {}, 'msg': e.toString(), 'code': -1};
+    }
+  }
+
   // 同步旧资产数据
   Future<Map<String, dynamic>> syncOldAssets() async {
     try {
@@ -410,6 +458,50 @@ class ProfileServer {
 
       if (response.statusCode == 200) {
         return {'success': true, 'data': {}, 'msg': '删除成功', 'code': 0};
+      } else {
+        return {
+          'success': false,
+          'data': {},
+          'msg': '${response.statusCode}',
+          'code': response.statusCode
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'data': {}, 'msg': e.toString(), 'code': -1};
+    }
+  }
+
+  // 更新API密钥状态
+  Future<Map<String, dynamic>> updateApiKeyStatus({
+    required int id,
+    required int status,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'status': status,
+      };
+
+      final response = await _httpClient.put(
+        '/api-keys/$id/status',
+        data: data,
+      );
+
+      if (response.data is Map<String, dynamic>) {
+        final responseData = response.data as Map<String, dynamic>;
+
+        if (responseData.containsKey('code')) {
+          return {
+            'success': responseData['code'] == 0,
+            'data': responseData['data'] ?? {},
+            'msg': responseData['msg'] ??
+                (responseData['code'] == 0 ? '状态更新成功' : '状态更新失败'),
+            'code': responseData['code']
+          };
+        }
+      }
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': {}, 'msg': '状态更新成功', 'code': 0};
       } else {
         return {
           'success': false,
