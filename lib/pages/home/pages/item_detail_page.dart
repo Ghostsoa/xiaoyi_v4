@@ -660,7 +660,7 @@ class _RewardBottomSheetState extends State<_RewardBottomSheet> {
           ),
           SizedBox(height: 16.h),
           Text(
-            '选择激励金额',
+            '选择激励',
             style: TextStyle(
               fontSize: 16.sp,
               color: AppTheme.textSecondary,
