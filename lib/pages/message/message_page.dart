@@ -168,7 +168,12 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
     try {
       final result = await _fileService.getFile(coverUri);
       if (mounted && result.data != null) {
-        setState(() => _avatarCache[coverUri] = result.data);
+        final data = result.data;
+        if (data is Uint8List) {
+          setState(() => _avatarCache[coverUri] = data);
+        } else {
+          debugPrint('预加载头像数据类型错误: ${data.runtimeType}');
+        }
       }
     } catch (e) {
       debugPrint('加载头像失败: $e');
@@ -613,30 +618,53 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                             if (!_avatarCache.containsKey(coverUri)) {
                               WidgetsBinding.instance.addPostFrameCallback((_) {
                                 if (mounted) {
-                                  setState(() {
-                                    _avatarCache[coverUri] =
-                                        snapshot.data!.data;
-                                  });
+                                  try {
+                                    final data = snapshot.data!.data;
+                                    if (data is Uint8List) {
+                                      setState(() {
+                                        _avatarCache[coverUri] = data;
+                                      });
+                                    } else {
+                                      debugPrint(
+                                          '头像数据不是Uint8List类型: ${data.runtimeType}');
+                                    }
+                                  } catch (e) {
+                                    debugPrint('缓存头像失败: $e');
+                                  }
                                 }
                               });
                             }
-                            return Container(
-                              width: 40.w,
-                              height: 40.w,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                              ),
-                              child: ClipOval(
-                                child: Image.memory(
-                                  snapshot.data!.data,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    // 图片加载错误时显示占位符
-                                    return _buildAvatarPlaceholder(sessionName);
-                                  },
-                                ),
-                              ),
-                            );
+
+                            try {
+                              final data = snapshot.data!.data;
+                              if (data is Uint8List) {
+                                return Container(
+                                  width: 40.w,
+                                  height: 40.w,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: ClipOval(
+                                    child: Image.memory(
+                                      data,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        // 图片加载错误时显示占位符
+                                        return _buildAvatarPlaceholder(
+                                            sessionName);
+                                      },
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                debugPrint('头像数据类型错误: ${data.runtimeType}');
+                                return _buildAvatarPlaceholder(sessionName);
+                              }
+                            } catch (e) {
+                              debugPrint('渲染头像失败: $e');
+                              return _buildAvatarPlaceholder(sessionName);
+                            }
                           }
                           return _buildAvatarSkeleton(sessionName);
                         },

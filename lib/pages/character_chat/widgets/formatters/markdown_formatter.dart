@@ -3,6 +3,95 @@ import 'dart:ui';
 import 'base_formatter.dart';
 
 class MarkdownFormatter extends BaseFormatter {
+  // 正则表达式匹配常见的 Emoji Unicode 范围
+  static final RegExp _emojiRegex = RegExp(
+    r'^([\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE0F}\u{200D}\u{1F900}-\u{1F9FF}]+)?\s*(.*)$',
+    unicode: true,
+  );
+
+  // 辅助函数：提取Emoji和标签
+  // 规则:
+  // 1. "emoji标签" -> emoji:"emoji", label:"标签" (emoji和标签之间无空格)
+  // 2. "emoji" -> emoji:"emoji", label:""
+  // 3. "标签" -> emoji:"", label:"标签"
+  // 4. "emoji 标签" -> emoji:"", label:"emoji 标签" (emoji和标签之间有空格，视为一个整体标签)
+  Map<String, String> _extractEmojiAndLabel(String text) {
+    String trimmedText = text.trim();
+    if (trimmedText.isEmpty) {
+      return {'emoji': '', 'label': ''};
+    }
+
+    final match = _emojiRegex.firstMatch(trimmedText);
+
+    if (match != null) {
+      String potentialEmoji = match.group(1) ?? '';
+      String potentialLabel = match.group(2) ?? '';
+
+      if (potentialEmoji.isNotEmpty) {
+        // If an emoji is found, check if there's a space immediately after it in the original trimmed text.
+        // We need to see what was captured by \s* between the emoji and the label.
+        // A robust way is to check the character in trimmedText right after potentialEmoji.
+        if (trimmedText.length > potentialEmoji.length &&
+            trimmedText[potentialEmoji.length] == ' ') {
+          // There is a space immediately after the emoji, so it's not a valid emoji+label combo by the new rule.
+          // Treat the whole thing as a label.
+          return {'emoji': '', 'label': trimmedText};
+        } else {
+          // No space immediately after emoji, or it's just emoji (potentialLabel would be empty or not start with space here)
+          return {'emoji': potentialEmoji, 'label': potentialLabel.trim()};
+        }
+      } else {
+        // No emoji was matched by group(1).
+        // Check if the potentialLabel (which is effectively trimmedText here if group(1) is empty)
+        // is itself a pure emoji.
+        if (potentialLabel.isNotEmpty && _isPurelyEmoji(potentialLabel)) {
+          return {'emoji': potentialLabel, 'label': ''};
+        }
+        // Otherwise, the whole thing is a label.
+        return {'emoji': '', 'label': potentialLabel.trim()};
+      }
+    } else {
+      // Should not happen with the current regex (due to (.*)), but as a fallback:
+      return {'emoji': '', 'label': trimmedText};
+    }
+  }
+
+  // 辅助函数，判断字符串是否完全由定义的Emoji字符组成
+  bool _isPurelyEmoji(String text) {
+    if (text.isEmpty) return false;
+    // 这个正则只匹配Emoji字符，且从头到尾都是Emoji
+    final RegExp emojiOnlyRegex = RegExp(
+      r'^([\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE0F}\u{200D}\u{1F900}-\u{1F9FF}]+)$',
+      unicode: true,
+    );
+    return emojiOnlyRegex.hasMatch(text);
+  }
+
+  // 新增辅助函数：判断单元格文本是否像App图标组件
+  bool _isAppLikeCell(String cellText) {
+    if (cellText.isEmpty) return false;
+
+    final extracted = _extractEmojiAndLabel(cellText);
+    String emoji = extracted['emoji']!;
+    String label = extracted['label']!;
+
+    if (emoji.isNotEmpty) {
+      if (label.isNotEmpty) {
+        // Emoji 存在，如果标签也存在，标签长度不宜过长
+        return label.runes.length <= 12;
+      }
+      return true; // 只有 Emoji 也可以
+    } else {
+      // 没有 Emoji，则标签必须存在且短
+      if (label.isNotEmpty) {
+        // 允许的标签最大长度（无emoji时）
+        // 并且标签本身不应包含多个连续空格 (单个空格允许，如 "App Name")
+        return label.runes.length <= 10 && !label.contains('  ');
+      }
+    }
+    return false;
+  }
+
   @override
   Widget format(BuildContext context, String text, TextStyle baseStyle) {
     if (text.isEmpty) {
@@ -132,6 +221,23 @@ class MarkdownFormatter extends BaseFormatter {
             text: TextSpan(children: currentLineSpans),
           ));
           currentLineSpans = [];
+        }
+
+        // 检查是否是手机UI表格的特殊标记
+        if (lines[i].trim().contains('| MOCK_PHONE_UI |')) {
+          List<String> phoneLines = [];
+          int currentPhoneLine = i;
+          while (currentPhoneLine < lines.length &&
+              lines[currentPhoneLine].trim().startsWith('|')) {
+            phoneLines.add(lines[currentPhoneLine].trim());
+            currentPhoneLine++;
+          }
+
+          if (phoneLines.isNotEmpty) {
+            widgets.add(_buildPhoneUi(context, phoneLines, baseStyle));
+            i = currentPhoneLine - 1;
+            continue;
+          }
         }
 
         List<List<String>> tableData = [];
@@ -527,5 +633,488 @@ class MarkdownFormatter extends BaseFormatter {
   @override
   TextStyle getStyle(TextStyle baseStyle) {
     return baseStyle;
+  }
+
+  // 新增方法：构建手机UI界面
+  Widget _buildPhoneUi(
+      BuildContext context, List<String> lines, TextStyle baseStyle) {
+    if (lines.isEmpty) return const SizedBox.shrink();
+
+    // 提取状态栏、内容和导航栏的行
+    List<String> firstLineCells = lines.first.split('|');
+    String statusBarText =
+        (firstLineCells.length > 2) ? firstLineCells[2].trim() : ' ';
+
+    List<String> lastLineCells = lines.last.split('|');
+    String bottomNavBarText =
+        (lastLineCells.length > 1) ? lastLineCells[1].trim() : ' ';
+
+    List<String> contentLines = lines.sublist(1, lines.length - 1);
+    // 过滤掉分隔符行
+    contentLines
+        .removeWhere((line) => line.contains('---') || line.contains('==='));
+
+    // --- 开始修改 appGridData 生成逻辑 ---
+    const int MAX_SINGLE_SPACE_GRID_ITEMS = 5; // 单空格分隔时，一行中App图标的最大数量
+    List<List<String>> appGridData = []; // 使用 appGridData 作为最终变量名
+
+    for (String line in contentLines) {
+      if (line.startsWith('|') && line.endsWith('|')) {
+        String innerContent = line.substring(1, line.length - 1).trim();
+        if (innerContent.isEmpty) continue;
+
+        List<String> cellsForThisRow;
+
+        // 1. 尝试按2个或更多空格分割
+        List<String> multiSpaceCells = innerContent
+            .split(RegExp(r'\s{2,}'))
+            .map((c) => c.trim())
+            .where((c) => c.isNotEmpty)
+            .toList();
+
+        if (multiSpaceCells.length > 1) {
+          cellsForThisRow = multiSpaceCells;
+        } else {
+          // 2. 未被双空格成功分割，检查是否为显式列表项
+          if (innerContent.startsWith('- ') ||
+              innerContent.startsWith('* ') ||
+              RegExp(r'^\d+\.\s+').hasMatch(innerContent)) {
+            cellsForThisRow = [innerContent]; // 视为单个列表项
+          } else {
+            // 3. 非显式列表项，尝试按单个空格分割，并检查是否像App图标组
+            List<String> singleSpaceCells = innerContent
+                .split(RegExp(r'\s+'))
+                .map((c) => c.trim())
+                .where((c) => c.isNotEmpty)
+                .toList();
+
+            if (singleSpaceCells.length > 1 &&
+                singleSpaceCells.length <= MAX_SINGLE_SPACE_GRID_ITEMS) {
+              bool allCellsAppLike = true;
+              for (String cellCandidate in singleSpaceCells) {
+                if (!_isAppLikeCell(cellCandidate)) {
+                  allCellsAppLike = false;
+                  break;
+                }
+              }
+              if (allCellsAppLike) {
+                cellsForThisRow = singleSpaceCells; // 视为App图标网格行
+              } else {
+                cellsForThisRow = [innerContent]; // 不像App图标组，视为单个列表项
+              }
+            } else {
+              // 单空格分割后仍为单个单元格，或单元格过多
+              cellsForThisRow = [innerContent]; // 视为单个列表项
+            }
+          }
+        }
+        if (cellsForThisRow.isNotEmpty) {
+          appGridData.add(cellsForThisRow);
+        }
+      }
+    }
+    // --- 结束修改 appGridData 生成逻辑 ---
+
+    /* 原来的 appGridData 生成逻辑，将被替换
+    List<List<String>> appGridData = [];
+    for (String line in contentLines) {
+      if (line.startsWith('|') && line.endsWith('|')) {
+        String innerContent = line.substring(1, line.length - 1).trim();
+        if (innerContent.isNotEmpty) {
+          List<String> cells = innerContent
+              .split(RegExp(r'\s{2,}')) //  <--  原来的分割方式
+              .map((cellContent) => cellContent.trim())
+              .where((cellContent) => cellContent.isNotEmpty)
+              .toList();
+          if (cells.isNotEmpty) {
+            appGridData.add(cells);
+          }
+        }
+      }
+    }
+    */
+
+    return Semantics(
+      label: '手机界面模拟',
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
+        padding: const EdgeInsets.all(4.0),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(30.0),
+          border: Border.all(color: Colors.grey[800]!, width: 8.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22.0),
+          child: Container(
+            color: Colors.grey[900], // 手机屏幕背景色
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 状态栏
+                _buildPhoneStatusBar(statusBarText, baseStyle),
+                // 内容区域
+                Flexible(
+                  fit: FlexFit.loose,
+                  child:
+                      _buildPhoneContentArea(context, appGridData, baseStyle),
+                ),
+                // 底部导航栏
+                _buildPhoneBottomNavBar(bottomNavBarText, baseStyle),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhoneStatusBar(String text, TextStyle baseStyle) {
+    List<String> parts = text
+        .split(RegExp(r'\s+'))
+        .where((s) => s.isNotEmpty)
+        .toList(); // 按一个或多个空格分割
+
+    Widget statusBarContent;
+
+    if (parts.length >= 3) {
+      // 如果有3个或更多部分，取第一个、中间所有、最后一个
+      String leftPart = parts.first;
+      String rightPart = parts.last;
+      String centerPart = parts.sublist(1, parts.length - 1).join(' ');
+      statusBarContent = Row(
+        children: [
+          Text(leftPart,
+              style: _statusTextStyle(baseStyle),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+          const Spacer(),
+          if (centerPart.isNotEmpty)
+            Text(centerPart,
+                style: _statusTextStyle(baseStyle),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          const Spacer(),
+          Text(rightPart,
+              style: _statusTextStyle(baseStyle),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ],
+      );
+    } else if (parts.length == 2) {
+      // 如果有2个部分，左边一个，右边一个
+      statusBarContent = Row(
+        children: [
+          Text(parts.first,
+              style: _statusTextStyle(baseStyle),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+          const Spacer(),
+          Text(parts.last,
+              style: _statusTextStyle(baseStyle),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ],
+      );
+    } else {
+      // 如果只有1个或0个部分，则居中显示原始文本
+      statusBarContent = Text(
+        text,
+        style: _statusTextStyle(baseStyle),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+      color: Colors.transparent,
+      child: statusBarContent,
+    );
+  }
+
+  // 辅助方法获取状态栏文本样式
+  TextStyle _statusTextStyle(TextStyle baseStyle) {
+    return baseStyle.copyWith(
+      color: Colors.white.withOpacity(0.8),
+      fontSize: baseStyle.fontSize! * 0.8,
+    );
+  }
+
+  // 新增方法：决定渲染 Grid 还是 List
+  Widget _buildPhoneContentArea(BuildContext context,
+      List<List<String>> contentData, TextStyle baseStyle) {
+    if (contentData.isEmpty) {
+      // 如果没有有效的appGridData内容行，可以默认使用空的AppGrid或特定提示
+      // 或者根据场景决定是更像空列表还是空网格
+      return _buildPhoneAppGrid(context, [], baseStyle);
+    }
+
+    bool preferListView = true; // 默认列表视图
+    for (var row in contentData) {
+      if (row.length > 1) {
+        preferListView = false; // 一旦发现有多单元格的行，就切换到网格视图
+        break;
+      }
+    }
+    // 特殊处理：如果只有一行，且这一行也只有一个单元格，但内容非常短，可能还是Grid更好看？
+    // 例如 |  अकेला | (Hindi for alone/single) -> Grid (single large icon)
+    // 但为了处理 | 📱💬💌 | 后跟列表的情况，优先List。
+    // 只有当 preferListView 仍然是 false (即检测到多cell行)时，才用Grid
+
+    if (preferListView) {
+      return _buildPhoneContentList(context, contentData, baseStyle);
+    } else {
+      return _buildPhoneAppGrid(context, contentData, baseStyle);
+    }
+  }
+
+  // 新增方法：构建手机UI的列表内容
+  Widget _buildPhoneContentList(
+      BuildContext context, List<List<String>> listData, TextStyle baseStyle) {
+    List<Widget> listItems = [];
+    // 定义列表项的基础文本样式，移除isTitleLike相关的特定样式
+    final TextStyle listItemStyle = baseStyle.copyWith(
+        color: Colors.white.withOpacity(0.85), // 统一颜色透明度
+        fontWeight: FontWeight.normal, // 统一字重
+        fontSize: baseStyle.fontSize! * 0.85 // 统一字体大小
+        );
+
+    for (int i = 0; i < listData.length; i++) {
+      var rowCells = listData[i];
+      if (rowCells.isEmpty || rowCells.first.isEmpty) continue;
+
+      String textContent = rowCells.first; // 每行只有一个单元格，取其内容
+
+      listItems.add(Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+        child: RichText(
+          // 使用 RichText 替换 Text 以支持内联Markdown格式
+          text: TextSpan(
+            children: _processInlineFormats(textContent, listItemStyle),
+            style: listItemStyle, // 기본 스타일도 RichText의 TextSpan에 적용
+          ),
+          maxLines: 5,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ));
+      if (i < listData.length - 1) {
+        listItems.add(Divider(
+            color: Colors.grey[800],
+            height: 0.5,
+            thickness: 0.5,
+            indent: 16,
+            endIndent: 16)); // 调整分隔线颜色和缩进
+      }
+    }
+
+    if (listItems.isEmpty) {
+      return Center(
+        child: Text(
+          '列表为空',
+          style: baseStyle.copyWith(color: Colors.grey[600]),
+        ),
+      );
+    }
+
+    // 为ListView估算一个高度，与AppGrid类似或稍作调整
+    // 这里的估算可以更简单，比如固定几行文本的高度，或者取与AppGrid相似的高度
+    // double estimatedListItemHeight = baseStyle.fontSize! * 2.5 * 5; // 假设平均每个item 2.5行，最多显示5行文本的高度
+    // double listViewHeight = listData.length * baseStyle.fontSize! * 2.5; // 估算总高度
+    // Clamp the height to a reasonable range, e.g., similar to grid view height or a bit more if many items
+    // For simplicity, let's use a similar height to the grid for now, or a max height.
+    // This is a placeholder, real calculation might be more complex or based on available space.
+
+    // Re-using gridViewHeight calculation for consistency for now
+    // 估算单个图标的高度，用于计算GridView的容器高度 (从_buildPhoneAppGrid复制并调整)
+    double estimatedItemVisualHeight =
+        (baseStyle.fontSize! * 1.8) + // 估算Emoji/大文本行
+            4.0 + // 间隙
+            (baseStyle.fontSize! * 0.85 * 2) + // 估算普通文本行 (假设最多2行)
+            8.0; // 垂直内边距/对齐空间
+
+    double mainAxisSpacingForList = 8.0; // 列表项之间的间距可以小一些
+    // 估算列表区域高度，例如期望显示3-4个"典型"列表项的高度
+    // 这里我们使用与App Grid类似的行数(3行)作为参考，但项目高度估算不同
+    double referenceHeight = (estimatedItemVisualHeight * 3) +
+        (mainAxisSpacingForList * 2) +
+        16.0; // 16.0是额外padding
+
+    return Container(
+      height: referenceHeight, // 使用估算的固定高度
+      child: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        children: listItems,
+      ),
+    );
+  }
+
+  Widget _buildPhoneAppGrid(
+      BuildContext context, List<List<String>> gridData, TextStyle baseStyle) {
+    if (gridData.isEmpty) {
+      return Center(
+        child: Text(
+          '无应用内容',
+          style: baseStyle.copyWith(color: Colors.grey[600]),
+        ),
+      );
+    }
+    // 固定为3列
+    const int crossAxisCount = 3;
+
+    List<Widget> appIcons = [];
+    for (var row in gridData) {
+      for (var cell in row) {
+        if (cell.isNotEmpty) {
+          final extracted = _extractEmojiAndLabel(cell);
+          String emoji = extracted['emoji']!;
+          String label = extracted['label']!;
+
+          appIcons.add(Semantics(
+            label: '应用图标: $label',
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  emoji,
+                  style:
+                      TextStyle(fontSize: baseStyle.fontSize! * 1.8), // 放大emoji
+                ),
+                const SizedBox(height: 4.0),
+                Text(
+                  label,
+                  style: baseStyle.copyWith(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: baseStyle.fontSize! * 0.75,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ));
+        } else {
+          // 如果单元格为空，则添加一个占位符，以保持网格对齐
+          appIcons.add(const SizedBox.shrink());
+        }
+      }
+    }
+    // 如果appIcons为空，则显示提示
+    if (appIcons.isEmpty) {
+      return Center(
+        child: Text(
+          '无应用内容',
+          style: baseStyle.copyWith(color: Colors.grey[600]),
+        ),
+      );
+    }
+
+    // 估算单个图标的高度，用于计算GridView的容器高度
+    // Emoji text style: fontSize * 1.8
+    // Label text style: fontSize * 0.75
+    // SizedBox height: 4.0
+    // Padding around icon (approx): 4.0 top/bottom (implicit from Column mainAxisAlignment.center)
+    // This is a rough estimation
+    double estimatedIconHeight = (baseStyle.fontSize! * 1.8) + // Emoji
+        4.0 + // Spacer
+        (baseStyle.fontSize! * 0.75 * 2) + // Label (assume up to 2 lines)
+        8.0; // Approximate vertical padding/alignment space
+
+    double mainAxisSpacingValue = 12.0;
+    // 计算3行的高度
+    double gridViewHeight =
+        (estimatedIconHeight * 3) + (mainAxisSpacingValue * 2);
+    // 添加一些额外的padding作为缓冲区
+    gridViewHeight +=
+        16.0; // e.g., 8.0 top and 8.0 bottom padding for the grid area
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+      height: gridViewHeight, // 设置固定高度以允许内部滚动
+      child: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          crossAxisSpacing: 16.0,
+          mainAxisSpacing: 12.0,
+          childAspectRatio: 0.85,
+        ),
+        itemCount: appIcons.length,
+        itemBuilder: (context, index) {
+          return appIcons[index];
+        },
+        // physics: ClampingScrollPhysics(), // 或者根据需要选择其他滚动物理效果
+      ),
+    );
+  }
+
+  Widget _buildPhoneBottomNavBar(String text, TextStyle baseStyle) {
+    // 将文本按空格分割，每个部分作为一个图标/标签
+    // 注意：这里的分割逻辑需要调整，因为一个导航项可能包含空格，如 "信息 (未读)"
+    // 我们应该先按 Markdown 表格的 | 分割，这里传入的 text 已经是单个导航区域的完整文本
+    // 例如："通话记录 📱信息(未读) 🌐浏览器 📸相机"
+    // 我们需要根据视觉上的分隔（可能是多个空格）或固定数量来拆分导航项
+    // 为了简化，我们假设导航项之间用至少一个空格分隔
+    List<String> navItemStrings =
+        text.split(RegExp(r'\s+')).where((item) => item.isNotEmpty).toList();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.2),
+        border: Border(
+          top: BorderSide(color: Colors.grey[700]!, width: 0.5),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: navItemStrings.map((itemString) {
+          // 使用新的辅助函数提取 emoji 和 label
+          final extracted = _extractEmojiAndLabel(itemString);
+          String emoji = extracted['emoji']!;
+          String label = extracted['label']!;
+
+          return Flexible(
+            child: Semantics(
+              label: '导航项: $label',
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (emoji.isNotEmpty)
+                    Text(
+                      emoji,
+                      style: TextStyle(
+                          fontSize: baseStyle.fontSize! * 1.5,
+                          color: Colors.white.withOpacity(0.8)),
+                    ),
+                  if (emoji.isNotEmpty && label.isNotEmpty)
+                    const SizedBox(height: 2.0),
+                  if (label.isNotEmpty)
+                    Text(
+                      label,
+                      style: baseStyle.copyWith(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: baseStyle.fontSize! * 0.7,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 }

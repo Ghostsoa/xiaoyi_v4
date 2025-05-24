@@ -224,6 +224,61 @@ class UserManagementService {
     }
   }
 
+  // 扣除用户畅玩时长
+  Future<Map<String, dynamic>> deductUserPlayTime(
+    int userId, {
+    required double hours,
+    required String description,
+    String? refId,
+    String? refType,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'hours': hours,
+        'description': description,
+      };
+
+      if (refId != null) data['ref_id'] = refId;
+      if (refType != null) data['ref_type'] = refType;
+
+      final response = await _httpClient.delete(
+        '/admin/users/$userId/assets/play-time',
+        data: data,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception(response.data['msg'] ?? '扣除畅玩时长失败');
+      }
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+  // 清空用户所有资产
+  Future<void> clearUserAssets(
+    int userId, {
+    required String reason,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'reason': reason,
+      };
+
+      final response = await _httpClient.delete(
+        '/admin/users/$userId/assets',
+        data: data,
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(response.data['msg'] ?? '清空用户资产失败');
+      }
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
   // 获取用户资产
   Future<Map<String, dynamic>> getUserAsset(int userId) async {
     try {

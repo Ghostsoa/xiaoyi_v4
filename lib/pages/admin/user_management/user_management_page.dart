@@ -30,13 +30,15 @@ class _UserManagementPageState extends State<UserManagementPage> {
 
   final UserManagementService _userService = UserManagementService();
 
-  // 增加资产操作状态控制
+  // 资产操作状态控制
   bool _isAddingCoin = false;
   bool _isDeductingCoin = false;
   bool _isAddingExp = false;
   bool _isAddingPlayTime = false;
+  bool _isDeductingPlayTime = false; // 新增：扣除畅玩时长操作状态
+  bool _isClearingAssets = false; // 新增：清空资产操作状态
 
-  // 增加资产操作控制器
+  // 资产操作控制器
   final TextEditingController _coinAmountController = TextEditingController();
   final TextEditingController _coinDescriptionController =
       TextEditingController();
@@ -53,6 +55,16 @@ class _UserManagementPageState extends State<UserManagementPage> {
   final TextEditingController _playTimeHoursController =
       TextEditingController();
   final TextEditingController _playTimeDescriptionController =
+      TextEditingController();
+
+  // 新增：扣除畅玩时长控制器
+  final TextEditingController _deductPlayTimeHoursController =
+      TextEditingController();
+  final TextEditingController _deductPlayTimeDescriptionController =
+      TextEditingController();
+
+  // 新增：清空资产原因控制器
+  final TextEditingController _clearAssetsReasonController =
       TextEditingController();
 
   // 搜索类型选项
@@ -73,7 +85,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
     _searchController.dispose();
     _horizontalScrollController.dispose();
 
-    // 新增资产控制器释放
+    // 资产控制器释放
     _coinAmountController.dispose();
     _coinDescriptionController.dispose();
     _deductCoinAmountController.dispose();
@@ -82,6 +94,9 @@ class _UserManagementPageState extends State<UserManagementPage> {
     _expDescriptionController.dispose();
     _playTimeHoursController.dispose();
     _playTimeDescriptionController.dispose();
+    _deductPlayTimeHoursController.dispose(); // 新增释放
+    _deductPlayTimeDescriptionController.dispose(); // 新增释放
+    _clearAssetsReasonController.dispose(); // 新增释放
 
     super.dispose();
   }
@@ -420,6 +435,78 @@ class _UserManagementPageState extends State<UserManagementPage> {
     }
   }
 
+  // 新增：扣除用户畅玩时长
+  Future<void> _deductUserPlayTime(int userId, String username) async {
+    if (_deductPlayTimeHoursController.text.isEmpty ||
+        _deductPlayTimeDescriptionController.text.isEmpty) {
+      _showErrorToast('请填写必填字段');
+      return;
+    }
+
+    final double hours;
+    try {
+      hours = double.parse(_deductPlayTimeHoursController.text);
+      if (hours <= 0) {
+        _showErrorToast('时长必须大于0');
+        return;
+      }
+    } catch (e) {
+      _showErrorToast('请输入有效的数字');
+      return;
+    }
+
+    setState(() {
+      _isDeductingPlayTime = true;
+    });
+
+    try {
+      final result = await _userService.deductUserPlayTime(
+        userId,
+        hours: hours,
+        description: _deductPlayTimeDescriptionController.text,
+      );
+      _showSuccessToast(
+          '成功扣除 $hours 小时畅玩时长，当前剩余: ${result['data']['balance']} 小时');
+      _clearDeductPlayTimeForm();
+      Navigator.pop(context); // 关闭弹窗
+    } catch (e) {
+      _showErrorToast('操作失败: $e');
+    } finally {
+      setState(() {
+        _isDeductingPlayTime = false;
+      });
+    }
+  }
+
+  // 新增：清空用户所有资产
+  Future<void> _clearUserAssets(int userId, String username) async {
+    if (_clearAssetsReasonController.text.isEmpty) {
+      _showErrorToast('请填写清空原因');
+      return;
+    }
+
+    setState(() {
+      _isClearingAssets = true;
+    });
+
+    try {
+      await _userService.clearUserAssets(
+        userId,
+        reason: _clearAssetsReasonController.text,
+      );
+      _showSuccessToast('已清空用户 $username 的所有资产');
+      _clearClearAssetsForm();
+      Navigator.pop(context); // 关闭弹窗
+      _loadUsers(); // 重新加载用户列表，可能需要更新资产相关的显示
+    } catch (e) {
+      _showErrorToast('操作失败: $e');
+    } finally {
+      setState(() {
+        _isClearingAssets = false;
+      });
+    }
+  }
+
   // 显示增加小懿币弹窗
   void _showAddCoinDialog(int userId, String username) {
     _clearCoinForm();
@@ -623,6 +710,132 @@ class _UserManagementPageState extends State<UserManagementPage> {
     );
   }
 
+  // 新增：显示扣除畅玩时长弹窗
+  void _showDeductPlayTimeDialog(int userId, String username) {
+    _clearDeductPlayTimeForm();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('扣除畅玩时长 - $username'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildTextField(
+                controller: _deductPlayTimeHoursController,
+                labelText: '扣除小时数*',
+                hintText: '请输入大于0的数字，可包含小数',
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                ],
+              ),
+              SizedBox(height: 16.h),
+              _buildTextField(
+                controller: _deductPlayTimeDescriptionController,
+                labelText: '扣除原因*',
+                hintText: '例如：违规行为扣除',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('取消'),
+          ),
+          TextButton(
+            onPressed: _isDeductingPlayTime
+                ? null
+                : () => _deductUserPlayTime(userId, username),
+            child: _isDeductingPlayTime
+                ? SizedBox(
+                    width: 20.w,
+                    height: 20.h,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Text('确认'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 新增：显示清空用户资产弹窗
+  void _showClearAssetsDialog(int userId, String username) {
+    _clearClearAssetsForm();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('清空用户资产 - $username', style: TextStyle(color: Colors.red)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '此操作将清空用户所有资产（小懿币、经验值、畅玩时长），请谨慎操作！',
+                style: TextStyle(color: Colors.red, fontSize: 14.sp),
+              ),
+              SizedBox(height: 16.h),
+              _buildTextField(
+                controller: _clearAssetsReasonController,
+                labelText: '清空原因*',
+                hintText: '请输入清空资产的原因',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('取消'),
+          ),
+          TextButton(
+            onPressed: _isClearingAssets
+                ? null
+                : () {
+                    // 二次确认
+                    showDialog(
+                      context: context,
+                      builder: (confirmContext) => AlertDialog(
+                        title: Text('再次确认'),
+                        content: Text('确定要清空用户 $username 的所有资产吗？此操作不可恢复。'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(confirmContext),
+                            child: Text('取消'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(confirmContext); // 关闭二次确认弹窗
+                              _clearUserAssets(userId, username);
+                            },
+                            child: Text('确认清空',
+                                style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+            child: _isClearingAssets
+                ? SizedBox(
+                    width: 20.w,
+                    height: 20.h,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.red,
+                    ),
+                  )
+                : Text('确认清空', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // 显示用户资产管理选项菜单
   void _showAssetManagementMenu(int userId, String username) {
     showDialog(
@@ -670,6 +883,28 @@ class _UserManagementPageState extends State<UserManagementPage> {
               title: Text('增加畅玩时长'),
             ),
           ),
+          SimpleDialogOption(
+            // 新增：扣除畅玩时长
+            onPressed: () {
+              Navigator.pop(context);
+              _showDeductPlayTimeDialog(userId, username);
+            },
+            child: ListTile(
+              leading: Icon(Icons.timer_off, color: Colors.deepOrange),
+              title: Text('扣除畅玩时长'),
+            ),
+          ),
+          SimpleDialogOption(
+            // 新增：清空用户资产
+            onPressed: () {
+              Navigator.pop(context);
+              _showClearAssetsDialog(userId, username);
+            },
+            child: ListTile(
+              leading: Icon(Icons.delete_forever, color: Colors.red),
+              title: Text('清空所有资产', style: TextStyle(color: Colors.red)),
+            ),
+          ),
         ],
       ),
     );
@@ -694,6 +929,17 @@ class _UserManagementPageState extends State<UserManagementPage> {
   void _clearPlayTimeForm() {
     _playTimeHoursController.clear();
     _playTimeDescriptionController.clear();
+  }
+
+  // 新增：清除扣除畅玩时长表单
+  void _clearDeductPlayTimeForm() {
+    _deductPlayTimeHoursController.clear();
+    _deductPlayTimeDescriptionController.clear();
+  }
+
+  // 新增：清除清空资产表单
+  void _clearClearAssetsForm() {
+    _clearAssetsReasonController.clear();
   }
 
   // 格式化日期时间（比原有的只有日期的格式化更详细）
@@ -1127,6 +1373,9 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                               userId, 'logout');
                                       final bool isRoleLoading =
                                           _isUserActionLoading(userId, 'role');
+                                      final bool isClearAssetsLoading = // 新增
+                                          _isUserActionLoading(
+                                              userId, 'clear_assets');
 
                                       return Container(
                                         padding: EdgeInsets.symmetric(
@@ -1227,189 +1476,70 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                             ),
                                             SizedBox(
                                               width: 180.w,
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
+                                              child: Wrap(
+                                                // 使用Wrap换行
+                                                alignment: WrapAlignment.center,
+                                                spacing:
+                                                    0, // Adjust spacing between buttons if needed
+                                                runSpacing:
+                                                    0, // Adjust run spacing if needed
                                                 children: [
                                                   // 启用/禁用按钮
-                                                  Material(
-                                                    color: Colors.transparent,
-                                                    child: InkWell(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              4.r),
-                                                      onTap: (isDisableLoading ||
-                                                              isEnableLoading)
-                                                          ? null
-                                                          : () =>
-                                                              _toggleUserStatus(
-                                                                  userId,
-                                                                  isEnabled),
-                                                      child: Container(
-                                                        width: 40.w,
-                                                        height: 40.h,
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      4.r),
-                                                        ),
-                                                        child: Center(
-                                                          child: isDisableLoading ||
-                                                                  isEnableLoading
-                                                              ? SizedBox(
-                                                                  width: 18.w,
-                                                                  height: 18.h,
-                                                                  child:
-                                                                      CircularProgressIndicator(
-                                                                    strokeWidth:
-                                                                        2,
-                                                                    color: isEnabled
-                                                                        ? Colors
-                                                                            .red
-                                                                        : Colors
-                                                                            .green,
-                                                                  ),
-                                                                )
-                                                              : Icon(
-                                                                  isEnabled
-                                                                      ? Icons
-                                                                          .lock
-                                                                      : Icons
-                                                                          .lock_open,
-                                                                  size: 20.sp,
-                                                                  color: isEnabled
-                                                                      ? Colors
-                                                                          .red
-                                                                      : Colors
-                                                                          .green,
-                                                                ),
-                                                        ),
-                                                      ),
-                                                    ),
+                                                  _buildActionButton(
+                                                    isLoading:
+                                                        isDisableLoading ||
+                                                            isEnableLoading,
+                                                    icon: isEnabled
+                                                        ? Icons.lock
+                                                        : Icons.lock_open,
+                                                    color: isEnabled
+                                                        ? Colors.red
+                                                        : Colors.green,
+                                                    onTap: () =>
+                                                        _toggleUserStatus(
+                                                            userId, isEnabled),
                                                   ),
 
                                                   // 强制下线按钮
-                                                  Material(
-                                                    color: Colors.transparent,
-                                                    child: InkWell(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              4.r),
-                                                      onTap: isLogoutLoading
-                                                          ? null
-                                                          : () => _forceLogout(
-                                                              userId),
-                                                      child: Container(
-                                                        width: 40.w,
-                                                        height: 40.h,
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      4.r),
-                                                        ),
-                                                        child: Center(
-                                                          child: isLogoutLoading
-                                                              ? SizedBox(
-                                                                  width: 18.w,
-                                                                  height: 18.h,
-                                                                  child:
-                                                                      CircularProgressIndicator(
-                                                                    strokeWidth:
-                                                                        2,
-                                                                    color: Colors
-                                                                        .orange,
-                                                                  ),
-                                                                )
-                                                              : Icon(
-                                                                  Icons
-                                                                      .power_settings_new,
-                                                                  size: 20.sp,
-                                                                  color: Colors
-                                                                      .orange,
-                                                                ),
-                                                        ),
-                                                      ),
-                                                    ),
+                                                  _buildActionButton(
+                                                    isLoading: isLogoutLoading,
+                                                    icon: Icons
+                                                        .power_settings_new,
+                                                    color: Colors.orange,
+                                                    onTap: () =>
+                                                        _forceLogout(userId),
                                                   ),
 
                                                   // 资产管理按钮
-                                                  Material(
-                                                    color: Colors.transparent,
-                                                    child: InkWell(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              4.r),
-                                                      onTap: () =>
-                                                          _showAssetManagementMenu(
-                                                              userId,
-                                                              user['username'] ??
-                                                                  ''),
-                                                      child: Container(
-                                                        width: 40.w,
-                                                        height: 40.h,
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      4.r),
-                                                        ),
-                                                        child: Center(
-                                                          child: Icon(
-                                                            Icons
-                                                                .account_balance_wallet,
-                                                            size: 20.sp,
-                                                            color: Colors.teal,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
+                                                  _buildActionButton(
+                                                    icon: Icons
+                                                        .account_balance_wallet,
+                                                    color: Colors.teal,
+                                                    onTap: () =>
+                                                        _showAssetManagementMenu(
+                                                            userId,
+                                                            user['username'] ??
+                                                                ''),
                                                   ),
 
                                                   // 资产记录按钮
-                                                  Material(
-                                                    color: Colors.transparent,
-                                                    child: InkWell(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              4.r),
-                                                      onTap: () {
-                                                        Navigator.push(
-                                                          context,
-                                                          MaterialPageRoute(
-                                                            builder: (context) =>
-                                                                UserAssetRecordsPage(
-                                                              userId: userId,
-                                                              username: user[
-                                                                      'username'] ??
-                                                                  '',
-                                                            ),
-                                                          ),
-                                                        );
-                                                      },
-                                                      child: Container(
-                                                        width: 40.w,
-                                                        height: 40.h,
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      4.r),
-                                                        ),
-                                                        child: Center(
-                                                          child: Icon(
-                                                            Icons.history,
-                                                            size: 20.sp,
-                                                            color: Colors.blue,
+                                                  _buildActionButton(
+                                                    icon: Icons.history,
+                                                    color: Colors.blue,
+                                                    onTap: () {
+                                                      Navigator.push(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                          builder: (context) =>
+                                                              UserAssetRecordsPage(
+                                                            userId: userId,
+                                                            username: user[
+                                                                    'username'] ??
+                                                                '',
                                                           ),
                                                         ),
-                                                      ),
-                                                    ),
+                                                      );
+                                                    },
                                                   ),
 
                                                   // 角色设置按钮
@@ -1569,5 +1699,46 @@ class _UserManagementPageState extends State<UserManagementPage> {
       default:
         return Colors.grey;
     }
+  }
+
+  // 构建操作按钮的辅助方法
+  Widget _buildActionButton({
+    bool isLoading = false,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    double width = 40,
+    double height = 40,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4.r),
+        onTap: isLoading ? null : onTap,
+        child: Container(
+          width: width.w,
+          height: height.h,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4.r),
+          ),
+          child: Center(
+            child: isLoading
+                ? SizedBox(
+                    width: 18.w,
+                    height: 18.h,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: color,
+                    ),
+                  )
+                : Icon(
+                    icon,
+                    size: 20.sp,
+                    color: color,
+                  ),
+          ),
+        ),
+      ),
+    );
   }
 }
