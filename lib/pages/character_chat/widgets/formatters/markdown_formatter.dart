@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'base_formatter.dart';
+import 'dart:math' as math;
 
 class MarkdownFormatter extends BaseFormatter {
   // 正则表达式匹配常见的 Emoji Unicode 范围
@@ -715,30 +716,20 @@ class MarkdownFormatter extends BaseFormatter {
     }
     // --- 结束修改 appGridData 生成逻辑 ---
 
-    /* 原来的 appGridData 生成逻辑，将被替换
-    List<List<String>> appGridData = [];
-    for (String line in contentLines) {
-      if (line.startsWith('|') && line.endsWith('|')) {
-        String innerContent = line.substring(1, line.length - 1).trim();
-        if (innerContent.isNotEmpty) {
-          List<String> cells = innerContent
-              .split(RegExp(r'\s{2,}')) //  <--  原来的分割方式
-              .map((cellContent) => cellContent.trim())
-              .where((cellContent) => cellContent.isNotEmpty)
-              .toList();
-          if (cells.isNotEmpty) {
-            appGridData.add(cells);
-          }
-        }
-      }
-    }
-    */
+    // 获取屏幕宽度，用于计算手机容器宽度
+    double screenWidth = MediaQuery.of(context).size.width;
+    // 计算合适的手机容器宽度，设置为屏幕宽度的75%，或最小280像素
+    double phoneWidth = math.max(screenWidth * 0.75, 280.0);
+    // 计算手机容器高度，保持合理的长宽比，比如16:9或18:9
+    double phoneHeight = phoneWidth * 2.0; // 更高的手机，大约2倍宽度
 
     return Semantics(
       label: '手机界面模拟',
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
+        margin: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
         padding: const EdgeInsets.all(4.0),
+        width: phoneWidth, // 设置更宽的手机容器宽度
+        height: phoneHeight, // 设置更高的手机容器高度
         decoration: BoxDecoration(
           color: Colors.black,
           borderRadius: BorderRadius.circular(30.0),
@@ -760,9 +751,8 @@ class MarkdownFormatter extends BaseFormatter {
               children: [
                 // 状态栏
                 _buildPhoneStatusBar(statusBarText, baseStyle),
-                // 内容区域
-                Flexible(
-                  fit: FlexFit.loose,
+                // 内容区域 - 使用Expanded让内容区域填充剩余空间
+                Expanded(
                   child:
                       _buildPhoneContentArea(context, appGridData, baseStyle),
                 ),
@@ -901,8 +891,9 @@ class MarkdownFormatter extends BaseFormatter {
           // 使用 RichText 替换 Text 以支持内联Markdown格式
           text: TextSpan(
             children: _processInlineFormats(textContent, listItemStyle),
-            style: listItemStyle, // 기본 스타일도 RichText의 TextSpan에 적용
+            style: listItemStyle,
           ),
+          textAlign: TextAlign.left, // 确保文本左对齐
           maxLines: 5,
           overflow: TextOverflow.ellipsis,
         ),
@@ -926,33 +917,11 @@ class MarkdownFormatter extends BaseFormatter {
       );
     }
 
-    // 为ListView估算一个高度，与AppGrid类似或稍作调整
-    // 这里的估算可以更简单，比如固定几行文本的高度，或者取与AppGrid相似的高度
-    // double estimatedListItemHeight = baseStyle.fontSize! * 2.5 * 5; // 假设平均每个item 2.5行，最多显示5行文本的高度
-    // double listViewHeight = listData.length * baseStyle.fontSize! * 2.5; // 估算总高度
-    // Clamp the height to a reasonable range, e.g., similar to grid view height or a bit more if many items
-    // For simplicity, let's use a similar height to the grid for now, or a max height.
-    // This is a placeholder, real calculation might be more complex or based on available space.
-
-    // Re-using gridViewHeight calculation for consistency for now
-    // 估算单个图标的高度，用于计算GridView的容器高度 (从_buildPhoneAppGrid复制并调整)
-    double estimatedItemVisualHeight =
-        (baseStyle.fontSize! * 1.8) + // 估算Emoji/大文本行
-            4.0 + // 间隙
-            (baseStyle.fontSize! * 0.85 * 2) + // 估算普通文本行 (假设最多2行)
-            8.0; // 垂直内边距/对齐空间
-
-    double mainAxisSpacingForList = 8.0; // 列表项之间的间距可以小一些
-    // 估算列表区域高度，例如期望显示3-4个"典型"列表项的高度
-    // 这里我们使用与App Grid类似的行数(3行)作为参考，但项目高度估算不同
-    double referenceHeight = (estimatedItemVisualHeight * 3) +
-        (mainAxisSpacingForList * 2) +
-        16.0; // 16.0是额外padding
-
     return Container(
-      height: referenceHeight, // 使用估算的固定高度
-      child: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start, // 确保内容左对齐
         children: listItems,
       ),
     );
@@ -1019,40 +988,17 @@ class MarkdownFormatter extends BaseFormatter {
       );
     }
 
-    // 估算单个图标的高度，用于计算GridView的容器高度
-    // Emoji text style: fontSize * 1.8
-    // Label text style: fontSize * 0.75
-    // SizedBox height: 4.0
-    // Padding around icon (approx): 4.0 top/bottom (implicit from Column mainAxisAlignment.center)
-    // This is a rough estimation
-    double estimatedIconHeight = (baseStyle.fontSize! * 1.8) + // Emoji
-        4.0 + // Spacer
-        (baseStyle.fontSize! * 0.75 * 2) + // Label (assume up to 2 lines)
-        8.0; // Approximate vertical padding/alignment space
-
-    double mainAxisSpacingValue = 12.0;
-    // 计算3行的高度
-    double gridViewHeight =
-        (estimatedIconHeight * 3) + (mainAxisSpacingValue * 2);
-    // 添加一些额外的padding作为缓冲区
-    gridViewHeight +=
-        16.0; // e.g., 8.0 top and 8.0 bottom padding for the grid area
-
+    // 创建网格布局，使用GridView确保一行显示3个应用图标
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-      height: gridViewHeight, // 设置固定高度以允许内部滚动
-      child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: crossAxisCount,
-          crossAxisSpacing: 16.0,
-          mainAxisSpacing: 12.0,
-          childAspectRatio: 0.85,
-        ),
-        itemCount: appIcons.length,
-        itemBuilder: (context, index) {
-          return appIcons[index];
-        },
-        // physics: ClampingScrollPhysics(), // 或者根据需要选择其他滚动物理效果
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+      child: GridView.count(
+        crossAxisCount: crossAxisCount, // 固定3列
+        crossAxisSpacing: 16.0,
+        mainAxisSpacing: 20.0,
+        childAspectRatio: 0.85, // 控制图标的长宽比
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(), // 禁用滚动
+        children: appIcons,
       ),
     );
   }
