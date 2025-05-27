@@ -5,6 +5,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/custom_toast.dart';
 import '../character_chat/pages/character_chat_page.dart';
+import '../novel/pages/novel_reading_page.dart';
 import 'notifications_page.dart';
 import 'message_service.dart';
 import '../../services/file_service.dart';
@@ -76,21 +77,38 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
     });
 
     try {
-      final result = await _messageService.getCharacterSessions(
-        page: _currentPage,
-        pageSize: 10,
-      );
+      final result = _isCharacterMode
+          ? await _messageService.getCharacterSessions(
+              page: _currentPage,
+              pageSize: 10,
+            )
+          : await _messageService.getNovelSessions(
+              page: _currentPage,
+              pageSize: 10,
+            );
 
       if (mounted) {
         setState(() {
-          if (result['list'] is List) {
-            _sessions = List<Map<String, dynamic>>.from(result['list']);
+          if (_isCharacterMode) {
+            if (result['list'] is List) {
+              _sessions = List<Map<String, dynamic>>.from(result['list']);
+            } else {
+              _sessions = [];
+              debugPrint('获取会话列表返回数据格式错误: $result');
+            }
           } else {
-            _sessions = [];
-            debugPrint('获取会话列表返回数据格式错误: $result');
+            // 处理小说会话列表
+            if (result['sessions'] is List) {
+              _sessions = List<Map<String, dynamic>>.from(result['sessions']);
+            } else {
+              _sessions = [];
+              debugPrint('获取小说会话列表返回数据格式错误: $result');
+            }
           }
 
-          final int total = result['total'] is int ? result['total'] : 0;
+          final int total = _isCharacterMode
+              ? (result['total'] is int ? result['total'] : 0)
+              : (result['total'] is int ? result['total'] : 0);
           _hasMore = _sessions.length < total;
           _isLoading = false;
         });
@@ -120,24 +138,39 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
     setState(() => _isLoadingMore = true);
 
     try {
-      final result = await _messageService.getCharacterSessions(
-        page: _currentPage + 1,
-        pageSize: 10,
-      );
+      final result = _isCharacterMode
+          ? await _messageService.getCharacterSessions(
+              page: _currentPage + 1,
+              pageSize: 10,
+            )
+          : await _messageService.getNovelSessions(
+              page: _currentPage + 1,
+              pageSize: 10,
+            );
 
       if (mounted) {
         List<Map<String, dynamic>> newSessions = [];
-        if (result['list'] is List) {
-          newSessions = List<Map<String, dynamic>>.from(result['list']);
+        if (_isCharacterMode) {
+          if (result['list'] is List) {
+            newSessions = List<Map<String, dynamic>>.from(result['list']);
+          } else {
+            debugPrint('加载更多会话返回数据格式错误: $result');
+          }
         } else {
-          debugPrint('加载更多会话返回数据格式错误: $result');
+          if (result['sessions'] is List) {
+            newSessions = List<Map<String, dynamic>>.from(result['sessions']);
+          } else {
+            debugPrint('加载更多小说会话返回数据格式错误: $result');
+          }
         }
 
         setState(() {
           _sessions.addAll(newSessions);
           _currentPage++;
 
-          final int total = result['total'] is int ? result['total'] : 0;
+          final int total = _isCharacterMode
+              ? (result['total'] is int ? result['total'] : 0)
+              : (result['total'] is int ? result['total'] : 0);
           _hasMore = _sessions.length < total;
           _isLoadingMore = false;
         });
@@ -313,7 +346,7 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                       if (_isCharacterMode) {
                         setState(() {
                           _isCharacterMode = false;
-                          _sessions = []; // 清空小说列表
+                          _loadSessions(); // 切换时加载小说会话列表
                         });
                       }
                     },
@@ -335,31 +368,92 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                 child: ListView.builder(
                   padding: EdgeInsets.symmetric(horizontal: 20.w),
                   itemCount: 10, // 显示10个骨架项
-                  itemBuilder: (context, index) => _buildSkeletonItem(),
+                  itemBuilder: (context, index) => _isCharacterMode
+                      ? _buildSkeletonItem()
+                      : _buildNovelSkeletonItem(),
                 ),
               )
             else if (!_isCharacterMode)
               Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.book_outlined,
-                        size: 48.sp,
-                        color: AppTheme.textSecondary.withOpacity(0.3),
-                      ),
-                      SizedBox(height: 16.h),
-                      Text(
-                        '小说功能开发中...',
-                        style: TextStyle(
-                          fontSize: 14.sp,
-                          color: AppTheme.textSecondary.withOpacity(0.5),
+                child: _sessions.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.book_outlined,
+                              size: 48.sp,
+                              color: AppTheme.textSecondary.withOpacity(0.3),
+                            ),
+                            SizedBox(height: 16.h),
+                            Text(
+                              '暂无小说',
+                              style: TextStyle(
+                                fontSize: 14.sp,
+                                color: AppTheme.textSecondary.withOpacity(0.5),
+                              ),
+                            ),
+                            SizedBox(height: 8.h),
+                            Text(
+                              '开始创作您的第一本小说吧',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                color: AppTheme.textSecondary.withOpacity(0.3),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : SmartRefresher(
+                        controller: _refreshController,
+                        enablePullDown: true,
+                        enablePullUp: true,
+                        header: const ClassicHeader(
+                          idleText: '下拉刷新',
+                          refreshingText: '正在刷新',
+                          completeText: '刷新完成',
+                          failedText: '刷新失败',
+                          releaseText: '释放刷新',
+                        ),
+                        footer: const ClassicFooter(
+                          idleText: '上拉加载更多',
+                          loadingText: '正在加载',
+                          noDataText: '没有更多数据',
+                          failedText: '加载失败',
+                          canLoadingText: '释放加载更多',
+                        ),
+                        onRefresh: _onRefresh,
+                        onLoading: _onLoading,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          key: const PageStorageKey('novel_list'),
+                          itemCount: _sessions.length,
+                          padding: EdgeInsets.symmetric(horizontal: 20.w),
+                          itemBuilder: (context, index) {
+                            try {
+                              final session = _sessions[index];
+                              return _buildNovelSessionItem(
+                                context,
+                                session,
+                              );
+                            } catch (e) {
+                              debugPrint('构建小说项失败 index=$index: $e');
+                              return SizedBox(
+                                height: 60.h,
+                                child: Center(
+                                  child: Text(
+                                    '加载失败',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 14.sp,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                         ),
                       ),
-                    ],
-                  ),
-                ),
               )
             else
               Expanded(
@@ -886,15 +980,25 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
   Future<void> _onRefresh() async {
     _currentPage = 1;
     try {
-      final result = await _messageService.getCharacterSessions(
-        page: _currentPage,
-        pageSize: 10,
-      );
+      final result = _isCharacterMode
+          ? await _messageService.getCharacterSessions(
+              page: _currentPage,
+              pageSize: 10,
+            )
+          : await _messageService.getNovelSessions(
+              page: _currentPage,
+              pageSize: 10,
+            );
 
       if (mounted) {
         setState(() {
-          _sessions = List<Map<String, dynamic>>.from(result['list']);
-          _hasMore = _sessions.length < result['total'];
+          if (_isCharacterMode) {
+            _sessions = List<Map<String, dynamic>>.from(result['list']);
+            _hasMore = _sessions.length < result['total'];
+          } else {
+            _sessions = List<Map<String, dynamic>>.from(result['sessions']);
+            _hasMore = _sessions.length < result['total'];
+          }
         });
 
         // 预加载头像
@@ -920,17 +1024,30 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
     }
 
     try {
-      final result = await _messageService.getCharacterSessions(
-        page: _currentPage + 1,
-        pageSize: 10,
-      );
+      final result = _isCharacterMode
+          ? await _messageService.getCharacterSessions(
+              page: _currentPage + 1,
+              pageSize: 10,
+            )
+          : await _messageService.getNovelSessions(
+              page: _currentPage + 1,
+              pageSize: 10,
+            );
 
       if (mounted) {
-        final newSessions = List<Map<String, dynamic>>.from(result['list']);
+        List<Map<String, dynamic>> newSessions;
+        if (_isCharacterMode) {
+          newSessions = List<Map<String, dynamic>>.from(result['list']);
+        } else {
+          newSessions = List<Map<String, dynamic>>.from(result['sessions']);
+        }
+
         setState(() {
           _sessions.addAll(newSessions);
           _currentPage++;
-          _hasMore = _sessions.length < result['total'];
+          _hasMore = _isCharacterMode
+              ? _sessions.length < result['total']
+              : _sessions.length < result['total'];
         });
 
         // 预加载新加载的会话的头像
@@ -971,7 +1088,11 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
       // 一一删除选中的会话
       for (final id in _selectedIds) {
         try {
-          await _messageService.deleteSession(id);
+          if (_isCharacterMode) {
+            await _messageService.deleteSession(id);
+          } else {
+            await _messageService.deleteNovelSession(id);
+          }
         } catch (e) {
           debugPrint('删除会话失败: $e');
         }
@@ -1049,6 +1170,362 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNovelSessionItem(
+    BuildContext context,
+    Map<String, dynamic> session,
+  ) {
+    // 添加防御性编程，确保 session 有效
+    if (session.isEmpty) {
+      return SizedBox.shrink();
+    }
+
+    // 安全获取 sessionId，防止类型转换错误
+    final int sessionId;
+    try {
+      sessionId = session['id'] as int;
+    } catch (e) {
+      debugPrint('获取小说会话 ID 失败: $e');
+      return SizedBox.shrink(); // 如果无法获取ID，不显示此项
+    }
+
+    final String? coverUri = session['cover_uri'];
+    final bool hasAvatar = coverUri != null &&
+        coverUri.isNotEmpty &&
+        _avatarCache.containsKey(coverUri);
+    final bool isSelected = _selectedIds.contains(sessionId);
+
+    // 防止可能导致渲染错误的情况
+    String title = '';
+    try {
+      title = session['title'] ?? '未命名小说';
+    } catch (e) {
+      title = '未命名小说';
+    }
+
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 10.h),
+      child: InkWell(
+        onTap: () {
+          if (_isMultiSelectMode) {
+            setState(() {
+              if (isSelected) {
+                _selectedIds.remove(sessionId);
+              } else {
+                _selectedIds.add(sessionId);
+              }
+            });
+          } else {
+            // 创建安全的小说数据
+            final Map<String, dynamic> safeNovelData = {
+              'title': title,
+              'id': sessionId,
+              'cover_uri': coverUri,
+            };
+
+            // 跳转到小说阅读页面
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => NovelReadingPage(
+                  sessionData: session,
+                  novelData: safeNovelData,
+                ),
+              ),
+            );
+          }
+        },
+        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+        splashColor: Colors.transparent,
+        highlightColor: Colors.white.withOpacity(0.05),
+        child: Container(
+          height: 60.h, // 保持与角色会话项相同的高度
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+            color: AppTheme.cardBackground.withOpacity(0.2),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              // 背景图
+              Positioned.fill(
+                child: coverUri != null && coverUri.isNotEmpty
+                    ? hasAvatar
+                        ? Image.memory(
+                            _avatarCache[coverUri]!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: AppTheme.cardBackground,
+                              );
+                            },
+                          )
+                        : FutureBuilder(
+                            future: _fileService.getFile(coverUri),
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData) {
+                                // 在获取数据后立即更新缓存
+                                if (!_avatarCache.containsKey(coverUri)) {
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
+                                    if (mounted) {
+                                      try {
+                                        final data = snapshot.data!.data;
+                                        if (data is Uint8List) {
+                                          setState(() {
+                                            _avatarCache[coverUri] = data;
+                                          });
+                                        }
+                                      } catch (e) {
+                                        debugPrint('缓存封面失败: $e');
+                                      }
+                                    }
+                                  });
+                                }
+
+                                try {
+                                  final data = snapshot.data!.data;
+                                  if (data is Uint8List) {
+                                    return Image.memory(
+                                      data,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return Container(
+                                          color: AppTheme.cardBackground,
+                                        );
+                                      },
+                                    );
+                                  } else {
+                                    return Container(
+                                      color: AppTheme.cardBackground,
+                                    );
+                                  }
+                                } catch (e) {
+                                  return Container(
+                                    color: AppTheme.cardBackground,
+                                  );
+                                }
+                              }
+                              return Shimmer.fromColors(
+                                baseColor: AppTheme.cardBackground,
+                                highlightColor:
+                                    AppTheme.cardBackground.withOpacity(0.5),
+                                child: Container(
+                                  color: AppTheme.cardBackground,
+                                ),
+                              );
+                            },
+                          )
+                    : Container(
+                        color: AppTheme.cardBackground,
+                      ),
+              ),
+              // 黑色渐变蒙层，确保文字可见
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.1),
+                        Colors.black.withOpacity(0.6),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // 多选模式下的选择圆圈
+              if (_isMultiSelectMode)
+                Positioned(
+                  left: 12.w,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: Container(
+                      width: 24.w,
+                      height: 24.w,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color:
+                              isSelected ? AppTheme.primaryColor : Colors.white,
+                          width: 2,
+                        ),
+                        color: isSelected
+                            ? AppTheme.primaryColor
+                            : Colors.transparent,
+                      ),
+                      child: isSelected
+                          ? Icon(
+                              Icons.check,
+                              size: 16.sp,
+                              color: Colors.white,
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+              // 内容区域
+              Positioned(
+                left: _isMultiSelectMode ? 48.w : 16.w,
+                right: 16.w,
+                bottom: 8.h,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 标题和时间
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(
+                                  offset: Offset(0, 1),
+                                  blurRadius: 3.0,
+                                  color: Colors.black.withOpacity(0.5),
+                                ),
+                              ],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        Text(
+                          _formatTime(_safeGet(session, 'updated_at', '')),
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            color: Colors.white.withOpacity(0.8),
+                            shadows: [
+                              Shadow(
+                                offset: Offset(0, 1),
+                                blurRadius: 2.0,
+                                color: Colors.black.withOpacity(0.5),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    // 标签
+                    if (session['tags'] is List &&
+                        (session['tags'] as List).isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.only(top: 6.h),
+                        child: Wrap(
+                          spacing: 6.w,
+                          runSpacing: 4.h,
+                          children: (session['tags'] as List)
+                              .take(2) // 最多显示2个标签
+                              .map((tag) => Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 6.w,
+                                      vertical: 2.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.4),
+                                      borderRadius: BorderRadius.circular(4.r),
+                                    ),
+                                    child: Text(
+                                      tag.toString(),
+                                      style: TextStyle(
+                                        fontSize: 10.sp,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNovelSkeletonItem() {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 10.h),
+      child: Shimmer.fromColors(
+        baseColor: AppTheme.cardBackground,
+        highlightColor: AppTheme.cardBackground.withOpacity(0.5),
+        child: Container(
+          height: 60.h,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+            color: AppTheme.cardBackground,
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // 标题骨架
+                    Container(
+                      width: 120.w,
+                      height: 16.h,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4.r),
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                    // 时间骨架
+                    Container(
+                      width: 40.w,
+                      height: 12.h,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4.r),
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8.h),
+                // 标签骨架
+                Row(
+                  children: [
+                    Container(
+                      width: 40.w,
+                      height: 16.h,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4.r),
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                    SizedBox(width: 8.w),
+                    Container(
+                      width: 40.w,
+                      height: 16.h,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4.r),
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

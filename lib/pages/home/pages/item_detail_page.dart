@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import '../../../services/file_service.dart';
 import '../services/home_service.dart';
 import '../../../pages/character_chat/pages/character_init_page.dart';
+import '../../../pages/novel/pages/novel_init_page.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/custom_toast.dart';
 
@@ -518,6 +519,15 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                           ),
                         ),
                       );
+                    } else if (widget.item["item_type"] == "novel_card") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => NovelInitPage(
+                            novelData: widget.item,
+                          ),
+                        ),
+                      );
                     }
                     // TODO: 其他类型的跳转逻辑
                   },
@@ -525,7 +535,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                     Icons.chat_rounded,
                     size: 20.sp,
                   ),
-                  label: const Text('开始对话'),
+                  label: Text(widget.item["item_type"] == "novel_card"
+                      ? '开始阅读'
+                      : '开始对话'),
                   style: FilledButton.styleFrom(
                     padding: EdgeInsets.symmetric(vertical: 12.h),
                     backgroundColor: Colors.transparent,

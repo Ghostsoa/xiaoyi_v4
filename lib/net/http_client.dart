@@ -133,13 +133,22 @@ class HttpClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    Duration? timeout,
   }) async {
     try {
+      Options requestOptions = options ?? Options();
+      if (timeout != null) {
+        requestOptions = requestOptions.copyWith(
+          sendTimeout: timeout,
+          receiveTimeout: timeout,
+        );
+      }
+
       return await _dio.post(
         path,
         data: data,
         queryParameters: queryParameters,
-        options: options,
+        options: requestOptions,
         cancelToken: cancelToken,
       );
     } on DioException catch (e) {

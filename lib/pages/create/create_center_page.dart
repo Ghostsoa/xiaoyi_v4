@@ -11,6 +11,7 @@ import 'material/public_material_page.dart';
 import 'character/create_character_page.dart';
 import 'my_creation/my_creation_page.dart';
 import 'draft/draft_page.dart';
+import 'novel/create_novel_page.dart';
 
 class CreateCenterPage extends StatefulWidget {
   const CreateCenterPage({super.key});
@@ -378,7 +379,12 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
-                              // TODO: 跳转到创建小说页面
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CreateNovelPage(),
+                                ),
+                              );
                             },
                             behavior: HitTestBehavior.opaque,
                             child: Row(

@@ -4,9 +4,11 @@ import 'package:shimmer/shimmer.dart';
 import 'dart:typed_data';
 import '../../../theme/app_theme.dart';
 import '../services/characte_service.dart';
+import '../services/novel_service.dart';
 import '../../../services/file_service.dart';
 import '../../../widgets/custom_toast.dart';
 import '../character/create_character_page.dart';
+import '../novel/create_novel_page.dart';
 
 class DraftPage extends StatefulWidget {
   const DraftPage({super.key});
@@ -18,12 +20,14 @@ class DraftPage extends StatefulWidget {
 class _DraftPageState extends State<DraftPage> {
   int _selectedIndex = 0; // 0: 角色卡, 1: 小说
   final _characterService = CharacterService();
+  final _novelService = NovelService();
   final ScrollController _scrollController = ScrollController();
   final Map<String, Uint8List> _imageCache = {}; // 图片缓存
 
   bool _isLoading = false;
   bool _isLoadingMore = false;
   List<Map<String, dynamic>> _characterList = [];
+  List<Map<String, dynamic>> _novelList = [];
   int _total = 0;
   int _currentPage = 1;
   final int _pageSize = 10;
@@ -53,13 +57,22 @@ class _DraftPageState extends State<DraftPage> {
   }
 
   Future<void> _loadData() async {
-    if (_selectedIndex == 1) return; // 暂时不处理小说列表
-
     setState(() {
       _isLoading = true;
       _currentPage = 1;
+      _hasMoreData = true;
     });
 
+    if (_selectedIndex == 0) {
+      await _loadCharacterData();
+    } else {
+      await _loadNovelData();
+    }
+
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadCharacterData() async {
     try {
       final response = await _characterService.getCharacterList(
         page: _currentPage,
@@ -76,26 +89,50 @@ class _DraftPageState extends State<DraftPage> {
         });
 
         // 预加载图片
-        _preloadImages();
+        _preloadImages(_characterList);
       } else {
         _showToast('加载失败：${response['message']}', type: ToastType.error);
       }
     } catch (e) {
       _showToast('加载失败：$e', type: ToastType.error);
-    } finally {
-      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadNovelData() async {
+    try {
+      final response = await _novelService.getUserNovels(
+        page: _currentPage,
+        pageSize: _pageSize,
+        status: 'draft',
+      );
+
+      if (response['code'] == 0) {
+        setState(() {
+          _novelList =
+              List<Map<String, dynamic>>.from(response['data']['novels'] ?? []);
+          _total = response['data']['total'] ?? 0;
+          _hasMoreData = _novelList.length < _total;
+        });
+
+        // 预加载图片
+        _preloadImages(_novelList);
+      } else {
+        _showToast('加载失败：${response['message']}', type: ToastType.error);
+      }
+    } catch (e) {
+      _showToast('加载失败：$e', type: ToastType.error);
     }
   }
 
   // 预加载图片到缓存
-  Future<void> _preloadImages() async {
-    for (final character in _characterList) {
-      if (character['coverUri'] != null &&
-          !_imageCache.containsKey(character['coverUri'])) {
+  Future<void> _preloadImages(List<Map<String, dynamic>> items) async {
+    for (final item in items) {
+      if (item['coverUri'] != null &&
+          !_imageCache.containsKey(item['coverUri'])) {
         try {
-          final fileData = await FileService().getFile(character['coverUri']);
+          final fileData = await FileService().getFile(item['coverUri']);
           if (fileData != null && fileData.data != null) {
-            _imageCache[character['coverUri']] = fileData.data;
+            _imageCache[item['coverUri']] = fileData.data;
           }
         } catch (e) {
           // 忽略加载失败的图片
@@ -105,10 +142,20 @@ class _DraftPageState extends State<DraftPage> {
   }
 
   Future<void> _loadMoreData() async {
-    if (_selectedIndex == 1 || !_hasMoreData) return;
+    if (!_hasMoreData) return;
 
     setState(() => _isLoadingMore = true);
 
+    if (_selectedIndex == 0) {
+      await _loadMoreCharacterData();
+    } else {
+      await _loadMoreNovelData();
+    }
+
+    setState(() => _isLoadingMore = false);
+  }
+
+  Future<void> _loadMoreCharacterData() async {
     try {
       final response = await _characterService.getCharacterList(
         page: _currentPage + 1,
@@ -128,20 +175,7 @@ class _DraftPageState extends State<DraftPage> {
           });
 
           // 预加载新加载的图片
-          for (final character in newItems) {
-            if (character['coverUri'] != null &&
-                !_imageCache.containsKey(character['coverUri'])) {
-              try {
-                final fileData =
-                    await FileService().getFile(character['coverUri']);
-                if (fileData != null && fileData.data != null) {
-                  _imageCache[character['coverUri']] = fileData.data;
-                }
-              } catch (e) {
-                // 忽略加载失败的图片
-              }
-            }
-          }
+          _preloadImages(newItems);
         } else {
           setState(() => _hasMoreData = false);
         }
@@ -150,8 +184,38 @@ class _DraftPageState extends State<DraftPage> {
       }
     } catch (e) {
       _showToast('加载更多失败：$e', type: ToastType.error);
-    } finally {
-      setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<void> _loadMoreNovelData() async {
+    try {
+      final response = await _novelService.getUserNovels(
+        page: _currentPage + 1,
+        pageSize: _pageSize,
+        status: 'draft',
+      );
+
+      if (response['code'] == 0) {
+        final newItems =
+            List<Map<String, dynamic>>.from(response['data']['novels'] ?? []);
+
+        if (newItems.isNotEmpty) {
+          setState(() {
+            _novelList.addAll(newItems);
+            _currentPage += 1;
+            _hasMoreData = _novelList.length < _total;
+          });
+
+          // 预加载新加载的图片
+          _preloadImages(newItems);
+        } else {
+          setState(() => _hasMoreData = false);
+        }
+      } else {
+        _showToast('加载更多失败：${response['message']}', type: ToastType.error);
+      }
+    } catch (e) {
+      _showToast('加载更多失败：$e', type: ToastType.error);
     }
   }
 
@@ -571,25 +635,231 @@ class _DraftPageState extends State<DraftPage> {
   }
 
   Widget _buildNovelList() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.book_outlined,
-            size: 48.sp,
-            color: AppTheme.textSecondary,
-          ),
-          SizedBox(height: 16.h),
-          Text(
-            '暂无草稿',
-            style: TextStyle(
-              fontSize: 16.sp,
+    if (_novelList.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.book_outlined,
+              size: 48.sp,
               color: AppTheme.textSecondary,
             ),
+            SizedBox(height: 16.h),
+            Text(
+              '暂无草稿',
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: EdgeInsets.symmetric(horizontal: 24.w),
+      itemCount: _novelList.length + (_isLoadingMore || _hasMoreData ? 1 : 0),
+      itemBuilder: (context, index) {
+        // 显示加载更多的指示器
+        if (index == _novelList.length) {
+          return _buildLoadMoreIndicator();
+        }
+
+        final novel = _novelList[index];
+        return Container(
+          padding: EdgeInsets.symmetric(vertical: 12.h),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: AppTheme.cardBackground.withOpacity(0.1),
+                width: 1,
+              ),
+            ),
           ),
-        ],
-      ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 封面图片
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4.r),
+                child: novel['coverUri'] != null
+                    ? _buildCachedImage(novel['coverUri'])
+                    : Container(
+                        width: 96.h,
+                        height: 96.h,
+                        color: AppTheme.cardBackground,
+                        child: Icon(
+                          Icons.book_outlined,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+              ),
+
+              SizedBox(width: 12.w),
+
+              // 内容区域
+              Expanded(
+                child: SizedBox(
+                  height: 96.h,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 第一行：名字和按钮
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              novel['title'] ?? '',
+                              style: TextStyle(
+                                fontSize: 15.sp,
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.textPrimary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          // 编辑和删除按钮
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => CreateNovelPage(
+                                        novel: novel,
+                                        isEdit: true,
+                                      ),
+                                    ),
+                                  ).then((result) {
+                                    // 如果返回的结果为true，表示编辑成功，刷新列表
+                                    if (result != null) {
+                                      _loadData();
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.all(4.w),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        AppTheme.primaryColor.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(4.r),
+                                  ),
+                                  child: Icon(
+                                    Icons.edit_outlined,
+                                    size: 16.sp,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 12.w),
+                              GestureDetector(
+                                onTap: () {
+                                  _showDeleteNovelConfirmDialog(novel);
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.all(4.w),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.error.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(4.r),
+                                  ),
+                                  child: Icon(
+                                    Icons.delete_outline,
+                                    size: 16.sp,
+                                    color: AppTheme.error,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 2.h),
+
+                      // 第二行：简介
+                      Expanded(
+                        child: Text(
+                          novel['description'] ?? '',
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            color: AppTheme.textSecondary,
+                            height: 1.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+
+                      // 第三行：标签
+                      if (novel['tags'] != null &&
+                          (novel['tags'] as List).isNotEmpty) ...[
+                        SizedBox(height: 2.h),
+                        Text(
+                          (novel['tags'] as List)
+                              .map((tag) => '#$tag')
+                              .join(' '),
+                          style: TextStyle(
+                            fontSize: 11.sp,
+                            color: AppTheme.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+
+                      SizedBox(height: 2.h),
+                      // 第四行：作者和时间
+                      Row(
+                        children: [
+                          // 状态指示器
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 6.w, vertical: 2.h),
+                            decoration: BoxDecoration(
+                              color: novel['status'] == 'draft'
+                                  ? Colors.orange.withOpacity(0.1)
+                                  : AppTheme.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4.r),
+                            ),
+                            child: Text(
+                              novel['status'] == 'draft' ? '草稿' : '已发布',
+                              style: TextStyle(
+                                fontSize: 10.sp,
+                                color: novel['status'] == 'draft'
+                                    ? Colors.orange
+                                    : AppTheme.primaryColor,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 6.w),
+                          Expanded(
+                            child: Text(
+                              '${_formatTime(novel['createdAt'])}',
+                              style: TextStyle(
+                                fontSize: 11.sp,
+                                color: AppTheme.textSecondary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -815,6 +1085,84 @@ class _DraftPageState extends State<DraftPage> {
 
     try {
       final response = await _characterService.deleteCharacter(id);
+      if (response['code'] == 0) {
+        _showToast('删除成功', type: ToastType.success);
+        _loadData(); // 重新加载列表
+      } else {
+        _showToast('删除失败: ${response['message']}', type: ToastType.error);
+      }
+    } catch (e) {
+      _showToast('删除失败: $e', type: ToastType.error);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _showDeleteNovelConfirmDialog(Map<String, dynamic> novel) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+          title: Text(
+            '确认删除',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: AppTheme.titleSize,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Text(
+            '确定要删除小说"${novel['title']}"吗？此操作不可恢复。',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: AppTheme.bodySize,
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text(
+                '取消',
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: AppTheme.bodySize,
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text(
+                '删除',
+                style: TextStyle(
+                  color: AppTheme.error,
+                  fontSize: AppTheme.bodySize,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _deleteNovel(novel['id'].toString());
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteNovel(String id) async {
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await _novelService.deleteNovel(id);
       if (response['code'] == 0) {
         _showToast('删除成功', type: ToastType.success);
         _loadData(); // 重新加载列表

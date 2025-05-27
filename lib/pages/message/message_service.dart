@@ -27,6 +27,30 @@ class MessageService {
     }
   }
 
+  /// 获取小说会话列表
+  Future<Map<String, dynamic>> getNovelSessions({
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    try {
+      final response = await _httpClient.get(
+        '/sessions/novel',
+        queryParameters: {
+          'page': page,
+          'page_size': pageSize,
+        },
+      );
+
+      if (response.data['code'] == 0) {
+        return response.data['data'];
+      } else {
+        throw response.data['message'] ?? '获取小说会话列表失败';
+      }
+    } catch (e) {
+      throw '获取小说会话列表失败: $e';
+    }
+  }
+
   /// 删除角色会话
   Future<void> deleteSession(int id) async {
     try {
@@ -37,6 +61,19 @@ class MessageService {
       }
     } catch (e) {
       throw '删除会话失败: $e';
+    }
+  }
+
+  /// 删除小说会话
+  Future<void> deleteNovelSession(int id) async {
+    try {
+      final response = await _httpClient.delete('/sessions/novel/$id');
+
+      if (response.data['code'] != 0) {
+        throw response.data['message'] ?? '删除小说会话失败';
+      }
+    } catch (e) {
+      throw '删除小说会话失败: $e';
     }
   }
 }
