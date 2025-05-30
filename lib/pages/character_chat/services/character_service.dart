@@ -137,4 +137,36 @@ class CharacterService {
       throw '重置会话失败: $e';
     }
   }
+
+  /// 检查会话版本
+  Future<Map<String, dynamic>> checkSessionVersion(int sessionId) async {
+    try {
+      final response = await _httpClient.get(
+        '/sessions/character/$sessionId/version',
+      );
+
+      if (response.data['code'] == 0) {
+        return response.data['data'];
+      } else {
+        throw response.data['msg'] ?? '检查会话版本失败';
+      }
+    } catch (e) {
+      throw '检查会话版本失败: $e';
+    }
+  }
+
+  /// 更新会话到最新版本
+  Future<void> updateSessionVersion(int sessionId) async {
+    try {
+      final response = await _httpClient.post(
+        '/sessions/character/$sessionId/version/update',
+      );
+
+      if (response.data['code'] != 0) {
+        throw response.data['msg'] ?? '更新会话版本失败';
+      }
+    } catch (e) {
+      throw '更新会话版本失败: $e';
+    }
+  }
 }

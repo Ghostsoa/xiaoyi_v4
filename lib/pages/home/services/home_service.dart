@@ -77,6 +77,30 @@ class HomeService {
     }
   }
 
+  /// 收藏
+  Future<void> favoriteItem(String id) async {
+    try {
+      final response = await _httpClient.post('/hall/items/$id/favorite');
+      if (response.data['code'] != 0) {
+        throw Exception(response.data['msg'] ?? '收藏失败');
+      }
+    } catch (e) {
+      throw Exception('收藏失败: $e');
+    }
+  }
+
+  /// 取消收藏
+  Future<void> unfavoriteItem(String id) async {
+    try {
+      final response = await _httpClient.delete('/hall/items/$id/favorite');
+      if (response.data['code'] != 0) {
+        throw Exception(response.data['msg'] ?? '取消收藏失败');
+      }
+    } catch (e) {
+      throw Exception('取消收藏失败: $e');
+    }
+  }
+
   /// 激励卡片
   Future<Map<String, dynamic>> rewardItem(String id, double amount) async {
     try {
@@ -125,6 +149,73 @@ class HomeService {
       return response.data;
     } catch (e) {
       throw Exception('获取列表失败: $e');
+    }
+  }
+
+  /// 获取作者作品列表
+  Future<Map<String, dynamic>> getAuthorItems(
+    String authorId, {
+    int page = 1,
+    int pageSize = 20,
+    String? keyword,
+    String? category,
+    String sortBy = 'new',
+    List<String>? types,
+    List<String>? tags,
+  }) async {
+    try {
+      final Map<String, dynamic> params = {
+        'page': page,
+        'pageSize': pageSize,
+        'sortBy': sortBy,
+      };
+
+      if (keyword != null && keyword.isNotEmpty) {
+        params['keyword'] = keyword;
+      }
+      if (category != null) {
+        params['category'] = category;
+      }
+      if (types != null && types.isNotEmpty) {
+        params['types[]'] = types;
+      }
+      if (tags != null && tags.isNotEmpty) {
+        params['tags[]'] = tags;
+      }
+
+      final response = await _httpClient.get(
+        '/hall/authors/$authorId/items',
+        queryParameters: params,
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception('获取作者作品列表失败: $e');
+    }
+  }
+
+  /// 获取收藏列表
+  Future<Map<String, dynamic>> getFavorites({
+    int page = 1,
+    int pageSize = 20,
+    List<String>? types,
+  }) async {
+    try {
+      final Map<String, dynamic> params = {
+        'page': page,
+        'pageSize': pageSize,
+      };
+
+      if (types != null && types.isNotEmpty) {
+        params['types[]'] = types;
+      }
+
+      final response = await _httpClient.get(
+        '/hall/favorites',
+        queryParameters: params,
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception('获取收藏列表失败: $e');
     }
   }
 }

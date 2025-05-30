@@ -40,6 +40,10 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   final FocusNode _focusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
+  // 版本检查相关
+  bool _hasNewVersion = false;
+  bool _isUpdatingVersion = false;
+
   // 聊天设置
   double _backgroundOpacity = 0.5;
   Color _bubbleColor = Colors.white;
@@ -96,6 +100,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       _loadMessageHistory();
       _loadFormatMode();
     });
+
+    // 静默检查版本
+    _checkSessionVersion();
 
     // 初始化抽屉动画控制器
     _drawerAnimationController = AnimationController(
@@ -829,6 +836,57 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     }
   }
 
+  // 添加检查版本的方法
+  Future<void> _checkSessionVersion() async {
+    // 静默异步检查，不影响UI
+    try {
+      final versionData = await _characterService.checkSessionVersion(
+        widget.sessionData['id'],
+      );
+
+      if (mounted) {
+        setState(() {
+          _hasNewVersion = !(versionData['isLatest'] ?? true);
+        });
+      }
+    } catch (e) {
+      // 静默处理错误，仅打印日志
+      debugPrint('检查版本失败：$e');
+    }
+  }
+
+  // 添加更新版本的方法
+  Future<void> _handleVersionUpdate() async {
+    if (!_hasNewVersion || _isUpdatingVersion) return;
+
+    setState(() {
+      _isUpdatingVersion = true;
+    });
+
+    try {
+      await _characterService.updateSessionVersion(
+        widget.sessionData['id'],
+      );
+
+      if (mounted) {
+        setState(() {
+          _hasNewVersion = false;
+          _isUpdatingVersion = false;
+        });
+        CustomToast.show(context,
+            message: '会话已更新到最新版本', type: ToastType.success);
+      }
+    } catch (e) {
+      debugPrint('更新版本失败：$e');
+      if (mounted) {
+        setState(() {
+          _isUpdatingVersion = false;
+        });
+        CustomToast.show(context, message: '更新版本失败：$e', type: ToastType.error);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewInsets = MediaQuery.of(context).viewInsets;
@@ -891,7 +949,56 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    // 右侧按钮（可选）
+                    // 版本更新按钮（仅在有新版本时显示）
+                    if (_hasNewVersion)
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap:
+                              _isUpdatingVersion ? null : _handleVersionUpdate,
+                          borderRadius: BorderRadius.circular(18.r),
+                          child: Container(
+                            width: 36.w,
+                            height: 36.w,
+                            alignment: Alignment.center,
+                            child: _isUpdatingVersion
+                                ? SizedBox(
+                                    width: 20.w,
+                                    height: 20.w,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.w,
+                                      valueColor:
+                                          const AlwaysStoppedAnimation<Color>(
+                                        Colors.amber,
+                                      ),
+                                    ),
+                                  )
+                                : Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.upgrade,
+                                        color: Colors.amber,
+                                        size: 22.sp,
+                                      ),
+                                      Positioned(
+                                        top: 0,
+                                        right: 0,
+                                        child: Container(
+                                          width: 8.w,
+                                          height: 8.w,
+                                          decoration: const BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ),
+                    // 刷新按钮
                     Material(
                       color: Colors.transparent,
                       child: InkWell(

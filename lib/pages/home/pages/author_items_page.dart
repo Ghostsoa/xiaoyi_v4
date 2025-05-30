@@ -9,14 +9,21 @@ import 'item_detail_page.dart';
 import '../../../widgets/custom_toast.dart';
 import '../../../theme/app_theme.dart';
 
-class AllItemsPage extends StatefulWidget {
-  const AllItemsPage({super.key});
+class AuthorItemsPage extends StatefulWidget {
+  final String authorId;
+  final String authorName;
+
+  const AuthorItemsPage({
+    super.key,
+    required this.authorId,
+    required this.authorName,
+  });
 
   @override
-  State<AllItemsPage> createState() => _AllItemsPageState();
+  State<AuthorItemsPage> createState() => _AuthorItemsPageState();
 }
 
-class _AllItemsPageState extends State<AllItemsPage> {
+class _AuthorItemsPageState extends State<AuthorItemsPage> {
   final HomeService _homeService = HomeService();
   final FileService _fileService = FileService();
   final RefreshController _refreshController = RefreshController();
@@ -24,8 +31,6 @@ class _AllItemsPageState extends State<AllItemsPage> {
 
   bool _isLoading = true;
   List<dynamic> _items = [];
-  List<String> _hotTags = [];
-  final List<String> _selectedTags = [];
   int _page = 1;
   final int _pageSize = 10;
 
@@ -42,18 +47,20 @@ class _AllItemsPageState extends State<AllItemsPage> {
     {'value': 'all', 'label': '全部'},
     {'value': 'character_card', 'label': '角色'},
     {'value': 'novel_card', 'label': '小说'},
+    {'value': 'chat_card', 'label': '群聊'},
   ];
 
   final List<Map<String, String>> _sortOptions = [
     {'value': 'new', 'label': '最新'},
     {'value': 'hot', 'label': '最热'},
+    {'value': 'like', 'label': '最多点赞'},
+    {'value': 'dialog', 'label': '最多对话'},
   ];
 
   @override
   void initState() {
     super.initState();
     _loadData();
-    _loadHotTags();
   }
 
   @override
@@ -61,20 +68,6 @@ class _AllItemsPageState extends State<AllItemsPage> {
     _refreshController.dispose();
     _searchController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadHotTags() async {
-    try {
-      final result = await _homeService.getHotTags();
-      if (mounted) {
-        setState(() {
-          _hotTags = List<String>.from(result['data'] ?? []);
-        });
-      }
-    } catch (e) {
-      // 标签加载失败不影响主要功能
-      debugPrint('加载标签失败: $e');
-    }
   }
 
   Future<void> _loadItemImage(String? coverUri,
@@ -122,13 +115,13 @@ class _AllItemsPageState extends State<AllItemsPage> {
     }
 
     try {
-      final result = await _homeService.getAllItems(
+      final result = await _homeService.getAuthorItems(
+        widget.authorId,
         page: _page,
         pageSize: _pageSize,
         keyword: _keyword,
         sortBy: _sortBy,
         types: _selectedType == 'all' ? null : [_selectedType],
-        tags: _selectedTags.isEmpty ? null : _selectedTags,
       );
 
       if (mounted) {
@@ -170,26 +163,13 @@ class _AllItemsPageState extends State<AllItemsPage> {
     _loadData();
   }
 
-  void _toggleTag(String tag) {
-    setState(() {
-      if (_selectedTags.contains(tag)) {
-        _selectedTags.remove(tag);
-      } else {
-        _selectedTags.add(tag);
-      }
-    });
-    _page = 1;
-    _refreshController.resetNoData();
-    _loadData();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         backgroundColor: AppTheme.background,
-        title: Text('全部角色', style: AppTheme.titleStyle),
+        title: Text('${widget.authorName}的作品', style: AppTheme.titleStyle),
         centerTitle: true,
       ),
       body: SmartRefresher(
@@ -221,7 +201,7 @@ class _AllItemsPageState extends State<AllItemsPage> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: '搜索',
+                    hintText: '搜索作品',
                     prefixIcon: const Icon(Icons.search),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8.r),
@@ -240,77 +220,25 @@ class _AllItemsPageState extends State<AllItemsPage> {
               ),
             ),
 
-            // 标签列表
-            if (_hotTags.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      child: Text(
-                        '热门标签',
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 4.h),
-                    SizedBox(
-                      height: 24.h,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.symmetric(horizontal: 16.w),
-                        itemCount: _hotTags.length,
-                        itemBuilder: (context, index) {
-                          final tag = _hotTags[index];
-                          final isSelected = _selectedTags.contains(tag);
-                          return Padding(
-                            padding: EdgeInsets.only(right: 8.w),
-                            child: GestureDetector(
-                              onTap: () => _toggleTag(tag),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 8.w,
-                                  vertical: 4.h,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? AppTheme.primaryColor
-                                      : Colors.transparent,
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? AppTheme.primaryColor
-                                        : AppTheme.border.withOpacity(0.3),
-                                  ),
-                                ),
-                                child: Text(
-                                  '#$tag',
-                                  style: TextStyle(
-                                    fontSize: 11.sp,
-                                    color: isSelected
-                                        ? AppTheme.textPrimary
-                                        : AppTheme.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
             // 筛选栏
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
+                    // 类型筛选
+                    Text(
+                      '类型筛选:',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
                       child: Row(
                         children: _typeOptions.map((type) {
                           final isSelected = _selectedType == type['value'];
@@ -329,8 +257,8 @@ class _AllItemsPageState extends State<AllItemsPage> {
                               },
                               child: Container(
                                 padding: EdgeInsets.symmetric(
-                                  horizontal: 8.w,
-                                  vertical: 4.h,
+                                  horizontal: 12.w,
+                                  vertical: 6.h,
                                 ),
                                 decoration: BoxDecoration(
                                   color: isSelected
@@ -341,13 +269,15 @@ class _AllItemsPageState extends State<AllItemsPage> {
                                         ? AppTheme.primaryColor
                                         : AppTheme.border.withOpacity(0.3),
                                   ),
+                                  borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusSmall),
                                 ),
                                 child: Text(
                                   type['label']!,
                                   style: TextStyle(
-                                    fontSize: 11.sp,
+                                    fontSize: 12.sp,
                                     color: isSelected
-                                        ? AppTheme.textPrimary
+                                        ? Colors.white
                                         : AppTheme.textSecondary,
                                   ),
                                 ),
@@ -357,50 +287,67 @@ class _AllItemsPageState extends State<AllItemsPage> {
                         }).toList(),
                       ),
                     ),
-                    Row(
-                      children: _sortOptions.map((sort) {
-                        final isSelected = _sortBy == sort['value'];
-                        return Padding(
-                          padding: EdgeInsets.only(left: 8.w),
-                          child: GestureDetector(
-                            onTap: () {
-                              if (_sortBy != sort['value']) {
-                                setState(() {
-                                  _sortBy = sort['value']!;
-                                });
-                                _page = 1;
-                                _refreshController.resetNoData();
-                                _loadData();
-                              }
-                            },
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8.w,
-                                vertical: 4.h,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppTheme.primaryColor
-                                    : Colors.transparent,
-                                border: Border.all(
+                    SizedBox(height: 16.h),
+
+                    // 排序方式
+                    Text(
+                      '排序方式:',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: _sortOptions.map((sort) {
+                          final isSelected = _sortBy == sort['value'];
+                          return Padding(
+                            padding: EdgeInsets.only(right: 8.w),
+                            child: GestureDetector(
+                              onTap: () {
+                                if (_sortBy != sort['value']) {
+                                  setState(() {
+                                    _sortBy = sort['value']!;
+                                  });
+                                  _page = 1;
+                                  _refreshController.resetNoData();
+                                  _loadData();
+                                }
+                              },
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 12.w,
+                                  vertical: 6.h,
+                                ),
+                                decoration: BoxDecoration(
                                   color: isSelected
                                       ? AppTheme.primaryColor
-                                      : AppTheme.border.withOpacity(0.3),
+                                      : Colors.transparent,
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? AppTheme.primaryColor
+                                        : AppTheme.border.withOpacity(0.3),
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusSmall),
                                 ),
-                              ),
-                              child: Text(
-                                sort['label']!,
-                                style: TextStyle(
-                                  fontSize: 11.sp,
-                                  color: isSelected
-                                      ? AppTheme.textPrimary
-                                      : AppTheme.textSecondary,
+                                child: Text(
+                                  sort['label']!,
+                                  style: TextStyle(
+                                    fontSize: 12.sp,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : AppTheme.textSecondary,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
-                      }).toList(),
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ],
                 ),
@@ -441,7 +388,7 @@ class _AllItemsPageState extends State<AllItemsPage> {
               ),
               SizedBox(height: 16.h),
               Text(
-                '暂无内容',
+                '暂无作品',
                 style: TextStyle(
                   fontSize: 16.sp,
                   color: AppTheme.textSecondary,

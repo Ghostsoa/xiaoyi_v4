@@ -12,6 +12,7 @@ import 'pages/recommend_items_page.dart';
 import 'pages/all_items_page.dart';
 import 'pages/search_result_page.dart';
 import 'pages/tag_items_page.dart';
+import 'pages/favorites_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -241,74 +242,141 @@ class HomePageState extends State<HomePage> {
                 child: CustomScrollView(
                   physics: const BouncingScrollPhysics(),
                   slivers: [
-                    // 欢迎标语
+                    // 欢迎标语和收藏按钮（同一行）
                     SliverToBoxAdapter(
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AllItemsPage(),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          margin: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 16.h),
-                          padding: EdgeInsets.all(16.w),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: AppTheme.primaryGradient,
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              transform: GradientRotation(0.4),
-                            ),
-                            borderRadius: BorderRadius.circular(12.r),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.primaryGradient.first
-                                    .withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
+                      child: Row(
+                        children: [
+                          // 发现更多AI角色
+                          Expanded(
+                            flex: 3, // 占据四分之三的空间
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const AllItemsPage(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                margin:
+                                    EdgeInsets.fromLTRB(16.w, 4.h, 8.w, 16.h),
+                                padding: EdgeInsets.all(16.w),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: AppTheme.primaryGradient,
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    transform: GradientRotation(0.4),
+                                  ),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppTheme.primaryGradient.first
+                                          .withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.auto_awesome,
+                                              color: AppTheme.primaryColor,
+                                              size: 24.sp,
+                                            ),
+                                            SizedBox(width: 8.w),
+                                            Text(
+                                              '发现更多',
+                                              style: AppTheme
+                                                  .gradientMediumHeadingStyle,
+                                            ),
+                                          ],
+                                        ),
+                                        Icon(
+                                          Icons.chevron_right_rounded,
+                                          color: Colors.white,
+                                          size: 24.sp,
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 4.h),
+                                    Text(
+                                      '点击查看全部角色',
+                                      style: AppTheme.gradientSubtitleStyle,
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
+                            ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.auto_awesome,
-                                        color: AppTheme.primaryColor,
-                                        size: 24.sp,
-                                      ),
-                                      SizedBox(width: 8.w),
-                                      Text(
-                                        '发现更多AI角色',
-                                        style:
-                                            AppTheme.gradientMediumHeadingStyle,
-                                      ),
+
+                          // 我的收藏按钮
+                          Expanded(
+                            flex: 1, // 占据四分之一的空间
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const FavoritesPage(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                margin:
+                                    EdgeInsets.fromLTRB(8.w, 4.h, 16.w, 16.h),
+                                padding: EdgeInsets.all(16.w),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.amber.shade700,
+                                      Colors.amber.shade500
                                     ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                   ),
-                                  Icon(
-                                    Icons.chevron_right_rounded,
-                                    color: Colors.white,
-                                    size: 24.sp,
-                                  ),
-                                ],
+                                  borderRadius: BorderRadius.circular(12.r),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.amber.withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.star_rounded,
+                                      color: Colors.white,
+                                      size: 24.sp,
+                                    ),
+                                    SizedBox(height: 6.h),
+                                    Text(
+                                      '收藏',
+                                      style: TextStyle(
+                                        fontSize: 14.sp,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
                               ),
-                              SizedBox(height: 4.h),
-                              Text(
-                                '点击查看全部角色，找到你的专属AI伙伴',
-                                style: AppTheme.gradientSubtitleStyle,
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
 

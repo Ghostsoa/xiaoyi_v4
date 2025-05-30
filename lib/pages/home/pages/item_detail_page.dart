@@ -8,6 +8,7 @@ import '../../../pages/character_chat/pages/character_init_page.dart';
 import '../../../pages/novel/pages/novel_init_page.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/custom_toast.dart';
+import 'author_items_page.dart';
 
 class ItemDetailPage extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -27,6 +28,10 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   bool _isLiking = false;
   bool _isRewarding = false;
 
+  // 收藏状态
+  late bool _isFavorite;
+  bool _isFavoriting = false;
+
   // 缓存图片数据
   Uint8List? _cachedCoverImage;
   bool _isLoadingCover = false;
@@ -36,6 +41,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     super.initState();
     _isLiked = widget.item['is_liked'] ?? false;
     _likeCount = widget.item['like_count'] ?? 0;
+    _isFavorite = widget.item['is_favorited'] ?? false;
     _loadCoverImage();
   }
 
@@ -107,6 +113,63 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     } finally {
       if (mounted) {
         setState(() => _isLiking = false);
+      }
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    if (_isFavoriting) return;
+
+    final String? itemId = widget.item['id']?.toString();
+    if (itemId == null) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '操作失败：无效的内容ID',
+          type: ToastType.error,
+        );
+      }
+      return;
+    }
+
+    setState(() => _isFavoriting = true);
+    try {
+      if (_isFavorite) {
+        await _homeService.unfavoriteItem(itemId);
+        if (mounted) {
+          setState(() {
+            _isFavorite = false;
+          });
+          CustomToast.show(
+            context,
+            message: '已取消收藏',
+            type: ToastType.success,
+          );
+        }
+      } else {
+        await _homeService.favoriteItem(itemId);
+        if (mounted) {
+          setState(() {
+            _isFavorite = true;
+          });
+          CustomToast.show(
+            context,
+            message: '收藏成功',
+            type: ToastType.success,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '${_isFavorite ? '取消收藏' : '收藏'}失败: $e',
+          type: ToastType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isFavoriting = false);
       }
     }
   }
@@ -261,9 +324,74 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                               style: AppTheme.headingStyle,
                             ),
                             SizedBox(height: 4.h),
-                            Text(
-                              '@${widget.item["author_name"]}',
-                              style: AppTheme.secondaryStyle,
+                            Row(
+                              children: [
+                                Text(
+                                  '@${widget.item["author_name"]}',
+                                  style: AppTheme.secondaryStyle,
+                                ),
+                                SizedBox(width: 6.w),
+                                GestureDetector(
+                                  onTap: () {
+                                    final String authorId =
+                                        widget.item['author_id']?.toString() ??
+                                            '';
+                                    final String authorName =
+                                        widget.item['author_name'] ?? '未知作者';
+
+                                    if (authorId.isNotEmpty) {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => AuthorItemsPage(
+                                            authorId: authorId,
+                                            authorName: authorName,
+                                          ),
+                                        ),
+                                      );
+                                    } else {
+                                      CustomToast.show(
+                                        context,
+                                        message: '获取作者信息失败',
+                                        type: ToastType.error,
+                                      );
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 8.w,
+                                      vertical: 2.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor
+                                          .withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12.r),
+                                      border: Border.all(
+                                        color: AppTheme.primaryColor
+                                            .withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.collections_bookmark_outlined,
+                                          size: 14.sp,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                        SizedBox(width: 4.w),
+                                        Text(
+                                          '作者作品',
+                                          style: TextStyle(
+                                            fontSize: 12.sp,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -440,7 +568,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       ),
       // 底部操作栏
       bottomNavigationBar: Container(
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
         decoration: BoxDecoration(
           color: AppTheme.cardBackground,
           boxShadow: [
@@ -452,98 +580,59 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           ],
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.pink,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                ),
-                child: OutlinedButton.icon(
-                  onPressed: _isLiking ? null : _toggleLike,
-                  icon: Icon(
-                    _isLiked
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
-                    size: 20.sp,
-                    color: Colors.white,
-                  ),
-                  label: Text(
-                    _isLiked ? '已点赞 $_likeCount' : '点赞 $_likeCount',
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    side: BorderSide.none,
-                  ),
-                ),
-              ),
+            // 点赞按钮
+            _buildActionButton(
+              icon: _isLiked ? Icons.favorite : Icons.favorite_border,
+              label: _isLiked ? '已点赞' : '点赞',
+              color: Colors.pink,
+              onPressed: _isLiking ? null : _toggleLike,
             ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.amber[700],
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                ),
-                child: OutlinedButton.icon(
-                  onPressed: _isRewarding ? null : _showRewardDialog,
-                  icon: Icon(
-                    Icons.workspace_premium_rounded,
-                    size: 20.sp,
-                    color: Colors.white,
-                  ),
-                  label: Text(
-                    _isRewarding ? '激励中...' : '激励',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    side: BorderSide.none,
-                  ),
-                ),
-              ),
+
+            // 收藏按钮
+            _buildActionButton(
+              icon: _isFavorite ? Icons.star : Icons.star_border,
+              label: _isFavorite ? '已收藏' : '收藏',
+              color: Colors.blue,
+              onPressed: _isFavoriting ? null : _toggleFavorite,
             ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Container(
-                decoration: AppTheme.buttonDecoration,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    if (widget.item["item_type"] == "character_card") {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CharacterInitPage(
-                            characterData: widget.item,
-                          ),
-                        ),
-                      );
-                    } else if (widget.item["item_type"] == "novel_card") {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => NovelInitPage(
-                            novelData: widget.item,
-                          ),
-                        ),
-                      );
-                    }
-                    // TODO: 其他类型的跳转逻辑
-                  },
-                  icon: Icon(
-                    Icons.chat_rounded,
-                    size: 20.sp,
-                  ),
-                  label: Text(widget.item["item_type"] == "novel_card"
-                      ? '开始阅读'
-                      : '开始对话'),
-                  style: FilledButton.styleFrom(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    backgroundColor: Colors.transparent,
-                  ),
-                ),
-              ),
+
+            // 激励按钮
+            _buildActionButton(
+              icon: Icons.workspace_premium,
+              label: _isRewarding ? '激励中' : '激励',
+              color: Colors.amber[700] ?? Colors.amber,
+              onPressed: _isRewarding ? null : _showRewardDialog,
+            ),
+
+            // 开始阅读/对话按钮
+            _buildActionButton(
+              icon: Icons.chat,
+              label: widget.item["item_type"] == "novel_card" ? '阅读' : '对话',
+              color: AppTheme.primaryColor,
+              onPressed: () {
+                if (widget.item["item_type"] == "character_card") {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CharacterInitPage(
+                        characterData: widget.item,
+                      ),
+                    ),
+                  );
+                } else if (widget.item["item_type"] == "novel_card") {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => NovelInitPage(
+                        novelData: widget.item,
+                      ),
+                    ),
+                  );
+                }
+                // TODO: 其他类型的跳转逻辑
+              },
             ),
           ],
         ),
@@ -626,6 +715,35 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
   String _formatDateTime(DateTime dateTime) {
     return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required void Function()? onPressed,
+  }) {
+    return InkWell(
+      onTap: onPressed,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 24.sp,
+            color: color,
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 12.sp,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

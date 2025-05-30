@@ -9,23 +9,20 @@ import 'item_detail_page.dart';
 import '../../../widgets/custom_toast.dart';
 import '../../../theme/app_theme.dart';
 
-class AllItemsPage extends StatefulWidget {
-  const AllItemsPage({super.key});
+class FavoritesPage extends StatefulWidget {
+  const FavoritesPage({super.key});
 
   @override
-  State<AllItemsPage> createState() => _AllItemsPageState();
+  State<FavoritesPage> createState() => _FavoritesPageState();
 }
 
-class _AllItemsPageState extends State<AllItemsPage> {
+class _FavoritesPageState extends State<FavoritesPage> {
   final HomeService _homeService = HomeService();
   final FileService _fileService = FileService();
   final RefreshController _refreshController = RefreshController();
-  final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = true;
   List<dynamic> _items = [];
-  List<String> _hotTags = [];
-  final List<String> _selectedTags = [];
   int _page = 1;
   final int _pageSize = 10;
 
@@ -35,8 +32,6 @@ class _AllItemsPageState extends State<AllItemsPage> {
 
   // 筛选条件
   String _selectedType = 'all';
-  String _sortBy = 'new';
-  String? _keyword;
 
   final List<Map<String, String>> _typeOptions = [
     {'value': 'all', 'label': '全部'},
@@ -44,37 +39,16 @@ class _AllItemsPageState extends State<AllItemsPage> {
     {'value': 'novel_card', 'label': '小说'},
   ];
 
-  final List<Map<String, String>> _sortOptions = [
-    {'value': 'new', 'label': '最新'},
-    {'value': 'hot', 'label': '最热'},
-  ];
-
   @override
   void initState() {
     super.initState();
     _loadData();
-    _loadHotTags();
   }
 
   @override
   void dispose() {
     _refreshController.dispose();
-    _searchController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadHotTags() async {
-    try {
-      final result = await _homeService.getHotTags();
-      if (mounted) {
-        setState(() {
-          _hotTags = List<String>.from(result['data'] ?? []);
-        });
-      }
-    } catch (e) {
-      // 标签加载失败不影响主要功能
-      debugPrint('加载标签失败: $e');
-    }
   }
 
   Future<void> _loadItemImage(String? coverUri,
@@ -122,13 +96,10 @@ class _AllItemsPageState extends State<AllItemsPage> {
     }
 
     try {
-      final result = await _homeService.getAllItems(
+      final result = await _homeService.getFavorites(
         page: _page,
         pageSize: _pageSize,
-        keyword: _keyword,
-        sortBy: _sortBy,
         types: _selectedType == 'all' ? null : [_selectedType],
-        tags: _selectedTags.isEmpty ? null : _selectedTags,
       );
 
       if (mounted) {
@@ -163,33 +134,13 @@ class _AllItemsPageState extends State<AllItemsPage> {
     }
   }
 
-  void _onSearch(String value) {
-    _keyword = value.trim().isEmpty ? null : value.trim();
-    _page = 1;
-    _refreshController.resetNoData();
-    _loadData();
-  }
-
-  void _toggleTag(String tag) {
-    setState(() {
-      if (_selectedTags.contains(tag)) {
-        _selectedTags.remove(tag);
-      } else {
-        _selectedTags.add(tag);
-      }
-    });
-    _page = 1;
-    _refreshController.resetNoData();
-    _loadData();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         backgroundColor: AppTheme.background,
-        title: Text('全部角色', style: AppTheme.titleStyle),
+        title: Text('我的收藏', style: AppTheme.titleStyle),
         centerTitle: true,
       ),
       body: SmartRefresher(
@@ -214,103 +165,24 @@ class _AllItemsPageState extends State<AllItemsPage> {
         onLoading: _onLoading,
         child: CustomScrollView(
           slivers: [
-            // 搜索栏
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16.w, 16.w, 16.w, 8.h),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: '搜索',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.r),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: AppTheme.cardBackground.withOpacity(0.3),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16.w,
-                      vertical: 8.h,
-                    ),
-                  ),
-                  onSubmitted: _onSearch,
-                  textInputAction: TextInputAction.search,
-                ),
-              ),
-            ),
-
-            // 标签列表
-            if (_hotTags.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      child: Text(
-                        '热门标签',
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 4.h),
-                    SizedBox(
-                      height: 24.h,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.symmetric(horizontal: 16.w),
-                        itemCount: _hotTags.length,
-                        itemBuilder: (context, index) {
-                          final tag = _hotTags[index];
-                          final isSelected = _selectedTags.contains(tag);
-                          return Padding(
-                            padding: EdgeInsets.only(right: 8.w),
-                            child: GestureDetector(
-                              onTap: () => _toggleTag(tag),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 8.w,
-                                  vertical: 4.h,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? AppTheme.primaryColor
-                                      : Colors.transparent,
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? AppTheme.primaryColor
-                                        : AppTheme.border.withOpacity(0.3),
-                                  ),
-                                ),
-                                child: Text(
-                                  '#$tag',
-                                  style: TextStyle(
-                                    fontSize: 11.sp,
-                                    color: isSelected
-                                        ? AppTheme.textPrimary
-                                        : AppTheme.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
             // 筛选栏
             SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
-                child: Row(
+                padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 8.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
+                    Text(
+                      '类型筛选:',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
                       child: Row(
                         children: _typeOptions.map((type) {
                           final isSelected = _selectedType == type['value'];
@@ -329,8 +201,8 @@ class _AllItemsPageState extends State<AllItemsPage> {
                               },
                               child: Container(
                                 padding: EdgeInsets.symmetric(
-                                  horizontal: 8.w,
-                                  vertical: 4.h,
+                                  horizontal: 12.w,
+                                  vertical: 6.h,
                                 ),
                                 decoration: BoxDecoration(
                                   color: isSelected
@@ -341,13 +213,15 @@ class _AllItemsPageState extends State<AllItemsPage> {
                                         ? AppTheme.primaryColor
                                         : AppTheme.border.withOpacity(0.3),
                                   ),
+                                  borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusSmall),
                                 ),
                                 child: Text(
                                   type['label']!,
                                   style: TextStyle(
-                                    fontSize: 11.sp,
+                                    fontSize: 12.sp,
                                     color: isSelected
-                                        ? AppTheme.textPrimary
+                                        ? Colors.white
                                         : AppTheme.textSecondary,
                                   ),
                                 ),
@@ -356,51 +230,6 @@ class _AllItemsPageState extends State<AllItemsPage> {
                           );
                         }).toList(),
                       ),
-                    ),
-                    Row(
-                      children: _sortOptions.map((sort) {
-                        final isSelected = _sortBy == sort['value'];
-                        return Padding(
-                          padding: EdgeInsets.only(left: 8.w),
-                          child: GestureDetector(
-                            onTap: () {
-                              if (_sortBy != sort['value']) {
-                                setState(() {
-                                  _sortBy = sort['value']!;
-                                });
-                                _page = 1;
-                                _refreshController.resetNoData();
-                                _loadData();
-                              }
-                            },
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8.w,
-                                vertical: 4.h,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppTheme.primaryColor
-                                    : Colors.transparent,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? AppTheme.primaryColor
-                                      : AppTheme.border.withOpacity(0.3),
-                                ),
-                              ),
-                              child: Text(
-                                sort['label']!,
-                                style: TextStyle(
-                                  fontSize: 11.sp,
-                                  color: isSelected
-                                      ? AppTheme.textPrimary
-                                      : AppTheme.textSecondary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
                     ),
                   ],
                 ),
@@ -435,16 +264,24 @@ class _AllItemsPageState extends State<AllItemsPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.inbox_rounded,
+                Icons.star_outline,
                 size: 48.sp,
-                color: AppTheme.textSecondary.withOpacity(0.5),
+                color: Colors.amber.withOpacity(0.5),
               ),
               SizedBox(height: 16.h),
               Text(
-                '暂无内容',
+                '暂无收藏内容',
                 style: TextStyle(
                   fontSize: 16.sp,
                   color: AppTheme.textSecondary,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                '赶快去收藏您喜欢的角色和小说吧',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: AppTheme.textSecondary.withOpacity(0.7),
                 ),
               ),
             ],
@@ -563,6 +400,8 @@ class _AllItemsPageState extends State<AllItemsPage> {
       timeAgo = '刚刚';
     }
 
+    final String itemType = item['item_type'] == 'character_card' ? '角色' : '小说';
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -570,7 +409,7 @@ class _AllItemsPageState extends State<AllItemsPage> {
           MaterialPageRoute(
             builder: (context) => ItemDetailPage(item: item),
           ),
-        );
+        ).then((_) => _onRefresh()); // 返回时刷新，确保收藏状态更新
       },
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: 12.h),
@@ -614,50 +453,23 @@ class _AllItemsPageState extends State<AllItemsPage> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.local_fire_department_rounded,
-                              size: 16.sp,
-                              color: Colors.redAccent,
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 6.w, vertical: 2.h),
+                          decoration: BoxDecoration(
+                            color: item['item_type'] == 'character_card'
+                                ? const Color(0xFF1E88E5)
+                                : const Color(0xFFFF9800),
+                            borderRadius: BorderRadius.circular(4.r),
+                          ),
+                          child: Text(
+                            itemType,
+                            style: TextStyle(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
                             ),
-                            SizedBox(width: 4.w),
-                            Text(
-                              '${item['hot_score'] ?? 0}',
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                color: Colors.redAccent,
-                              ),
-                            ),
-                            SizedBox(width: 8.w),
-                            Icon(
-                              Icons.favorite_rounded,
-                              size: 16.sp,
-                              color: AppTheme.textSecondary,
-                            ),
-                            SizedBox(width: 4.w),
-                            Text(
-                              '${item['like_count'] ?? 0}',
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                            SizedBox(width: 8.w),
-                            Icon(
-                              Icons.chat_rounded,
-                              size: 16.sp,
-                              color: AppTheme.textSecondary,
-                            ),
-                            SizedBox(width: 4.w),
-                            Text(
-                              '${item['dialog_count'] ?? 0}',
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
@@ -687,14 +499,34 @@ class _AllItemsPageState extends State<AllItemsPage> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    Text(
-                      '@${item['author_name'] ?? '未知'} · $timeAgo',
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        color: AppTheme.textSecondary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Text(
+                          '@${item['author_name'] ?? '未知'}',
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        Spacer(),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.favorite,
+                              size: 14.sp,
+                              color: Colors.pink,
+                            ),
+                            SizedBox(width: 4.w),
+                            Text(
+                              '${item['like_count'] ?? 0}',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
