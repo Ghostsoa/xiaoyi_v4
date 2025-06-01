@@ -63,6 +63,21 @@ class CharacterService {
     }
   }
 
+  Future<Map<String, dynamic>> updateCharacterStatus(
+      String id, String status) async {
+    try {
+      final response = await _httpClient.put('/characters/$id/status', data: {
+        'status': status,
+      });
+      return response.data;
+    } catch (e) {
+      return {
+        'code': -1,
+        'msg': e.toString(),
+      };
+    }
+  }
+
   Future<Map<String, dynamic>> deleteCharacter(String id) async {
     try {
       final response = await _httpClient.delete('/characters/$id');

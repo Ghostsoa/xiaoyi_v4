@@ -204,6 +204,14 @@ class ModelConfigCard extends StatelessWidget {
             '对UI显示效果，内容进行增强，\n平衡了UI显示与回复质量',
             currentMode,
           ),
+          SizedBox(height: 8.h),
+          _buildEnhanceModeOption(
+            context,
+            'fullpromax',
+            '???',
+            '???',
+            currentMode,
+          ),
         ],
       ),
     );

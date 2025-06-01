@@ -10,6 +10,7 @@ import '../../../widgets/custom_toast.dart';
 import '../character/create_character_page.dart';
 import '../novel/create_novel_page.dart';
 import '../../../pages/character_chat/pages/character_init_page.dart';
+import '../../../pages/novel/pages/novel_init_page.dart';
 
 class MyCreationPage extends StatefulWidget {
   const MyCreationPage({super.key});
@@ -402,187 +403,232 @@ class _MyCreationPageState extends State<MyCreationPage> {
               ),
             ),
           ),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 封面图片
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4.r),
-                child: character['coverUri'] != null
-                    ? _buildCachedImage(character['coverUri'])
-                    : Container(
-                        width: 96.h,
-                        height: 96.h,
-                        color: AppTheme.cardBackground,
-                        child: Icon(
-                          Icons.image_outlined,
-                          color: AppTheme.textSecondary.withOpacity(0.5),
-                        ),
-                      ),
-              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 封面图片
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4.r),
+                    child: character['coverUri'] != null
+                        ? _buildCachedImage(character['coverUri'])
+                        : Container(
+                            width: 96.h,
+                            height: 96.h,
+                            color: AppTheme.cardBackground,
+                            child: Icon(
+                              Icons.image_outlined,
+                              color: AppTheme.textSecondary.withOpacity(0.5),
+                            ),
+                          ),
+                  ),
 
-              SizedBox(width: 12.w),
+                  SizedBox(width: 12.w),
 
-              // 内容区域
-              Expanded(
-                child: SizedBox(
-                  height: 96.h,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // 第一行：名字和按钮
-                      Row(
+                  // 内容区域
+                  Expanded(
+                    child: SizedBox(
+                      height: 96.h,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
+                          // 角色名称
+                          Text(
+                            character['name'] ?? '',
+                            style: TextStyle(
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 2.h),
+
+                          // 第二行：简介
                           Expanded(
                             child: Text(
-                              character['name'] ?? '',
+                              character['description'] ?? '',
                               style: TextStyle(
-                                fontSize: 15.sp, // 稍微减小字体
-                                fontWeight: FontWeight.w500,
+                                fontSize: 13.sp,
+                                color: AppTheme.textPrimary.withOpacity(0.8),
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+
+                          // 第三行：标签
+                          if (character['tags'] != null &&
+                              (character['tags'] as List).isNotEmpty) ...[
+                            SizedBox(height: 2.h),
+                            Text(
+                              (character['tags'] as List)
+                                  .map((tag) => '#$tag')
+                                  .join(' '),
+                              style: TextStyle(
+                                fontSize: 11.sp,
+                                color: Colors.grey,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          // 编辑和删除按钮
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => CreateCharacterPage(
-                                        character: character,
-                                        isEdit: true,
-                                      ),
-                                    ),
-                                  ).then((result) {
-                                    // 如果返回的结果为true，表示编辑成功，刷新列表
-                                    if (result == true) {
-                                      _loadData();
-                                    }
-                                  });
-                                },
-                                child: Container(
-                                  padding: EdgeInsets.all(4.w),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AppTheme.primaryColor.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(4.r),
-                                  ),
-                                  child: Icon(
-                                    Icons.edit_outlined,
-                                    size: 16.sp,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: 12.w),
-                              // 添加对话按钮
-                              GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => CharacterInitPage(
-                                        characterData: {
-                                          'id': character['id'],
-                                          'item_id': character['id'],
-                                          'cover_uri': character['coverUri'],
-                                          'init_fields':
-                                              character['initFields'],
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: Container(
-                                  padding: EdgeInsets.all(4.w),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AppTheme.primaryColor.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(4.r),
-                                  ),
-                                  child: Icon(
-                                    Icons.chat_outlined,
-                                    size: 16.sp,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: 12.w),
-                              GestureDetector(
-                                onTap: () {
-                                  _showDeleteConfirmDialog(character);
-                                },
-                                child: Container(
-                                  padding: EdgeInsets.all(4.w),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(4.r),
-                                  ),
-                                  child: Icon(
-                                    Icons.delete_outline,
-                                    size: 16.sp,
-                                    color: Colors.red,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          ],
+
+                          SizedBox(height: 2.h),
+                          // 第四行：作者和时间
+                          Text(
+                            '@${character['authorName'] ?? ''} · ${_formatTime(character['createdAt'])}',
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: Colors.grey,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
-                      SizedBox(height: 2.h),
+                    ),
+                  ),
+                ],
+              ),
 
-                      // 第二行：简介
-                      Expanded(
-                        child: Text(
-                          character['description'] ?? '',
-                          style: TextStyle(
-                            fontSize: 13.sp,
-                            color: AppTheme.textPrimary.withOpacity(0.8),
-                            height: 1.2,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+              // 底部按钮行
+              SizedBox(height: 10.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // 状态切换按钮
+                  GestureDetector(
+                    onTap: () {
+                      _showStatusChangeDialog(character);
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          character['status'] == 'published'
+                              ? Icons.public
+                              : Icons.lock_outline,
+                          size: 18.sp,
+                          color: const Color(0xFF666666),
                         ),
-                      ),
-
-                      // 第三行：标签
-                      if (character['tags'] != null &&
-                          (character['tags'] as List).isNotEmpty) ...[
-                        SizedBox(height: 2.h),
+                        SizedBox(width: 4.w),
                         Text(
-                          (character['tags'] as List)
-                              .map((tag) => '#$tag')
-                              .join(' '),
+                          character['status'] == 'published' ? '公开' : '私密',
                           style: TextStyle(
-                            fontSize: 11.sp, // 减小字体
-                            color: Colors.grey,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF666666),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
-
-                      SizedBox(height: 2.h),
-                      // 第四行：作者和时间
-                      Text(
-                        '@${character['authorName'] ?? ''} · ${_formatTime(character['createdAt'])}',
-                        style: TextStyle(
-                          fontSize: 11.sp, // 减小字体
-                          color: Colors.grey,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+
+                  // 编辑按钮
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CreateCharacterPage(
+                            character: character,
+                            isEdit: true,
+                          ),
+                        ),
+                      ).then((result) {
+                        // 如果返回的结果为true，表示编辑成功，刷新列表
+                        if (result == true) {
+                          _loadData();
+                        }
+                      });
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.edit_outlined,
+                          size: 18.sp,
+                          color: const Color(0xFF666666),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '编辑',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF666666),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 聊天按钮
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CharacterInitPage(
+                            characterData: {
+                              'id': character['id'],
+                              'item_id': character['id'],
+                              'cover_uri': character['coverUri'],
+                              'init_fields': character['initFields'],
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.chat_outlined,
+                          size: 18.sp,
+                          color: const Color(0xFF666666),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '聊天',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF666666),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 删除按钮
+                  GestureDetector(
+                    onTap: () {
+                      _showDeleteConfirmDialog(character);
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_outline,
+                          size: 18.sp,
+                          color: const Color(0xFFFF5252),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '删除',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFFFF5252),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -754,153 +800,233 @@ class _MyCreationPageState extends State<MyCreationPage> {
               ),
             ),
           ),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 封面图片
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4.r),
-                child: novel['coverUri'] != null
-                    ? _buildCachedImage(novel['coverUri'])
-                    : Container(
-                        width: 96.h,
-                        height: 96.h,
-                        color: AppTheme.cardBackground,
-                        child: Icon(
-                          Icons.image_outlined,
-                          color: AppTheme.textSecondary.withOpacity(0.5),
-                        ),
-                      ),
-              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 封面图片
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4.r),
+                    child: novel['coverUri'] != null
+                        ? _buildCachedImage(novel['coverUri'])
+                        : Container(
+                            width: 96.h,
+                            height: 96.h,
+                            color: AppTheme.cardBackground,
+                            child: Icon(
+                              Icons.image_outlined,
+                              color: AppTheme.textSecondary.withOpacity(0.5),
+                            ),
+                          ),
+                  ),
 
-              SizedBox(width: 12.w),
+                  SizedBox(width: 12.w),
 
-              // 内容区域
-              Expanded(
-                child: SizedBox(
-                  height: 96.h,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // 第一行：标题和按钮
-                      Row(
+                  // 内容区域
+                  Expanded(
+                    child: SizedBox(
+                      height: 96.h,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
+                          // 小说标题
+                          Text(
+                            novel['title'] ?? '',
+                            style: TextStyle(
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 2.h),
+
+                          // 第二行：简介
                           Expanded(
                             child: Text(
-                              novel['title'] ?? '',
+                              novel['description'] ?? '',
                               style: TextStyle(
-                                fontSize: 15.sp,
-                                fontWeight: FontWeight.w500,
+                                fontSize: 13.sp,
+                                color: AppTheme.textPrimary.withOpacity(0.8),
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+
+                          // 第三行：标签
+                          if (novel['tags'] != null &&
+                              (novel['tags'] as List).isNotEmpty) ...[
+                            SizedBox(height: 2.h),
+                            Text(
+                              (novel['tags'] as List)
+                                  .map((tag) => '#$tag')
+                                  .join(' '),
+                              style: TextStyle(
+                                fontSize: 11.sp,
+                                color: Colors.grey,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          // 编辑和删除按钮
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => CreateNovelPage(
-                                        novel: novel,
-                                        isEdit: true,
-                                      ),
-                                    ),
-                                  ).then((result) {
-                                    if (result == true) {
-                                      _loadData();
-                                    }
-                                  });
-                                },
-                                child: Container(
-                                  padding: EdgeInsets.all(4.w),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AppTheme.primaryColor.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(4.r),
-                                  ),
-                                  child: Icon(
-                                    Icons.edit_outlined,
-                                    size: 16.sp,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: 12.w),
-                              GestureDetector(
-                                onTap: () {
-                                  _showDeleteNovelConfirmDialog(novel);
-                                },
-                                child: Container(
-                                  padding: EdgeInsets.all(4.w),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(4.r),
-                                  ),
-                                  child: Icon(
-                                    Icons.delete_outline,
-                                    size: 16.sp,
-                                    color: Colors.red,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          ],
+
+                          SizedBox(height: 2.h),
+                          // 第四行：作者和时间
+                          Text(
+                            '@${novel['authorName'] ?? ''} · ${_formatTime(novel['createdAt'])}',
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: Colors.grey,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
-                      SizedBox(height: 2.h),
+                    ),
+                  ),
+                ],
+              ),
 
-                      // 第二行：简介
-                      Expanded(
-                        child: Text(
-                          novel['description'] ?? '',
-                          style: TextStyle(
-                            fontSize: 13.sp,
-                            color: AppTheme.textPrimary.withOpacity(0.8),
-                            height: 1.2,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+              // 底部按钮行 (小说)
+              SizedBox(height: 10.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // 状态切换按钮
+                  GestureDetector(
+                    onTap: () {
+                      _showNovelStatusChangeDialog(novel);
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          novel['status'] == 'published'
+                              ? Icons.public
+                              : Icons.lock_outline,
+                          size: 18.sp,
+                          color: const Color(0xFF666666),
                         ),
-                      ),
-
-                      // 第三行：标签
-                      if (novel['tags'] != null &&
-                          (novel['tags'] as List).isNotEmpty) ...[
-                        SizedBox(height: 2.h),
+                        SizedBox(width: 4.w),
                         Text(
-                          (novel['tags'] as List)
-                              .map((tag) => '#$tag')
-                              .join(' '),
+                          novel['status'] == 'published' ? '公开' : '私密',
                           style: TextStyle(
-                            fontSize: 11.sp,
-                            color: Colors.grey,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF666666),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
-
-                      SizedBox(height: 2.h),
-                      // 第四行：作者和时间
-                      Text(
-                        '@${novel['authorName'] ?? ''} · ${_formatTime(novel['createdAt'])}',
-                        style: TextStyle(
-                          fontSize: 11.sp,
-                          color: Colors.grey,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+
+                  // 编辑按钮
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CreateNovelPage(
+                            novel: novel,
+                            isEdit: true,
+                          ),
+                        ),
+                      ).then((result) {
+                        if (result == true) {
+                          _loadData();
+                        }
+                      });
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.edit_outlined,
+                          size: 18.sp,
+                          color: const Color(0xFF666666),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '编辑',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF666666),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 聊天按钮(阅读小说)
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => NovelInitPage(
+                            novelData: {
+                              'id': novel['id'],
+                              'item_id': novel['id'],
+                              'cover_uri': novel['coverUri'],
+                              'title': novel['title'],
+                              'description': novel['description'],
+                              'author_name': novel['authorName'],
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.book_outlined,
+                          size: 18.sp,
+                          color: const Color(0xFF666666),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '对话',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF666666),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 删除按钮
+                  GestureDetector(
+                    onTap: () {
+                      _showDeleteNovelConfirmDialog(novel);
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_outline,
+                          size: 18.sp,
+                          color: const Color(0xFFFF5252),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '删除',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFFFF5252),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1177,6 +1303,114 @@ class _MyCreationPageState extends State<MyCreationPage> {
       }
     } catch (e) {
       _showToast('删除失败: $e', type: ToastType.error);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // 添加切换状态对话框
+  Future<void> _showStatusChangeDialog(Map<String, dynamic> character) async {
+    final currentStatus = character['status'] ?? 'published';
+    final newStatus = currentStatus == 'published' ? 'private' : 'published';
+
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('修改状态'),
+          content: Text(
+              '确定要将角色"${character['name']}"的状态从${currentStatus == 'published' ? '公开' : '私密'}切换为${newStatus == 'published' ? '公开' : '私密'}吗？'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('取消'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('确定'),
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _updateCharacterStatus(
+                    character['id'].toString(), newStatus);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _updateCharacterStatus(String id, String status) async {
+    setState(() => _isLoading = true);
+
+    try {
+      final response =
+          await _characterService.updateCharacterStatus(id, status);
+      if (response['code'] == 0) {
+        _showToast('状态更新成功', type: ToastType.success);
+        _loadData(); // 重新加载列表
+      } else {
+        _showToast('状态更新失败: ${response['message']}', type: ToastType.error);
+      }
+    } catch (e) {
+      _showToast('状态更新失败: $e', type: ToastType.error);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // 添加切换小说状态对话框
+  Future<void> _showNovelStatusChangeDialog(Map<String, dynamic> novel) async {
+    final currentStatus = novel['status'] ?? 'published';
+    final newStatus = currentStatus == 'published' ? 'private' : 'published';
+
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('修改状态'),
+          content: Text(
+              '确定要将小说"${novel['title']}"的状态从${currentStatus == 'published' ? '公开' : '私密'}切换为${newStatus == 'published' ? '公开' : '私密'}吗？'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('取消'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('确定'),
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _updateNovelStatus(novel['id'].toString(), newStatus);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _updateNovelStatus(String id, String status) async {
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await _novelService.updateNovelStatus(id, status);
+      if (response['code'] == 0) {
+        _showToast('状态更新成功', type: ToastType.success);
+        _loadData(); // 重新加载列表
+      } else {
+        _showToast('状态更新失败: ${response['message']}', type: ToastType.error);
+      }
+    } catch (e) {
+      _showToast('状态更新失败: $e', type: ToastType.error);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

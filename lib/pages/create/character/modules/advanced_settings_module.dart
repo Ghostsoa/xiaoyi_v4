@@ -792,9 +792,10 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
               SizedBox(height: 12.h),
               _buildEnhanceModeButton('disabled', '禁用回复增强', '使用原生模型输出，不进行特殊处理'),
               _buildEnhanceModeButton(
-                  'full', '回复超级增强', '对所有回复进行增强，大幅度提升\n回复质量，文笔，内容，逻辑，等'),
+                  'full', '回复增强', '对所有回复进行增强，大幅度提升\n回复质量，文笔，内容，逻辑，等'),
               _buildEnhanceModeButton(
                   'partial', '回复UI增强', '对UI显示效果，内容进行增强\n平衡了UI显示与回复质量'),
+              _buildEnhanceModeButton('fullpromax', '???', '???'),
               SizedBox(height: 24.h),
               Text(
                 '发布状态',

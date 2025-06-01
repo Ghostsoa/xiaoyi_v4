@@ -89,6 +89,23 @@ class NovelService {
     }
   }
 
+  // 更新小说状态
+  Future<Map<String, dynamic>> updateNovelStatus(
+      String id, String status) async {
+    try {
+      final response = await _httpClient.put('/novels/$id/status', data: {
+        'status': status,
+      });
+      return _processResponse(response.data);
+    } catch (e) {
+      return {
+        'code': -1,
+        'message': e.toString(),
+        'data': null,
+      };
+    }
+  }
+
   // 删除小说
   Future<Map<String, dynamic>> deleteNovel(String id) async {
     try {
