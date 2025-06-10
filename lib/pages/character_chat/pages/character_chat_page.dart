@@ -354,7 +354,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         'content': message,
         'isUser': true,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
-        'msgId': null,
+        'msgId': null, // 暂时为null，发送完成后会刷新获取真实msgId
       });
       _isSending = true;
       _currentMessage = '';
@@ -466,6 +466,18 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           _messages[0]['isLoading'] = false;
         });
       }
+
+      // 消息发送完成后，刷新消息列表以获取完整的ID信息
+      await _refreshMessages();
+
+      // 添加调试信息，检查每条消息是否有msgId
+      debugPrint('---- 消息列表信息 ----');
+      for (int i = 0; i < _messages.length; i++) {
+        final msg = _messages[i];
+        debugPrint(
+            '消息${i + 1}: isUser=${msg['isUser']}, msgId=${msg['msgId']}');
+      }
+      debugPrint('-------------------');
     } catch (e) {
       debugPrint('发送消息错误: $e');
       if (mounted) {
@@ -526,6 +538,64 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     });
   }
 
+  // 添加消息刷新方法
+  Future<void> _refreshMessages() async {
+    if (_isRefreshing) return;
+
+    setState(() => _isRefreshing = true);
+
+    try {
+      final result = await _characterService.getSessionMessages(
+        widget.sessionData['id'],
+        page: 1,
+        pageSize: _pageSize,
+      );
+
+      if (!mounted) return;
+
+      final List<dynamic> messageList = result['list'] ?? [];
+      final pagination = result['pagination'] ?? {};
+
+      final newMessages = messageList
+          .map(
+            (msg) => {
+              'content': msg['content'] ?? '',
+              'isUser': msg['role'] == 'user',
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+              'tokenCount': msg['tokenCount'] ?? 0,
+              'msgId': msg['msgId'],
+              'status': 'done',
+              'statusBar': msg['statusBar'],
+              'enhanced': msg['enhanced'],
+            },
+          )
+          .toList();
+
+      setState(() {
+        _messages.clear();
+        _messages.addAll(newMessages);
+        _totalPages = pagination['total_pages'] ?? 1;
+        _currentPage = 1;
+      });
+
+      // 滚动到底部
+      _scrollToBottom();
+    } catch (e) {
+      debugPrint('刷新消息失败: $e');
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: e.toString(),
+          type: ToastType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
+
   // 添加重置会话的方法
   Future<void> _handleResetSession() async {
     // 显示确认对话框
@@ -564,99 +634,14 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         });
 
         // 刷新消息列表
-        setState(() => _isRefreshing = true);
-        try {
-          final result = await _characterService.getSessionMessages(
-            widget.sessionData['id'],
-            page: 1,
-            pageSize: _pageSize,
-          );
+        await _refreshMessages();
 
-          if (!mounted) return;
-
-          final List<dynamic> messageList = result['list'] ?? [];
-          final pagination = result['pagination'] ?? {};
-
-          // 直接使用服务器返回的顺序，不需要反转
-          final newMessages = messageList
-              .map(
-                (msg) => {
-                  'content': msg['content'] ?? '',
-                  'isUser': msg['role'] == 'user',
-                  'timestamp': DateTime.now().millisecondsSinceEpoch,
-                  'tokenCount': msg['tokenCount'] ?? 0,
-                  'msgId': msg['msgId'],
-                  'status': 'done',
-                  'statusBar': msg['statusBar'], // 添加状态栏数据
-                  'enhanced': msg['enhanced'], // 添加增强状态数据
-                },
-              )
-              .toList();
-
-          setState(() {
-            _messages.clear();
-            _messages.addAll(newMessages);
-            _totalPages = pagination['total_pages'] ?? 1;
-            _currentPage = 1;
-          });
-
-          // 滚动到底部
-          _scrollToBottom();
-
-          // 显示成功提示
-          CustomToast.show(context, message: '对话已重置', type: ToastType.success);
-        } catch (e) {
-          debugPrint('刷新消息失败: $e');
-        } finally {
-          if (mounted) {
-            setState(() => _isRefreshing = false);
-          }
-        }
+        // 显示成功提示
+        CustomToast.show(context, message: '对话已重置', type: ToastType.success);
       }
     } catch (e) {
       if (mounted) {
         CustomToast.show(context, message: '重置失败: $e', type: ToastType.error);
-      }
-    }
-  }
-
-  // 添加撤回最后一条消息的方法
-  Future<void> _handleUndoLastMessage() async {
-    if (_messages.isEmpty) return;
-
-    try {
-      // 调用撤回接口
-      await _characterService.revokeLastMessage(widget.sessionData['id']);
-
-      // 如果第一条是AI的回复，需要同时删除用户的提问
-      if (!_messages[0]['isUser']) {
-        setState(() {
-          _messages.removeAt(0); // 删除AI回复
-          if (_messages.isNotEmpty && _messages[0]['isUser']) {
-            // 将用户消息内容放回输入框
-            _messageController.text = _messages[0]['content'];
-            // 将光标移到文本末尾
-            _messageController.selection = TextSelection.fromPosition(
-              TextPosition(offset: _messageController.text.length),
-            );
-            _messages.removeAt(0); // 删除用户提问
-          }
-        });
-      } else {
-        setState(() {
-          // 将用户消息内容放回输入框
-          _messageController.text = _messages[0]['content'];
-          // 将光标移到文本末尾
-          _messageController.selection = TextSelection.fromPosition(
-            TextPosition(offset: _messageController.text.length),
-          );
-          _messages.removeAt(0); // 只删除用户消息
-        });
-      }
-    } catch (e) {
-      debugPrint('撤回消息失败: $e');
-      if (mounted) {
-        CustomToast.show(context, message: e.toString(), type: ToastType.error);
       }
     }
   }
@@ -680,70 +665,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         }
       });
 
-      // 编辑完成后调用刷新方法
-      if (mounted) {
-        setState(() => _isRefreshing = true);
-        try {
-          final result = await _characterService.getSessionMessages(
-            widget.sessionData['id'],
-            page: 1,
-            pageSize: _pageSize,
-          );
-
-          if (!mounted) return;
-
-          final List<dynamic> messageList = result['list'] ?? [];
-
-          final newMessages = messageList
-              .map(
-                (msg) => {
-                  'content': msg['content'] ?? '',
-                  'isUser': msg['role'] == 'user',
-                  'timestamp': DateTime.now().millisecondsSinceEpoch,
-                  'tokenCount': msg['tokenCount'] ?? 0,
-                  'msgId': msg['msgId'],
-                  'status': 'done',
-                  'statusBar': msg['statusBar'], // 添加状态栏数据
-                  'enhanced': msg['enhanced'], // 添加增强状态数据
-                },
-              )
-              .toList();
-
-          // 对比并更新消息
-          bool hasNewMessages = false;
-
-          // 检查现有消息的内容变化
-          for (int i = 0; i < _messages.length; i++) {
-            if (i < newMessages.length) {
-              final oldMsg = _messages[i];
-              final newMsg = newMessages[i];
-
-              if (oldMsg['content'] != newMsg['content']) {
-                setState(() {
-                  oldMsg['content'] = newMsg['content'];
-                });
-              }
-            }
-          }
-
-          // 检查是否有新消息
-          if (newMessages.length > _messages.length) {
-            hasNewMessages = true;
-            setState(() {
-              _messages.addAll(newMessages.sublist(_messages.length));
-            });
-          }
-
-          // 如果有新消息，滚动到底部
-          if (hasNewMessages) {}
-        } catch (e) {
-          debugPrint('刷新消息失败: $e');
-        } finally {
-          if (mounted) {
-            setState(() => _isRefreshing = false);
-          }
-        }
-      }
+      // 编辑完成后刷新消息列表
+      await _refreshMessages();
     } catch (e) {
       debugPrint('更新消息失败: $e');
       if (mounted) {
@@ -786,6 +709,142 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       if (mounted) {
         setState(() {
           _formatMode = mode;
+        });
+      }
+    }
+  }
+
+  // 添加重新生成消息的方法
+  Future<void> _handleRegenerateMessage(String msgId) async {
+    if (_isSending) return;
+
+    // 查找需要重新生成的消息
+    final int messageIndex = _messages.indexWhere((m) => m['msgId'] == msgId);
+    if (messageIndex == -1) {
+      if (mounted) {
+        CustomToast.show(context, message: '找不到指定的消息', type: ToastType.error);
+      }
+      return;
+    }
+
+    setState(() {
+      // 标记消息为正在加载状态
+      _messages[messageIndex]['isLoading'] = true;
+      _messages[messageIndex]['status'] = 'streaming';
+      _messages[messageIndex]['content'] = ''; // 清空内容，准备重新生成
+      _isSending = true;
+      _currentMessage = '';
+      _shouldStopStream = false;
+    });
+
+    try {
+      // 调用重新生成API
+      await for (final SseResponse response in _chatService.regenerateMessage(
+        widget.sessionData['id'],
+        msgId,
+      )) {
+        if (!mounted || _shouldStopStream) break;
+
+        setState(() {
+          if (response.isMessage) {
+            final newContent = response.content ?? '';
+            _currentMessage += newContent;
+
+            // 更新消息内容
+            _messages[messageIndex]['content'] = _currentMessage;
+            _messages[messageIndex]['isLoading'] = false;
+            _messages[messageIndex]['status'] = response.status;
+
+            // 更新消息ID（如果服务端返回了新ID）
+            if (response.messageId != null) {
+              _messages[messageIndex]['msgId'] = response.messageId;
+            }
+
+            // 更新状态栏数据
+            if (response.statusBar != null) {
+              _messages[messageIndex]['statusBar'] = response.statusBar;
+            }
+
+            // 更新增强状态
+            if (response.enhanced != null) {
+              _messages[messageIndex]['enhanced'] = response.enhanced;
+            }
+          } else if (response.isDone) {
+            _messages[messageIndex]['status'] = 'done';
+            _messages[messageIndex]['isLoading'] = false;
+
+            // 更新状态栏数据
+            if (response.statusBar != null) {
+              _messages[messageIndex]['statusBar'] = response.statusBar;
+            }
+
+            // 更新增强状态
+            if (response.enhanced != null) {
+              _messages[messageIndex]['enhanced'] = response.enhanced;
+            }
+          } else if (response.isError) {
+            // 处理错误消息
+            final errorContent =
+                response.content ?? response.errorMsg ?? '未知错误';
+
+            // 重置消息状态
+            _messages[messageIndex]['status'] = 'error';
+            _messages[messageIndex]['isLoading'] = false;
+
+            // 显示错误提示
+            if (mounted) {
+              CustomToast.show(context,
+                  message: errorContent, type: ToastType.error);
+            }
+
+            // 检查是否是令牌失效
+            if (errorContent.contains('令牌失效') || errorContent.contains('未登录')) {
+              if (mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                  (route) => false,
+                );
+              }
+            }
+          }
+        });
+      }
+
+      if (_shouldStopStream) {
+        setState(() {
+          _messages[messageIndex]['content'] += '\n[已终止生成]';
+          _messages[messageIndex]['status'] = 'done';
+          _messages[messageIndex]['isLoading'] = false;
+        });
+      }
+
+      // 生成完成后刷新消息
+      await _refreshMessages();
+    } catch (e) {
+      debugPrint('重新生成消息错误: $e');
+      if (mounted) {
+        setState(() {
+          // 重置消息状态
+          _messages[messageIndex]['status'] = 'error';
+          _messages[messageIndex]['isLoading'] = false;
+        });
+
+        CustomToast.show(context, message: e.toString(), type: ToastType.error);
+
+        if (e.toString().contains('令牌失效')) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+            (route) => false,
+          );
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+          _shouldStopStream = false;
         });
       }
     }
@@ -1218,14 +1277,19 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                       ? _userTextColor
                                       : _textColor,
                                   msgId: message['msgId'],
-                                  onEdit: !message['isUser'] &&
-                                          message['msgId'] != null
-                                      ? _handleMessageEdit
-                                      : null,
+                                  onEdit: _handleMessageEdit,
                                   formatMode: _formatMode,
                                   statusBar: message['statusBar'],
                                   enhance: message['enhanced'],
                                   fontSize: _fontSize, // 传递字体大小设置
+                                  sessionId: widget.sessionData['id'], // 添加会话ID
+                                  onMessageDeleted:
+                                      _refreshMessages, // 添加删除后刷新回调
+                                  onMessageRevoked:
+                                      _refreshMessages, // 添加撤销后刷新回调
+                                  onMessageRegenerate: !message['isUser']
+                                      ? _handleRegenerateMessage
+                                      : null, // 只对AI消息添加重新生成功能
                                 );
                               },
                               // 性能优化选项
@@ -1321,7 +1385,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                               ),
                             ),
                           ),
-                          // 发送/终止/撤回按钮
+                          // 发送/终止按钮 (移除撤销功能)
                           Container(
                             width: 36.w,
                             height: 36.w,
@@ -1333,19 +1397,16 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                     ? _handleStopGeneration
                                     : _currentInputText.trim().isNotEmpty
                                         ? _handleSendMessage
-                                        : _handleUndoLastMessage,
+                                        : null, // 移除对_handleUndoLastMessage的调用
                                 borderRadius: BorderRadius.circular(18.r),
                                 child: Icon(
-                                  _isSending
-                                      ? Icons.stop_rounded
-                                      : _currentInputText.trim().isNotEmpty
-                                          ? Icons.send
-                                          : Icons.undo,
+                                  _isSending ? Icons.stop_rounded : Icons.send,
                                   color: _isSending
                                       ? Colors.red.withOpacity(0.8)
                                       : _currentInputText.trim().isNotEmpty
                                           ? AppTheme.primaryColor
-                                          : Colors.white.withOpacity(0.8),
+                                          : Colors.white
+                                              .withOpacity(0.4), // 输入为空时按钮变灰
                                   size: 20.sp,
                                 ),
                               ),

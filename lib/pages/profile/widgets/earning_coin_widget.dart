@@ -46,7 +46,7 @@ class EarningCoinWidget extends StatelessWidget {
             SizedBox(width: 16.w),
             Expanded(
               child: Text(
-                '获取小懿币',
+                '获取时长',
                 style: TextStyle(
                   fontSize: 16.sp,
                   fontWeight: FontWeight.w600,

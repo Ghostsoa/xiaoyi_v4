@@ -26,6 +26,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   final messageKey = GlobalKey<MessagePageState>();
   final profileKey = GlobalKey<ProfilePageState>();
 
+  // 标记页面是否已初始化
+  final List<bool> _pageInitialized = [true, false, false, false, false];
+
   @override
   void initState() {
     super.initState();
@@ -76,33 +79,56 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }
   }
 
+  // 静默刷新当前页面，不显示加载状态
   void _refreshCurrentPage() {
     switch (_currentIndex) {
       case 0:
-        homeKey.currentState?.refresh();
+        if (_pageInitialized[0]) {
+          homeKey.currentState?.refresh();
+        }
         break;
       case 1:
-        messageKey.currentState?.refresh();
+        if (_pageInitialized[1]) {
+          messageKey.currentState?.refresh();
+        }
         break;
       case 4:
-        profileKey.currentState?.refresh();
+        if (_pageInitialized[4]) {
+          profileKey.currentState?.refresh();
+        }
         break;
     }
   }
 
+  // 初始化对应索引的页面
+  void _initializePage(int index) {
+    if (_pageInitialized[index]) return;
+
+    setState(() {
+      _pageInitialized[index] = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 预先创建所有页面，但只有需要时才初始化内容
     final List<Widget> pages = [
       HomePage(key: homeKey),
-      MessagePage(key: messageKey, unreadCount: _unreadCount),
+      _pageInitialized[1]
+          ? MessagePage(key: messageKey, unreadCount: _unreadCount)
+          : Container(),
       const SizedBox(),
       const SizedBox(),
-      ProfilePage(key: profileKey),
+      _pageInitialized[4] ? ProfilePage(key: profileKey) : Container(),
     ];
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: pages[_currentIndex],
+      // 使用IndexedStack保持所有页面的状态
+      body: IndexedStack(
+        index: _currentIndex,
+        children: pages,
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppTheme.cardBackground,
@@ -145,18 +171,23 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           return;
         }
 
+        // 第一次切换到该页面时初始化
+        _initializePage(index);
+
         setState(() {
           _currentIndex = index;
         });
 
-        // 切换页面后，刷新新页面
+        // 切换页面后，静默刷新新页面
+        if (index == 1) {
+          // 消息页面特殊处理，需要获取未读数
+          _fetchUnreadCount();
+        }
+
+        // 使用Future.microtask确保页面切换后再刷新数据
         Future.microtask(() {
           _refreshCurrentPage();
         });
-
-        if (index == 1) {
-          _fetchUnreadCount();
-        }
       },
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),

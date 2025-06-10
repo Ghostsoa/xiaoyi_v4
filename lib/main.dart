@@ -68,7 +68,7 @@ class MyApp extends StatelessWidget {
         builder: (_, child) {
           return MaterialApp(
             navigatorKey: HttpClient.navigatorKey, // 添加navigatorKey用于全局导航
-            title: '小小懿AI',
+            title: '小懿AI',
             debugShowCheckedModeBanner: false,
             theme: themeController.themeData,
             themeMode: ThemeMode.dark,

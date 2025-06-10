@@ -443,7 +443,7 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
         backgroundColor: AppTheme.cardBackground,
         elevation: 0,
         title: Text(
-          '获取小懿币',
+          '获取时长',
           style: AppTheme.titleStyle,
         ),
         leading: IconButton(
@@ -691,17 +691,17 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
 
                   // 赞助好处列表
                   _buildSponsorItem(
-                    '获得专属兑换码，可兑换小懿币',
+                    '获得畅玩时长，解锁全部功能',
                     AppTheme.textSecondary,
                   ),
                   SizedBox(height: 8.h),
                   _buildSponsorItem(
-                    '获得畅玩时长，可无限制使用Gemini模型',
+                    '体验最新的回复增强技术、永久记忆技术',
                     AppTheme.textSecondary,
                   ),
                   SizedBox(height: 8.h),
                   _buildSponsorItem(
-                    '支持小懿发展，让我们提供更好的服务',
+                    '小懿特供版模型、小说功能等等',
                     AppTheme.textSecondary,
                   ),
 
@@ -787,7 +787,7 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
 
                   // 邀请规则列表
                   _buildRuleItem(
-                    '1. 好友通过在注册时填写您的ID，双方均可获得138小懿币',
+                    '1. 好友通过在注册时填写您的ID，双方均可获得58小懿币',
                     AppTheme.textSecondary,
                   ),
                   SizedBox(height: 8.h),

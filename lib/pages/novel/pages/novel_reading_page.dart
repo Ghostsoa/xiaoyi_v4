@@ -81,6 +81,10 @@ class _NovelReadingPageState extends State<NovelReadingPage>
 
   // AI交互区高度
   double _aiInteractionHeight = 160.0;
+  // 添加键盘高度跟踪变量
+  double _keyboardHeight = 0.0;
+  // 添加键盘可见状态
+  bool _isKeyboardVisible = false;
 
   // 会话ID
   String get _sessionId => (widget.sessionData['id'] ?? '').toString();
@@ -291,11 +295,24 @@ class _NovelReadingPageState extends State<NovelReadingPage>
     final padding = MediaQuery.of(context).padding;
     final bottomContentPadding = padding.bottom - 2.h;
 
+    // 监听键盘状态变化
+    final currentKeyboardHeight = viewInsets.bottom;
+    if (_keyboardHeight != currentKeyboardHeight) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _keyboardHeight = currentKeyboardHeight;
+            _isKeyboardVisible = _keyboardHeight > 0;
+          });
+        }
+      });
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       extendBodyBehindAppBar: true,
       extendBody: true,
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: false, // 保持为false，我们自己处理键盘显示逻辑
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -428,10 +445,16 @@ class _NovelReadingPageState extends State<NovelReadingPage>
 
           // 底部AI交互区域
           if (_showAiInteraction)
-            Positioned(
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
               left: 16.w,
               right: 16.w,
-              bottom: padding.bottom + 12.h,
+              bottom: padding.bottom +
+                  12.h +
+                  (_showPromptInput && _isKeyboardVisible
+                      ? _keyboardHeight
+                      : 0),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   return NotificationListener<SizeChangedLayoutNotification>(
@@ -920,6 +943,10 @@ class _NovelReadingPageState extends State<NovelReadingPage>
   void _togglePromptInput() {
     setState(() {
       _showPromptInput = !_showPromptInput;
+      // 如果关闭输入框，收起键盘
+      if (!_showPromptInput && _isKeyboardVisible) {
+        FocusScope.of(context).unfocus();
+      }
     });
   }
 

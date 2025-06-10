@@ -86,18 +86,33 @@ class CharacterService {
     }
   }
 
-  /// 撤回最后一条消息
-  Future<void> revokeLastMessage(int sessionId) async {
+  /// 删除单条消息
+  Future<void> deleteMessage(int sessionId, String messageId) async {
     try {
-      final response = await _httpClient.post(
-        '/sessions/character/$sessionId/messages/revoke',
+      final response = await _httpClient.delete(
+        '/sessions/character/$sessionId/messages/$messageId',
       );
 
       if (response.data['code'] != 0) {
-        throw response.data['msg'] ?? '撤回消息失败';
+        throw response.data['msg'] ?? '删除消息失败';
       }
     } catch (e) {
-      throw '撤回消息失败: $e';
+      throw '删除消息失败: $e';
+    }
+  }
+
+  /// 撤销指定消息及其后的所有消息
+  Future<void> revokeMessageAndAfter(int sessionId, String messageId) async {
+    try {
+      final response = await _httpClient.post(
+        '/sessions/character/$sessionId/messages/$messageId/revoke-after',
+      );
+
+      if (response.data['code'] != 0) {
+        throw response.data['msg'] ?? '撤销消息失败';
+      }
+    } catch (e) {
+      throw '撤销消息失败: $e';
     }
   }
 

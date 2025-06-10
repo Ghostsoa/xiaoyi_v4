@@ -133,10 +133,60 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  // 添加refresh方法供外部调用
+  // 添加refresh方法供外部调用，实现静默刷新
   void refresh() {
     if (mounted) {
-      _onRefresh();
+      // 静默加载数据，不更新加载状态
+      bool originalLoadingState = _isLoading;
+      _loadSilently();
+    }
+  }
+
+  // 静默加载数据，不显示加载状态
+  Future<void> _loadSilently() async {
+    if (!mounted) return;
+
+    try {
+      // 并行加载数据
+      final results = await Future.wait([
+        _homeService.getHotItems(),
+        _homeService.getRecommendItems(),
+        _homeService.getHotTags(),
+      ]);
+
+      if (mounted) {
+        final newHotItems = results[0]['data']['items'] ?? [];
+        final newRecommendItems = results[1]['data']['items'] ?? [];
+        final newHotTags = List<String>.from(results[2]['data'] ?? []);
+
+        // 检查数据是否发生变化
+        bool dataChanged = false;
+
+        if (_hotItems.length != newHotItems.length ||
+            _recommendItems.length != newRecommendItems.length ||
+            _hotTags.length != newHotTags.length) {
+          dataChanged = true;
+        }
+
+        // 如果数据发生变化，更新UI
+        if (dataChanged) {
+          setState(() {
+            _hotItems = newHotItems;
+            _recommendItems = newRecommendItems;
+            _hotTags = newHotTags;
+          });
+
+          // 预加载新图片
+          for (final item in [...newHotItems, ...newRecommendItems]) {
+            if (item['cover_uri'] != null) {
+              _loadItemImage(item['cover_uri'], forceReload: false);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('静默刷新数据失败: $e');
+      // 静默刷新出错时不显示错误提示
     }
   }
 
