@@ -649,6 +649,12 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
             );
           }
         },
+        onLongPress: _isMultiSelectMode
+            ? null
+            : () {
+                // 修复类型转换错误，使用全局位置显示菜单
+                _showSessionMenu(context, session);
+              },
         borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
         splashColor: Colors.transparent,
         highlightColor: Colors.white.withOpacity(0.05),
@@ -993,12 +999,25 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
       if (mounted) {
         setState(() {
           if (_isCharacterMode) {
-            _sessions = List<Map<String, dynamic>>.from(result['list']);
-            _hasMore = _sessions.length < result['total'];
+            if (result['list'] is List) {
+              _sessions = List<Map<String, dynamic>>.from(result['list']);
+            } else {
+              _sessions = [];
+              debugPrint('刷新会话列表返回数据格式错误: $result');
+            }
           } else {
-            _sessions = List<Map<String, dynamic>>.from(result['sessions']);
-            _hasMore = _sessions.length < result['total'];
+            if (result['sessions'] is List) {
+              _sessions = List<Map<String, dynamic>>.from(result['sessions']);
+            } else {
+              _sessions = [];
+              debugPrint('刷新小说会话列表返回数据格式错误: $result');
+            }
           }
+
+          final int total = _isCharacterMode
+              ? (result['total'] is int ? result['total'] : 0)
+              : (result['total'] is int ? result['total'] : 0);
+          _hasMore = _sessions.length < total;
         });
 
         // 预加载头像
@@ -1007,6 +1026,11 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
         }
       }
       _refreshController.refreshCompleted();
+
+      // 重置RefreshController的加载状态，确保可以继续上拉加载
+      if (_hasMore) {
+        _refreshController.loadComplete();
+      }
     } catch (e) {
       _refreshController.refreshFailed();
       if (mounted) {
@@ -1035,24 +1059,37 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
             );
 
       if (mounted) {
-        List<Map<String, dynamic>> newSessions;
+        List<Map<String, dynamic>> newSessions = [];
+
         if (_isCharacterMode) {
-          newSessions = List<Map<String, dynamic>>.from(result['list']);
+          if (result['list'] is List) {
+            newSessions = List<Map<String, dynamic>>.from(result['list']);
+          } else {
+            debugPrint('加载更多会话返回数据格式错误: $result');
+          }
         } else {
-          newSessions = List<Map<String, dynamic>>.from(result['sessions']);
+          if (result['sessions'] is List) {
+            newSessions = List<Map<String, dynamic>>.from(result['sessions']);
+          } else {
+            debugPrint('加载更多小说会话返回数据格式错误: $result');
+          }
         }
 
-        setState(() {
-          _sessions.addAll(newSessions);
-          _currentPage++;
-          _hasMore = _isCharacterMode
-              ? _sessions.length < result['total']
-              : _sessions.length < result['total'];
-        });
+        if (newSessions.isNotEmpty) {
+          setState(() {
+            _sessions.addAll(newSessions);
+            _currentPage++;
 
-        // 预加载新加载的会话的头像
-        for (var session in newSessions) {
-          _loadAvatar(session['cover_uri']);
+            final int total = _isCharacterMode
+                ? (result['total'] is int ? result['total'] : 0)
+                : (result['total'] is int ? result['total'] : 0);
+            _hasMore = _sessions.length < total;
+          });
+
+          // 预加载新加载的会话的头像
+          for (var session in newSessions) {
+            _loadAvatar(session['cover_uri']);
+          }
         }
 
         if (_hasMore) {
@@ -1238,6 +1275,12 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
             );
           }
         },
+        onLongPress: _isMultiSelectMode
+            ? null
+            : () {
+                // 修复类型转换错误，使用全局位置显示菜单
+                _showSessionMenu(context, session);
+              },
         borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
         splashColor: Colors.transparent,
         highlightColor: Colors.white.withOpacity(0.05),
@@ -1528,5 +1571,271 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
         ),
       ),
     );
+  }
+
+  // 显示会话长按菜单
+  void _showSessionMenu(BuildContext context, Map<String, dynamic> session,
+      [Offset? position]) {
+    final int sessionId = session['id'] as int;
+    final String sessionName = _isCharacterMode
+        ? (session['name'] ?? '未命名会话')
+        : (session['title'] ?? '未命名小说');
+
+    // 如果没有提供位置，则在屏幕中心显示
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final RelativeRect positionRect = position != null
+        ? RelativeRect.fromRect(
+            Rect.fromPoints(position, position),
+            Offset.zero & overlay.size,
+          )
+        : RelativeRect.fromLTRB(overlay.size.width / 3, overlay.size.height / 3,
+            overlay.size.width / 3, overlay.size.height / 3);
+
+    showMenu(
+      context: context,
+      position: positionRect,
+      // 设置更紧凑的内边距
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      constraints: BoxConstraints(
+        minWidth: 120.w,
+        maxWidth: 180.w,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'rename',
+          // 减小内边距
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+          height: 40.h,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.edit_outlined,
+                size: 16.sp,
+                color: AppTheme.primaryColor,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                '重命名',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 14.sp,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'delete',
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+          height: 40.h,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.delete_outline,
+                size: 16.sp,
+                color: Colors.red,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                '删除',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 14.sp,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == 'rename') {
+        _showRenameDialog(sessionId, sessionName);
+      } else if (value == 'delete') {
+        _showDeleteConfirmDialog(sessionId);
+      }
+    });
+  }
+
+  // 显示重命名对话框
+  void _showRenameDialog(int sessionId, String currentName) {
+    final TextEditingController controller =
+        TextEditingController(text: currentName);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+          title: Text(
+            '重命名',
+            style: AppTheme.titleStyle,
+          ),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            style: TextStyle(color: AppTheme.textPrimary),
+            decoration: InputDecoration(
+              hintText: '请输入新名称',
+              hintStyle:
+                  TextStyle(color: AppTheme.textSecondary.withOpacity(0.5)),
+              enabledBorder: UnderlineInputBorder(
+                borderSide:
+                    BorderSide(color: AppTheme.textSecondary.withOpacity(0.3)),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: AppTheme.primaryColor),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                '取消',
+                style: TextStyle(color: AppTheme.textSecondary),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                final newName = controller.text.trim();
+                if (newName.isNotEmpty) {
+                  _renameSession(sessionId, newName);
+                }
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                '确定',
+                style: TextStyle(color: AppTheme.primaryColor),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 重命名会话
+  Future<void> _renameSession(int sessionId, String newName) async {
+    try {
+      setState(() => _isLoading = true);
+
+      final result = _isCharacterMode
+          ? await _messageService.renameSession(sessionId, newName)
+          : await _messageService.renameNovelSession(sessionId, newName);
+
+      if (result['success'] == true) {
+        CustomToast.show(context, message: '重命名成功', type: ToastType.success);
+        _onRefresh(); // 刷新列表
+      } else {
+        CustomToast.show(context,
+            message: result['msg'] ?? '重命名失败', type: ToastType.error);
+      }
+    } catch (e) {
+      CustomToast.show(context, message: '重命名失败: $e', type: ToastType.error);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // 显示删除确认对话框
+  void _showDeleteConfirmDialog(int sessionId) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+          title: Text(
+            '确认删除',
+            style: AppTheme.titleStyle,
+          ),
+          content: Text(
+            '确定要删除这个会话吗？此操作不可恢复。',
+            style: TextStyle(color: AppTheme.textPrimary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                '取消',
+                style: TextStyle(color: AppTheme.textSecondary),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteSingleSession(sessionId);
+              },
+              child: Text(
+                '删除',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 删除单个会话
+  Future<void> _deleteSingleSession(int sessionId) async {
+    try {
+      // 显示删除中的提示
+      CustomToast.show(
+        context,
+        message: '正在删除...',
+        type: ToastType.info,
+        duration: const Duration(seconds: 3),
+      );
+
+      setState(() => _isLoading = true);
+
+      if (_isCharacterMode) {
+        await _messageService.deleteSession(sessionId);
+      } else {
+        await _messageService.deleteNovelSession(sessionId);
+      }
+
+      // 重新加载列表
+      await _onRefresh();
+
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '删除成功',
+          type: ToastType.success,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '删除失败: $e',
+          type: ToastType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 }

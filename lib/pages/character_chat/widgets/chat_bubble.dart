@@ -277,35 +277,35 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
   Widget _buildActionButton(
       IconData icon, VoidCallback? onTap, String tooltip, String label) {
     return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8.r),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
-        decoration: BoxDecoration(
-          color: widget.bubbleColor.withOpacity(widget.bubbleOpacity * 0.8),
-          borderRadius: BorderRadius.circular(6.r),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.2),
-            width: 0.5,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 14.sp,
-              color: widget.textColor,
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8.r),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+          decoration: BoxDecoration(
+            color: widget.bubbleColor.withOpacity(widget.bubbleOpacity * 0.8),
+            borderRadius: BorderRadius.circular(6.r),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+              width: 0.5,
             ),
-            SizedBox(width: 3.w),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9.sp,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14.sp,
                 color: widget.textColor,
               ),
-            ),
-          ],
+              SizedBox(width: 3.w),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 9.sp,
+                  color: widget.textColor,
+                ),
+              ),
+            ],
         ),
       ),
     );
@@ -516,12 +516,12 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
           baseColor: Color(0xFFD4AF37), // 金色
           highlightColor: Color(0xFFF5F5DC), // 浅米色
           period: const Duration(milliseconds: 2500),
-          child: Text(
-            "增强回复",
-            style: TextStyle(
+            child: Text(
+              "增强回复",
+              style: TextStyle(
               color: Color(0xFFD4AF37), // 烫金色文字
               fontSize: 10.sp,
-              fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w600,
               letterSpacing: 0.5,
               shadows: [
                 Shadow(
@@ -530,8 +530,8 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
                   blurRadius: 1,
                 ),
               ],
+              ),
             ),
-          ),
         ),
       );
     } else {

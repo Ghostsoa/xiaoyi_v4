@@ -514,4 +514,92 @@ class ProfileServer {
       return {'success': false, 'data': {}, 'msg': e.toString(), 'code': -1};
     }
   }
+
+  // 批量添加API密钥
+  Future<Map<String, dynamic>> batchAddApiKeys({
+    required List<String> apiKeys,
+    required String endpoint,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'apiKeys': apiKeys,
+        'endpoint': endpoint,
+      };
+
+      final response = await _httpClient.post(
+        '/api-keys/batch',
+        data: data,
+      );
+
+      if (response.data is Map<String, dynamic>) {
+        final responseData = response.data as Map<String, dynamic>;
+
+        if (responseData.containsKey('code')) {
+          return {
+            'success': responseData['code'] == 0,
+            'data': responseData['data'] ?? [],
+            'msg': responseData['msg'] ??
+                (responseData['code'] == 0 ? '批量添加成功' : '批量添加失败'),
+            'code': responseData['code']
+          };
+        }
+      }
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': [], 'msg': '批量添加成功', 'code': 0};
+      } else {
+        return {
+          'success': false,
+          'data': [],
+          'msg': '${response.statusCode}',
+          'code': response.statusCode
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'data': [], 'msg': e.toString(), 'code': -1};
+    }
+  }
+
+  // 批量删除API密钥
+  Future<Map<String, dynamic>> batchDeleteApiKeys({
+    required List<int> ids,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'ids': ids,
+      };
+
+      final response = await _httpClient.delete(
+        '/api-keys/batch',
+        data: data,
+      );
+
+      if (response.data is Map<String, dynamic>) {
+        final responseData = response.data as Map<String, dynamic>;
+
+        if (responseData.containsKey('code')) {
+          return {
+            'success': responseData['code'] == 0,
+            'data': {},
+            'msg': responseData['msg'] ??
+                (responseData['code'] == 0 ? '批量删除成功' : '批量删除失败'),
+            'code': responseData['code']
+          };
+        }
+      }
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': {}, 'msg': '批量删除成功', 'code': 0};
+      } else {
+        return {
+          'success': false,
+          'data': {},
+          'msg': '${response.statusCode}',
+          'code': response.statusCode
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'data': {}, 'msg': e.toString(), 'code': -1};
+    }
+  }
 }

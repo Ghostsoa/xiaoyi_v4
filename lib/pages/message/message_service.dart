@@ -76,4 +76,62 @@ class MessageService {
       throw '删除小说会话失败: $e';
     }
   }
+
+  // 重命名角色会话
+  Future<Map<String, dynamic>> renameSession(
+      int sessionId, String newName) async {
+    try {
+      final response = await _httpClient.post(
+        '/sessions/character/$sessionId/rename',
+        data: {'name': newName},
+      );
+
+      if (response.data['code'] == 0) {
+        return {
+          'success': true,
+          'data': response.data['data'],
+          'msg': response.data['msg'] ?? '重命名成功',
+        };
+      } else {
+        return {
+          'success': false,
+          'msg': response.data['msg'] ?? '重命名失败',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'msg': '重命名失败: $e',
+      };
+    }
+  }
+
+  // 重命名小说会话
+  Future<Map<String, dynamic>> renameNovelSession(
+      int sessionId, String newName) async {
+    try {
+      final response = await _httpClient.post(
+        '/sessions/novel/$sessionId/rename',
+        data: {'name': newName},
+      );
+
+      if (response.data['code'] == 0) {
+        return {
+          'success': true,
+          'data': response.data['data'],
+          'msg': response.data['msg'] ?? '重命名成功',
+        };
+      } else {
+        return {
+          'success': false,
+          'msg': response.data['msg'] ?? '重命名失败',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'msg': '重命名失败: $e',
+      };
+    }
+  }
 }
