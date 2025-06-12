@@ -664,9 +664,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           _messages[index]['content'] = newContent;
         }
       });
-
-      // 编辑完成后刷新消息列表
-      await _refreshMessages();
     } catch (e) {
       debugPrint('更新消息失败: $e');
       if (mounted) {
@@ -818,9 +815,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           _messages[messageIndex]['isLoading'] = false;
         });
       }
-
-      // 生成完成后刷新消息
-      await _refreshMessages();
     } catch (e) {
       debugPrint('重新生成消息错误: $e');
       if (mounted) {
@@ -1284,9 +1278,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                   fontSize: _fontSize, // 传递字体大小设置
                                   sessionId: widget.sessionData['id'], // 添加会话ID
                                   onMessageDeleted:
-                                      _refreshMessages, // 添加删除后刷新回调
+                                      null, // 移除_refreshMessages回调
                                   onMessageRevoked:
-                                      _refreshMessages, // 添加撤销后刷新回调
+                                      null, // 移除_refreshMessages回调
                                   onMessageRegenerate: !message['isUser']
                                       ? _handleRegenerateMessage
                                       : null, // 只对AI消息添加重新生成功能
