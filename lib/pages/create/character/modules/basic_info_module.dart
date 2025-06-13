@@ -38,6 +38,10 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
   final FocusNode _tagFocusNode = FocusNode();
   List<String> _tags = [];
 
+  // 当前角色简介字数
+  int _descriptionCount = 0;
+  final int _maxDescriptionCount = 500;
+
   @override
   void initState() {
     super.initState();
@@ -49,13 +53,25 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
           .where((e) => e.isNotEmpty)
           .toList();
     }
+
+    // 添加角色简介字数变化监听
+    widget.descriptionController.addListener(_updateDescriptionCount);
   }
 
   @override
   void dispose() {
     _tagInputController.dispose();
     _tagFocusNode.dispose();
+    // 移除监听器
+    widget.descriptionController.removeListener(_updateDescriptionCount);
     super.dispose();
+  }
+
+  // 更新字数计数
+  void _updateDescriptionCount() {
+    setState(() {
+      _descriptionCount = widget.descriptionController.text.length;
+    });
   }
 
   void _addTag(String tag) {
@@ -321,10 +337,34 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               borderSide: BorderSide.none,
             ),
+            // 添加后缀计数器
+            suffixText: '$_descriptionCount/$_maxDescriptionCount',
+            suffixStyle: TextStyle(
+              color: _descriptionCount > _maxDescriptionCount
+                  ? Colors.red
+                  : AppTheme.textSecondary,
+              fontSize: 12.sp,
+            ),
+            // 添加错误提示
+            errorText:
+                _descriptionCount > _maxDescriptionCount ? '超出最大字数限制' : null,
           ),
           style: AppTheme.bodyStyle,
           minLines: 3,
           maxLines: null,
+          // 添加输入限制
+          maxLength: _maxDescriptionCount,
+          // 隐藏内置计数器
+          buildCounter: (context,
+                  {required currentLength, required isFocused, maxLength}) =>
+              null,
+          // 添加验证
+          validator: (value) {
+            if (value != null && value.length > _maxDescriptionCount) {
+              return '角色简介不能超过$_maxDescriptionCount字';
+            }
+            return null;
+          },
         ),
         SizedBox(height: 16.h),
         _buildTagInput(),

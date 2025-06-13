@@ -19,7 +19,6 @@ class _NotificationsPageState extends State<NotificationsPage>
   final RefreshController _refreshController =
       RefreshController(initialRefresh: false);
   late AnimationController _shimmerController;
-  late TabController _tabController;
 
   List<dynamic> _notifications = [];
   bool _isLoading = true;
@@ -29,31 +28,34 @@ class _NotificationsPageState extends State<NotificationsPage>
 
   // 筛选状态：null-全部, 0-未读, 1-已读
   int? _currentStatusFilter;
+  // 当前选中的分类索引
+  int _currentTabIndex = 0;
+
+  // 添加一个Set来跟踪已展开的通知ID
+  final Set<int> _expandedNotifications = {};
 
   @override
   void initState() {
     super.initState();
     _shimmerController = AnimationController.unbounded(vsync: this)
       ..repeat(min: -0.5, max: 1.5, period: const Duration(milliseconds: 1500));
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(_handleTabChange);
     _loadNotifications();
   }
 
   @override
   void dispose() {
     _shimmerController.dispose();
-    _tabController.removeListener(_handleTabChange);
-    _tabController.dispose();
     _refreshController.dispose();
     super.dispose();
   }
 
-  void _handleTabChange() {
-    if (!_tabController.indexIsChanging) return;
+  // 修改为直接切换分类的方法
+  void _switchCategory(int index) {
+    if (_currentTabIndex == index) return;
 
     setState(() {
-      switch (_tabController.index) {
+      _currentTabIndex = index;
+      switch (index) {
         case 0:
           _currentStatusFilter = null; // 全部
           break;
@@ -187,12 +189,27 @@ class _NotificationsPageState extends State<NotificationsPage>
   Future<void> _openNotificationLink(String? link) async {
     if (link == null || link.isEmpty) return;
 
-    final Uri uri = Uri.parse(link);
+    // 修复URL格式，确保包含协议
+    String processedLink = link;
+    if (!processedLink.startsWith('http://') &&
+        !processedLink.startsWith('https://')) {
+      processedLink = 'https://$processedLink';
+    }
 
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      _showErrorToast('无法打开链接');
+    try {
+      final Uri uri = Uri.parse(processedLink);
+
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        // 尝试普通模式打开
+        if (await launchUrl(uri, mode: LaunchMode.platformDefault)) {
+          return;
+        }
+        _showErrorToast('无法打开链接: $processedLink');
+      }
+    } catch (e) {
+      _showErrorToast('链接格式错误: $e');
     }
   }
 
@@ -379,33 +396,63 @@ class _NotificationsPageState extends State<NotificationsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.background,
-        elevation: 0,
-        centerTitle: false,
-        title: Text(
-          '我的通知',
-          style: AppTheme.titleStyle,
-        ),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios,
-              color: AppTheme.textPrimary, size: 20.sp),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        actions: [
-          // 全部已读按钮
-          TextButton(
-            onPressed: _markAllAsRead,
-            child: Text(
-              '全部已读',
-              style: AppTheme.linkStyle,
+      body: Column(
+        children: [
+          // 添加顶部区域，替代原来的AppBar
+          Container(
+            padding: EdgeInsets.only(
+                left: 16.w,
+                right: 16.w,
+                top: MediaQuery.of(context).padding.top + 8.h, // 考虑状态栏高度
+                bottom: 8.h),
+            child: Row(
+              children: [
+                // 返回按钮
+                InkWell(
+                  onTap: () => Navigator.of(context).pop(),
+                  borderRadius: BorderRadius.circular(20.r),
+                  child: Container(
+                    padding: EdgeInsets.all(4.r),
+                    child: Icon(
+                      Icons.arrow_back_ios,
+                      color: AppTheme.textPrimary,
+                      size: 20.sp,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 16.w),
+
+                // 标题
+                Expanded(
+                  child: Text(
+                    '我的通知',
+                    style: AppTheme.titleStyle,
+                  ),
+                ),
+
+                // 全部已读按钮
+                TextButton(
+                  onPressed: _markAllAsRead,
+                  style: TextButton.styleFrom(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    '全部已读',
+                    style: AppTheme.linkStyle,
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(48.h),
-          child: Container(
+
+          // 添加自定义分类选择器
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
             decoration: BoxDecoration(
+              color: AppTheme.background,
               border: Border(
                 bottom: BorderSide(
                   color: AppTheme.border.withOpacity(0.3),
@@ -413,114 +460,136 @@ class _NotificationsPageState extends State<NotificationsPage>
                 ),
               ),
             ),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: AppTheme.primaryColor,
-              unselectedLabelColor: AppTheme.textSecondary,
-              indicatorColor: AppTheme.primaryColor,
-              indicatorWeight: 3.0,
-              indicatorSize: TabBarIndicatorSize.label,
-              splashFactory: NoSplash.splashFactory,
-              overlayColor: WidgetStateProperty.resolveWith<Color>(
-                  (states) => Colors.transparent),
-              labelStyle: AppTheme.bodyStyle.copyWith(
-                fontWeight: FontWeight.w500,
-                fontSize: 15.sp,
-              ),
-              unselectedLabelStyle: AppTheme.bodyStyle.copyWith(
-                fontSize: 14.sp,
-              ),
-              tabs: const [
-                Tab(text: '全部'),
-                Tab(text: '未读'),
-                Tab(text: '已读'),
+            child: Row(
+              children: [
+                _buildCategoryButton(0, '全部'),
+                SizedBox(width: 24.w),
+                _buildCategoryButton(1, '未读'),
+                SizedBox(width: 24.w),
+                _buildCategoryButton(2, '已读'),
               ],
             ),
           ),
-        ),
-      ),
-      body: _isLoading
-          ? _buildSkeletonLoading()
-          : _notifications.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.notifications_none_outlined,
-                        size: 64.sp,
-                        color: AppTheme.textSecondary.withOpacity(0.5),
-                      ),
-                      SizedBox(height: 16.h),
-                      Text(
-                        '暂无通知',
-                        style: AppTheme.secondaryStyle.copyWith(
-                          fontSize: 16.sp,
+
+          // 内容区域
+          Expanded(
+            child: _isLoading
+                ? _buildSkeletonLoading()
+                : _notifications.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.notifications_none_outlined,
+                              size: 64.sp,
+                              color: AppTheme.textSecondary.withOpacity(0.5),
+                            ),
+                            SizedBox(height: 16.h),
+                            Text(
+                              '暂无通知',
+                              style: AppTheme.secondaryStyle.copyWith(
+                                fontSize: 16.sp,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : SmartRefresher(
+                        enablePullDown: true,
+                        enablePullUp: _hasMore,
+                        header: ClassicHeader(
+                          refreshStyle: RefreshStyle.Follow,
+                          idleText: '下拉刷新',
+                          releaseText: '松开刷新',
+                          refreshingText: '正在刷新...',
+                          completeText: '刷新成功',
+                          failedText: '刷新失败',
+                          textStyle: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 14.sp,
+                          ),
+                        ),
+                        footer: CustomFooter(
+                          builder: (context, mode) {
+                            Widget body;
+                            if (mode == LoadStatus.idle) {
+                              body = Text("上拉加载更多",
+                                  style:
+                                      TextStyle(color: AppTheme.textSecondary));
+                            } else if (mode == LoadStatus.loading) {
+                              body = const CircularProgressIndicator.adaptive(
+                                  strokeWidth: 2);
+                            } else if (mode == LoadStatus.failed) {
+                              body = Text("加载失败，点击重试",
+                                  style: TextStyle(color: Colors.red));
+                            } else if (mode == LoadStatus.canLoading) {
+                              body = Text("松开加载更多",
+                                  style:
+                                      TextStyle(color: AppTheme.textSecondary));
+                            } else {
+                              body = Text("没有更多数据了",
+                                  style:
+                                      TextStyle(color: AppTheme.textSecondary));
+                            }
+                            return SizedBox(
+                              height: 55.0,
+                              child: Center(child: body),
+                            );
+                          },
+                        ),
+                        controller: _refreshController,
+                        onRefresh: _loadNotifications,
+                        onLoading: _loadMoreNotifications,
+                        child: ListView.builder(
+                          padding: EdgeInsets.all(16.r),
+                          itemCount: _notifications.length,
+                          cacheExtent: 1000, // 增加缓存范围
+                          addAutomaticKeepAlives: true,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          itemBuilder: (context, index) {
+                            final notification = _notifications[index];
+                            final bool isUnread = notification['status'] == 0;
+
+                            return _buildNotificationItem(
+                              notification,
+                              isUnread,
+                            );
+                          },
                         ),
                       ),
-                    ],
-                  ),
-                )
-              : SmartRefresher(
-                  enablePullDown: true,
-                  enablePullUp: _hasMore,
-                  header: ClassicHeader(
-                    refreshStyle: RefreshStyle.Follow,
-                    idleText: '下拉刷新',
-                    releaseText: '松开刷新',
-                    refreshingText: '正在刷新...',
-                    completeText: '刷新成功',
-                    failedText: '刷新失败',
-                    textStyle: TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 14.sp,
-                    ),
-                  ),
-                  footer: CustomFooter(
-                    builder: (context, mode) {
-                      Widget body;
-                      if (mode == LoadStatus.idle) {
-                        body = Text("上拉加载更多",
-                            style: TextStyle(color: AppTheme.textSecondary));
-                      } else if (mode == LoadStatus.loading) {
-                        body = const CircularProgressIndicator.adaptive(
-                            strokeWidth: 2);
-                      } else if (mode == LoadStatus.failed) {
-                        body = Text("加载失败，点击重试",
-                            style: TextStyle(color: Colors.red));
-                      } else if (mode == LoadStatus.canLoading) {
-                        body = Text("松开加载更多",
-                            style: TextStyle(color: AppTheme.textSecondary));
-                      } else {
-                        body = Text("没有更多数据了",
-                            style: TextStyle(color: AppTheme.textSecondary));
-                      }
-                      return SizedBox(
-                        height: 55.0,
-                        child: Center(child: body),
-                      );
-                    },
-                  ),
-                  controller: _refreshController,
-                  onRefresh: _loadNotifications,
-                  onLoading: _loadMoreNotifications,
-                  child: ListView.builder(
-                    padding: EdgeInsets.all(16.r),
-                    itemCount: _notifications.length,
-                    cacheExtent: 1000, // 增加缓存范围
-                    addAutomaticKeepAlives: true,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    itemBuilder: (context, index) {
-                      final notification = _notifications[index];
-                      final bool isUnread = notification['status'] == 0;
+          ),
+        ],
+      ),
+    );
+  }
 
-                      return _buildNotificationItem(
-                        notification,
-                        isUnread,
-                      );
-                    },
-                  ),
-                ),
+  // 添加分类按钮构建方法
+  Widget _buildCategoryButton(int index, String title) {
+    final bool isSelected = _currentTabIndex == index;
+
+    return InkWell(
+      onTap: () => _switchCategory(index),
+      borderRadius: BorderRadius.circular(4.r),
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 6.h, horizontal: 4.w),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+              width: 2.0,
+            ),
+          ),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+            fontSize: isSelected ? 16.sp : 15.sp,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
     );
   }
 
@@ -529,34 +598,44 @@ class _NotificationsPageState extends State<NotificationsPage>
     Map<String, dynamic> notification,
     bool isUnread,
   ) {
+    final int notificationId = notification['id'];
+    final bool isExpanded = _expandedNotifications.contains(notificationId);
+
     // 解析通知类型
     String typeLabel = '系统通知';
     Color typeColor = AppTheme.primaryColor;
+    IconData typeIcon = Icons.notifications_outlined;
 
     switch (notification['type']) {
       case 'system':
         typeLabel = '系统通知';
         typeColor = AppTheme.primaryColor;
+        typeIcon = Icons.info_outline;
         break;
       case 'activity':
         typeLabel = '活动通知';
         typeColor = AppTheme.accentOrange;
+        typeIcon = Icons.celebration_outlined;
         break;
       case 'update':
         typeLabel = '更新通知';
         typeColor = AppTheme.success;
+        typeIcon = Icons.system_update_outlined;
         break;
       case 'reminder':
         typeLabel = '提醒通知';
         typeColor = AppTheme.accentPink;
+        typeIcon = Icons.notifications_active_outlined;
         break;
       case 'promotion':
         typeLabel = '促销通知';
         typeColor = AppTheme.warning;
+        typeIcon = Icons.local_offer_outlined;
         break;
       case 'warning':
         typeLabel = '警告通知';
         typeColor = AppTheme.error;
+        typeIcon = Icons.warning_amber_outlined;
         break;
     }
 
@@ -564,15 +643,18 @@ class _NotificationsPageState extends State<NotificationsPage>
     int notificationLevel = notification['level'] ?? 0;
     String levelLabel = '';
     Color levelColor = AppTheme.textSecondary;
+    IconData levelIcon = Icons.circle;
 
     switch (notificationLevel) {
       case 1:
         levelLabel = '重要';
         levelColor = AppTheme.warning;
+        levelIcon = Icons.priority_high_outlined;
         break;
       case 2:
         levelLabel = '紧急';
         levelColor = AppTheme.error;
+        levelIcon = Icons.error_outline;
         break;
       case 0:
       default:
@@ -592,166 +674,347 @@ class _NotificationsPageState extends State<NotificationsPage>
 
     if (hasLink) {
       try {
-        final Uri uri = Uri.parse(link);
+        String processedLink = link;
+        if (!processedLink.startsWith('http://') &&
+            !processedLink.startsWith('https://')) {
+          processedLink = 'https://$processedLink';
+        }
+        final Uri uri = Uri.parse(processedLink);
         displayLink = uri.host;
       } catch (e) {
         displayLink = link;
       }
     }
 
+    // 检查内容是否需要"展开/收起"按钮
+    final String content = notification['content'] ?? '';
+    final bool contentNeedsExpansion =
+        content.split('\n').length > 3 || content.length > 100;
+
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 20.w),
+      margin: EdgeInsets.only(bottom: 12.h),
       decoration: BoxDecoration(
-        color: Colors.transparent,
-        border: Border(
-          bottom: BorderSide(
-            color: AppTheme.border.withOpacity(0.3),
-            width: 0.5,
+        color: isUnread ? typeColor.withOpacity(0.03) : AppTheme.cardBackground,
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8.r,
+            offset: Offset(0, 2.h),
           ),
+        ],
+        border: Border.all(
+          color: isUnread
+              ? typeColor.withOpacity(0.3)
+              : AppTheme.border.withOpacity(0.2),
+          width: 1,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 标题和标签行
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12.r),
+        child: Container(
+          padding: EdgeInsets.all(16.r),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 通知标题
-              Expanded(
-                child: Text(
-                  notification['title'] ?? '通知',
-                  style: AppTheme.titleStyle.copyWith(
-                    fontSize: 16.sp,
-                    fontWeight: isUnread ? FontWeight.w600 : FontWeight.w500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-
-              // 优先级标签
-              if (levelLabel.isNotEmpty)
-                Container(
-                  margin: EdgeInsets.only(left: 8.w),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 8.w,
-                    vertical: 2.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color: levelColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusXSmall),
-                  ),
-                  child: Text(
-                    levelLabel,
-                    style: TextStyle(
-                      color: levelColor,
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-
-          SizedBox(height: 4.h),
-
-          // 类型和时间
-          Row(
-            children: [
-              Text(
-                typeLabel,
-                style: TextStyle(
-                  color: typeColor,
-                  fontSize: 12.sp,
-                ),
-              ),
-              SizedBox(width: 8.w),
-              Text(
-                formattedTime,
-                style: AppTheme.hintStyle,
-              ),
-            ],
-          ),
-
-          SizedBox(height: 8.h),
-
-          // 通知内容
-          Text(
-            notification['content'] ?? '',
-            style: AppTheme.bodyStyle.copyWith(
-              color: AppTheme.textPrimary.withOpacity(0.8),
-              height: 1.4,
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-
-          // 链接区域
-          if (hasLink) ...[
-            SizedBox(height: 12.h),
-            InkWell(
-              onTap: () => _openNotificationLink(link),
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardBackground.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusXSmall),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.link,
-                      size: 16.sp,
-                      color: AppTheme.primaryColor,
-                    ),
-                    SizedBox(width: 6.w),
-                    Flexible(
-                      child: Text(
-                        '相关链接: $displayLink',
-                        style: TextStyle(
-                          color: AppTheme.primaryColor,
-                          fontSize: 13.sp,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+              // 标题和标签行
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // 未读标记
+                  if (isUnread)
+                    Container(
+                      width: 8.r,
+                      height: 8.r,
+                      margin: EdgeInsets.only(right: 8.w),
+                      decoration: BoxDecoration(
+                        color: typeColor,
+                        shape: BoxShape.circle,
                       ),
                     ),
+
+                  // 通知标题
+                  Expanded(
+                    child: Text(
+                      notification['title'] ?? '通知',
+                      style: AppTheme.titleStyle.copyWith(
+                        fontSize: 16.sp,
+                        fontWeight:
+                            isUnread ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+
+                  // 优先级标签
+                  if (levelLabel.isNotEmpty)
+                    Container(
+                      margin: EdgeInsets.only(left: 8.w),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 8.w,
+                        vertical: 2.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: levelColor.withOpacity(0.1),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusXSmall),
+                        border: Border.all(
+                          color: levelColor.withOpacity(0.2),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            levelIcon,
+                            size: 12.sp,
+                            color: levelColor,
+                          ),
+                          SizedBox(width: 4.w),
+                          Text(
+                            levelLabel,
+                            style: TextStyle(
+                              color: levelColor,
+                              fontSize: 11.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+
+              SizedBox(height: 8.h),
+
+              // 类型标签和时间
+              Row(
+                children: [
+                  // 美化的类型标签
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 4.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: typeColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(
+                        color: typeColor.withOpacity(0.2),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          typeIcon,
+                          size: 14.sp,
+                          color: typeColor,
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          typeLabel,
+                          style: TextStyle(
+                            color: typeColor,
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(width: 8.w),
+
+                  // 时间显示
+                  Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                    decoration: BoxDecoration(
+                      color: AppTheme.textSecondary.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.access_time,
+                          size: 12.sp,
+                          color: AppTheme.textSecondary,
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          formattedTime,
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12.sp,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              SizedBox(height: 12.h),
+
+              // 通知内容
+              Container(
+                padding: EdgeInsets.all(12.r),
+                decoration: BoxDecoration(
+                  color: AppTheme.background.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(8.r),
+                  border: Border.all(
+                    color: AppTheme.border.withOpacity(0.1),
+                    width: 0.5,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      notification['content'] ?? '',
+                      style: AppTheme.bodyStyle.copyWith(
+                        color: AppTheme.textPrimary.withOpacity(0.8),
+                        height: 1.4,
+                      ),
+                      maxLines: isExpanded ? null : 3,
+                      overflow: isExpanded
+                          ? TextOverflow.visible
+                          : TextOverflow.ellipsis,
+                    ),
+
+                    // 展开/收起按钮
+                    if (contentNeedsExpansion) ...[
+                      SizedBox(height: 8.h),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (isExpanded) {
+                              _expandedNotifications.remove(notificationId);
+                            } else {
+                              _expandedNotifications.add(notificationId);
+                            }
+                          });
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.w, vertical: 4.h),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8.r),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                isExpanded ? '收起' : '展开',
+                                style: TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontSize: 12.sp,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(width: 2.w),
+                              Icon(
+                                isExpanded
+                                    ? Icons.keyboard_arrow_up
+                                    : Icons.keyboard_arrow_down,
+                                size: 14.sp,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-            ),
-          ],
 
-          // 已读按钮（只对未读消息显示）
-          if (isUnread) ...[
-            SizedBox(height: 12.h),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => _markAsRead(notification['id']),
-                style: TextButton.styleFrom(
-                  minimumSize: Size.zero,
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  backgroundColor: AppTheme.cardBackground.withOpacity(0.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusXSmall),
+              // 链接区域
+              if (hasLink) ...[
+                SizedBox(height: 12.h),
+                InkWell(
+                  onTap: () => _openNotificationLink(link),
+                  borderRadius: BorderRadius.circular(8.r),
+                  child: Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(
+                        color: AppTheme.primaryColor.withOpacity(0.15),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.link,
+                          size: 16.sp,
+                          color: AppTheme.primaryColor,
+                        ),
+                        SizedBox(width: 8.w),
+                        Flexible(
+                          child: Text(
+                            '查看相关链接: $displayLink',
+                            style: TextStyle(
+                              color: AppTheme.primaryColor,
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: Text(
-                  '标为已读',
-                  style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 12.sp,
+              ],
+
+              // 已读按钮（只对未读消息显示）
+              if (isUnread) ...[
+                SizedBox(height: 12.h),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () => _markAsRead(notification['id']),
+                    icon: Icon(
+                      Icons.check_circle_outline,
+                      size: 16.sp,
+                      color: AppTheme.primaryColor,
+                    ),
+                    label: Text(
+                      '标为已读',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      minimumSize: Size.zero,
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ],
-        ],
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -745,7 +745,7 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
         statusText = '启用';
         statusColor = Colors.green;
         break;
-      case 2:
+      case 0:
         statusText = '停用';
         statusColor = Colors.orange;
         break;
@@ -830,9 +830,9 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
                   onTap: _isInBatchDeleteMode || status == 3
                       ? null
                       : () {
-                          // 切换状态 (1 -> 2 或 2 -> 1)
+                          // 切换状态 (1 -> 0 或 0 -> 1)
                           _updateApiKeyStatus(
-                              apiKey['id'], status == 1 ? 2 : 1);
+                              apiKey['id'], status == 1 ? 0 : 1);
                         },
                   child: Container(
                     padding: EdgeInsets.symmetric(
@@ -849,7 +849,7 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
                         Icon(
                           status == 1
                               ? Icons.check_circle
-                              : (status == 2
+                              : (status == 0
                                   ? Icons.pause_circle_outline
                                   : Icons.block),
                           size: 14.sp,
@@ -938,7 +938,7 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
                             ? null // 封禁状态下禁用开关
                             : (value) {
                                 _updateApiKeyStatus(
-                                    apiKey['id'], value ? 1 : 2);
+                                    apiKey['id'], value ? 1 : 0);
                               },
                         activeColor:
                             status == 3 ? Colors.grey : AppTheme.primaryColor,
