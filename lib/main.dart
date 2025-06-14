@@ -20,8 +20,8 @@ void main() async {
   await Permission.camera.request();
   await Permission.microphone.request();
 
-  // 初始化网络监控服务
-  await NetworkMonitorService().initialize();
+  // 初始化网络监控服务 - 不等待其完成，让它在后台运行
+  NetworkMonitorService().initializeAsync();
 
   // 强制竖屏
   SystemChrome.setPreferredOrientations([

@@ -298,17 +298,8 @@ class AppTheme {
     useMaterial3: true,
     primaryColor: primaryColor,
     scaffoldBackgroundColor: background,
-    brightness: Brightness.dark,
-    colorScheme: ColorScheme.dark(
-      primary: primaryColor,
-      secondary: accentPink,
-      tertiary: accentOrange,
-      surface: cardBackground,
-      error: error,
-      onPrimary: Colors.white,
-      onSecondary: Colors.white,
-      onSurface: textPrimary,
-    ),
+    brightness: _getBrightness(),
+    colorScheme: _getColorScheme(),
     textTheme: TextTheme(
       displayLarge: headingStyle.copyWith(
         fontSize: headingSize * 1.2,
@@ -424,6 +415,47 @@ class AppTheme {
       space: 1,
     ),
   );
+
+  // 判断当前是否是亮色主题
+  static bool get isLightTheme {
+    final backgroundColor = background;
+    final luminance = backgroundColor.computeLuminance();
+    return luminance > 0.5;
+  }
+
+  // 获取亮暗主题
+  static Brightness _getBrightness() {
+    return isLightTheme ? Brightness.light : Brightness.dark;
+  }
+
+  // 获取颜色方案
+  static ColorScheme _getColorScheme() {
+    if (isLightTheme) {
+      return ColorScheme.light(
+        primary: primaryColor,
+        secondary: accentPink,
+        tertiary: accentOrange,
+        surface: cardBackground,
+        error: error,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: textPrimary,
+        background: background,
+      );
+    } else {
+      return ColorScheme.dark(
+        primary: primaryColor,
+        secondary: accentPink,
+        tertiary: accentOrange,
+        surface: cardBackground,
+        error: error,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: textPrimary,
+        background: background,
+      );
+    }
+  }
 
   // 自定义渐变按钮样式
   static ButtonStyle gradientButtonStyle({

@@ -81,13 +81,16 @@ class HttpClient {
   // 初始化最佳API线路
   Future<void> _initBestApiEndpoint() async {
     try {
-      // 获取最佳线路
-      final bestEndpoint = await NetworkMonitorService().getBestApiEndpoint();
+      // 获取最佳线路 - 不会阻塞，即使NetworkMonitorService未初始化完成
+      final bestEndpoint = await NetworkMonitorService()
+          .getBestApiEndpoint()
+          .timeout(const Duration(milliseconds: 300));
       // 设置最佳线路
       setBaseUrl('$bestEndpoint/api/v1');
     } catch (e) {
-      // 出现异常时使用默认线路，不做任何处理
+      // 超时或出现异常时使用默认线路，不做任何处理
       // 网络监控服务会定期检测并自动切换到最佳线路
+      debugPrint('[HttpClient] 初始化最佳线路失败，使用默认线路: $e');
     }
   }
 

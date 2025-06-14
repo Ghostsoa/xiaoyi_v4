@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/theme_config.dart';
+import '../../theme/theme_controller.dart';
 import '../../widgets/custom_toast.dart';
 
 class ThemeSettingsPage extends StatefulWidget {
@@ -68,6 +69,7 @@ class _ThemeSettingsPageState extends State<ThemeSettingsPage> {
 
   void _applyChanges() {
     _themeConfig.apply();
+    ThemeController().updateSystemUI();
     setState(() {});
     if (mounted) {
       CustomToast.show(
@@ -76,6 +78,15 @@ class _ThemeSettingsPageState extends State<ThemeSettingsPage> {
         type: ToastType.success,
       );
     }
+  }
+
+  // 应用预设主题
+  void _applyPresetTheme(String themeName) {
+    _themeConfig.applyPresetTheme(themeName);
+    setState(() {
+      _hasUnsavedChanges = true;
+    });
+    _applyChanges();
   }
 
   void _showColorPicker(String colorKey) {
@@ -376,6 +387,90 @@ class _ThemeSettingsPageState extends State<ThemeSettingsPage> {
     }
   }
 
+  // 构建预设主题项
+  Widget _buildThemePresetItem(String themeName, String displayName) {
+    Map<String, Color> colors;
+    List<Color> buttonGradient;
+    bool isLightTheme = themeName == 'light';
+
+    // 获取对应的预设颜色
+    switch (themeName) {
+      case 'pink':
+        colors = ThemeConfig.pinkGradientColors;
+        buttonGradient = ThemeConfig.pinkGradientGradients['button']!;
+        break;
+      case 'blue':
+        colors = ThemeConfig.blueGradientColors;
+        buttonGradient = ThemeConfig.blueGradientGradients['button']!;
+        break;
+      case 'lime':
+        colors = ThemeConfig.limeGradientColors;
+        buttonGradient = ThemeConfig.limeGradientGradients['button']!;
+        break;
+      case 'orange':
+        colors = ThemeConfig.orangeGradientColors;
+        buttonGradient = ThemeConfig.orangeGradientGradients['button']!;
+        break;
+      case 'light':
+        colors = ThemeConfig.lightThemeColors;
+        buttonGradient = ThemeConfig.lightThemeGradients['button']!;
+        break;
+      case 'default':
+      default:
+        colors = ThemeConfig.defaultColors;
+        buttonGradient = ThemeConfig.defaultGradients['button']!;
+        break;
+    }
+
+    return GestureDetector(
+      onTap: () => _applyPresetTheme(themeName),
+      child: Container(
+        margin: EdgeInsets.only(right: 12.w),
+        width: 80.w,
+        child: Column(
+          children: [
+            Container(
+              height: 80.w,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: buttonGradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: buttonGradient.first.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: isLightTheme
+                  ? Center(
+                      child: Icon(
+                        Icons.light_mode,
+                        color: Colors.white,
+                        size: 30.sp,
+                      ),
+                    )
+                  : null,
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              displayName,
+              style: isLightTheme
+                  ? AppTheme.secondaryStyle.copyWith(
+                      color: AppTheme.primaryLight, fontWeight: FontWeight.w600)
+                  : AppTheme.secondaryStyle,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildColorItem(String colorKey) {
     final color = _themeConfig.getColor(colorKey);
     return InkWell(
@@ -513,6 +608,51 @@ class _ThemeSettingsPageState extends State<ThemeSettingsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // 预设主题选择区域
+                      Container(
+                        padding: EdgeInsets.all(16.w),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardBackground,
+                          borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(
+                              color: AppTheme.border.withOpacity(0.1)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '预设主题',
+                              style: AppTheme.titleStyle,
+                            ),
+                            SizedBox(height: 16.h),
+                            Text(
+                              '点击下方预设快速应用主题',
+                              style: AppTheme.secondaryStyle,
+                            ),
+                            SizedBox(height: 16.h),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  _buildThemePresetItem('default',
+                                      ThemeConfig.themeNames['default']!),
+                                  _buildThemePresetItem(
+                                      'pink', ThemeConfig.themeNames['pink']!),
+                                  _buildThemePresetItem(
+                                      'blue', ThemeConfig.themeNames['blue']!),
+                                  _buildThemePresetItem(
+                                      'lime', ThemeConfig.themeNames['lime']!),
+                                  _buildThemePresetItem('orange',
+                                      ThemeConfig.themeNames['orange']!),
+                                  _buildThemePresetItem('light',
+                                      ThemeConfig.themeNames['light']!),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 24.h),
                       Container(
                         padding: EdgeInsets.all(16.w),
                         decoration: BoxDecoration(
@@ -649,6 +789,7 @@ class _ThemeSettingsPageState extends State<ThemeSettingsPage> {
                             ),
                             SizedBox(height: 16.h),
                             Text(
+                              '• 可以使用预设主题快速切换颜色方案\n'
                               '• 点击渐变条可以编辑对应的渐变颜色\n'
                               '• 每个渐变支持2-5个颜色节点\n'
                               '• 基础渐变：用于主要和强调色\n'

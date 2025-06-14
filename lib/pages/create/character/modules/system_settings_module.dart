@@ -3,13 +3,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../theme/app_theme.dart';
 import '../../material/select_text_page.dart';
 import '../../../../widgets/custom_toast.dart';
-import '../../../../net/http_client.dart';
 
 class SystemSettingsModule extends StatefulWidget {
   final TextEditingController settingController;
   final TextEditingController greetingController;
   final TextEditingController userSettingController;
-  final TextEditingController statusBarController;
   final bool settingEditable;
   final Function(bool) onSettingEditableChanged;
 
@@ -18,7 +16,6 @@ class SystemSettingsModule extends StatefulWidget {
     required this.settingController,
     required this.greetingController,
     required this.userSettingController,
-    required this.statusBarController,
     required this.settingEditable,
     required this.onSettingEditableChanged,
   });
@@ -199,124 +196,6 @@ class _SystemSettingsModuleState extends State<SystemSettingsModule> {
     );
   }
 
-  // 添加AI生成状态栏的方法
-  Future<void> _generateStatusBar() async {
-    final TextEditingController inputController = TextEditingController();
-
-    String? prompt = await showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: AppTheme.cardBackground,
-          title: Text(
-            '生成状态栏',
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: AppTheme.titleSize,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '请描述你希望生成的状态栏包含哪些元素：',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: AppTheme.captionSize,
-                ),
-              ),
-              SizedBox(height: 8.h),
-              TextField(
-                controller: inputController,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: '例如：生成一个战士角色的状态栏，满血，有龙之力加成',
-                  filled: true,
-                  fillColor: AppTheme.background,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: AppTheme.bodySize,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                '取消',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: AppTheme.bodySize,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context, inputController.text);
-              },
-              child: Text(
-                '生成',
-                style: TextStyle(
-                  color: AppTheme.primaryColor,
-                  fontSize: AppTheme.bodySize,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (prompt != null && prompt.isNotEmpty) {
-      try {
-        setState(() {
-          // 显示加载中
-          widget.statusBarController.text = '正在生成状态栏...';
-        });
-
-        // 调用API生成状态栏
-        final HttpClient httpClient = HttpClient();
-        final response = await httpClient.post(
-          '/status-bar',
-          data: {
-            'input': prompt,
-          },
-        );
-
-        if (response.data['code'] == 0) {
-          setState(() {
-            // 直接填充API返回的状态栏内容
-            widget.statusBarController.text =
-                response.data['data']['status_bar'];
-          });
-          _showToast('状态栏生成成功', type: ToastType.success);
-        } else {
-          _showToast('状态栏生成失败: ${response.data['msg']}', type: ToastType.error);
-          setState(() {
-            // 恢复原来的内容
-            widget.statusBarController.text =
-                widget.statusBarController.text.replaceAll('正在生成状态栏...', '');
-          });
-        }
-      } catch (e) {
-        _showToast('状态栏生成失败: $e', type: ToastType.error);
-        setState(() {
-          // 恢复原来的内容
-          widget.statusBarController.text =
-              widget.statusBarController.text.replaceAll('正在生成状态栏...', '');
-        });
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -456,131 +335,6 @@ class _SystemSettingsModuleState extends State<SystemSettingsModule> {
               fontSize: 12.sp,
             ),
           ),
-        ),
-        SizedBox(height: 16.h),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text('状态栏', style: AppTheme.secondaryStyle),
-                SizedBox(width: 4.w),
-                Icon(
-                  Icons.help_outline,
-                  size: 16.sp,
-                  color: AppTheme.textSecondary,
-                ),
-                const Spacer(),
-                // AI生成按钮
-                GestureDetector(
-                  onTap: () {
-                    _generateStatusBar();
-                  },
-                  child: Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                    margin: EdgeInsets.only(right: 8.w),
-                    decoration: BoxDecoration(
-                      color: Colors.blue,
-                      borderRadius: BorderRadius.circular(6.r),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blue.withOpacity(0.3),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.auto_awesome,
-                          size: 16.sp,
-                          color: Colors.white,
-                        ),
-                        SizedBox(width: 4.w),
-                        Text(
-                          'AI生成',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12.sp,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                _buildSelectButton(
-                  title: '状态栏',
-                  type: TextSelectType.setting,
-                  onSelected: (value) {
-                    final currentText = widget.statusBarController.text;
-                    if (currentText.isEmpty) {
-                      widget.statusBarController.text = value;
-                    } else {
-                      widget.statusBarController.text =
-                          '$currentText\n\n$value';
-                    }
-                  },
-                ),
-              ],
-            ),
-            SizedBox(height: 4.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4.w),
-              child: RichText(
-                text: TextSpan(
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 12.sp,
-                  ),
-                  children: [
-                    const TextSpan(text: '在对话界面顶部显示的'),
-                    TextSpan(
-                      text: '状态信息',
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const TextSpan(text: '，内容需要用'),
-                    TextSpan(
-                      text: 'json格式',
-                      style: TextStyle(
-                        color: Colors.amber,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const TextSpan(text: '格式包裹'),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(height: 8.h),
-            TextFormField(
-              controller: widget.statusBarController,
-              decoration: InputDecoration(
-                hintText: '例如：{\n"生命": "100",\n "魔法": "50",\n "好感度": "80"\n}',
-                filled: true,
-                fillColor: AppTheme.cardBackground,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              minLines: 3,
-              maxLines: null,
-            ),
-          ],
         ),
         SizedBox(height: 16.h),
         Column(

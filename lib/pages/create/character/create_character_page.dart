@@ -46,7 +46,6 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   final _prefixController = TextEditingController();
   final _suffixController = TextEditingController();
   final _userSettingController = TextEditingController();
-  final _statusBarController = TextEditingController();
   bool _settingEditable = true;
   String _uiSettings = 'markdown';
 
@@ -56,12 +55,10 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   double _topP = 0.9;
   int _topK = 40;
   int _maxTokens = 2000;
-  bool _streamMode = true;
 
   // 高级设定
   int _memoryTurns = 100;
   int _searchDepth = 5;
-  bool _permanentMemory = false;
   Map<String, dynamic> _worldbookMap = {};
   String _status = 'draft';
   int _selectedWorldBookCount = 0;
@@ -91,8 +88,6 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     _suffixController.text = character['suffix'] ?? '';
     _userSettingController.text =
         character['userSetting'] ?? '你应该尊重用户，并提供准确的信息。';
-    _statusBarController.text =
-        character['statusBar'] ?? 'HP: 100 | MP: 50 | 好感度: 80';
     _settingEditable = character['settingEditable'] ?? true;
     _uiSettings = character['uiSettings'] ?? 'markdown';
     _modelName = character['modelName'] ?? 'gemini-2.0-flash';
@@ -100,10 +95,8 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     _topP = (character['topP'] ?? 0.9).toDouble();
     _topK = character['topK'] ?? 40;
     _maxTokens = character['maxTokens'] ?? 2000;
-    _streamMode = character['streamMode'] ?? true;
     _memoryTurns = character['memoryTurns'] ?? 100;
     _searchDepth = character['searchDepth'] ?? 5;
-    _permanentMemory = character['permanentMemory'] ?? false;
     _status = character['status'] ?? 'draft';
     _enhanceMode = character['enhanceMode'] ?? 'disabled';
 
@@ -139,7 +132,6 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     _prefixController.dispose();
     _suffixController.dispose();
     _userSettingController.dispose();
-    _statusBarController.dispose();
     super.dispose();
   }
 
@@ -167,14 +159,11 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
         "topP": _topP,
         "topK": _topK,
         "maxTokens": _maxTokens,
-        "streamMode": _streamMode,
         "memoryTurns": _memoryTurns,
-        "permanentMemory": _permanentMemory,
         "greeting": _greetingController.text,
         "prefix": _prefixController.text,
         "suffix": _suffixController.text,
         "userSetting": _userSettingController.text,
-        "statusBar": _statusBarController.text,
         "uiSettings": _uiSettings,
         "searchDepth": _searchDepth,
         "worldbookMap": _worldbookMap,
@@ -264,7 +253,6 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           settingController: _settingController,
           greetingController: _greetingController,
           userSettingController: _userSettingController,
-          statusBarController: _statusBarController,
           settingEditable: _settingEditable,
           onSettingEditableChanged: (value) =>
               setState(() => _settingEditable = value),
@@ -276,13 +264,11 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           topP: _topP,
           topK: _topK,
           maxTokens: _maxTokens,
-          streamMode: _streamMode,
           onModelNameChanged: (value) => setState(() => _modelName = value),
           onTemperatureChanged: (value) => setState(() => _temperature = value),
           onTopPChanged: (value) => setState(() => _topP = value),
           onTopKChanged: (value) => setState(() => _topK = value),
           onMaxTokensChanged: (value) => setState(() => _maxTokens = value),
-          onStreamModeChanged: (value) => setState(() => _streamMode = value),
         );
       case 3:
         return AdvancedSettingsModule(
@@ -290,7 +276,6 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           searchDepth: _searchDepth,
           status: _status,
           uiSettings: _uiSettings,
-          permanentMemory: _permanentMemory,
           selectedWorldBooks: _selectedWorldBooks,
           prefixController: _prefixController,
           suffixController: _suffixController,
@@ -299,8 +284,6 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           onSearchDepthChanged: (value) => setState(() => _searchDepth = value),
           onStatusChanged: (value) => setState(() => _status = value),
           onUiSettingsChanged: (value) => setState(() => _uiSettings = value),
-          onPermanentMemoryChanged: (value) =>
-              setState(() => _permanentMemory = value),
           onWorldBooksChanged: (value) => setState(() => _selectedWorldBooks
             ..clear()
             ..addAll(value)),

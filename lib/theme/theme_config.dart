@@ -37,6 +37,201 @@ class ThemeConfig {
     'error': [const Color(0xFFEF4444), const Color(0xFFDC2626)],
   };
 
+  // 预定义主题配色 - 渐变粉
+  static final Map<String, Color> pinkGradientColors = {
+    'primary': const Color(0xFFEC4899),
+    'primaryLight': const Color(0xFFF472B6),
+    'primaryDark': const Color(0xFFBE185D),
+    'background': const Color(0xFF160D12),
+    'cardBackground': const Color(0xFF1E1218),
+    'textPrimary': const Color(0xFFF8FAFC),
+    'textSecondary': const Color(0xFFE2E8F0),
+    'border': const Color(0xFFBE185D),
+  };
+
+  static final Map<String, List<Color>> pinkGradientGradients = {
+    'primary': [
+      const Color(0xFFBE185D),
+      const Color(0xFFEC4899),
+      const Color(0xFFF472B6)
+    ],
+    'accent': [
+      const Color(0xFFDB2777),
+      const Color(0xFFF472B6),
+      const Color(0xFFFBCFE8)
+    ],
+    'background': [
+      const Color(0xFF160D12),
+      const Color(0xFF1D1019),
+      const Color(0xFF28121D)
+    ],
+    'card': [const Color(0xFF1E1218), const Color(0xFF2D1A24)],
+    'button': [const Color(0xFFBE185D), const Color(0xFFEC4899)],
+    'text': [const Color(0xFFF8FAFC), const Color(0xFFE2E8F0)],
+    'border': [const Color(0xFFBE185D), const Color(0xFFF472B6)],
+    'success': [const Color(0xFF34D399), const Color(0xFF10B981)],
+    'warning': [const Color(0xFFFBBF24), const Color(0xFFD97706)],
+    'error': [const Color(0xFFEF4444), const Color(0xFFDC2626)],
+  };
+
+  // 预定义主题配色 - 活力蓝
+  static final Map<String, Color> blueGradientColors = {
+    'primary': const Color(0xFF3B82F6),
+    'primaryLight': const Color(0xFF60A5FA),
+    'primaryDark': const Color(0xFF1D4ED8),
+    'background': const Color(0xFF0D1424),
+    'cardBackground': const Color(0xFF13192E),
+    'textPrimary': const Color(0xFFF8FAFC),
+    'textSecondary': const Color(0xFFE2E8F0),
+    'border': const Color(0xFF1D4ED8),
+  };
+
+  static final Map<String, List<Color>> blueGradientGradients = {
+    'primary': [
+      const Color(0xFF1D4ED8),
+      const Color(0xFF3B82F6),
+      const Color(0xFF60A5FA)
+    ],
+    'accent': [
+      const Color(0xFF2563EB),
+      const Color(0xFF60A5FA),
+      const Color(0xFFBAE6FD)
+    ],
+    'background': [
+      const Color(0xFF0D1424),
+      const Color(0xFF12182C),
+      const Color(0xFF192036)
+    ],
+    'card': [const Color(0xFF13192E), const Color(0xFF1E263D)],
+    'button': [const Color(0xFF1D4ED8), const Color(0xFF3B82F6)],
+    'text': [const Color(0xFFF8FAFC), const Color(0xFFE2E8F0)],
+    'border': [const Color(0xFF1D4ED8), const Color(0xFF60A5FA)],
+    'success': [const Color(0xFF34D399), const Color(0xFF10B981)],
+    'warning': [const Color(0xFFFBBF24), const Color(0xFFD97706)],
+    'error': [const Color(0xFFEF4444), const Color(0xFFDC2626)],
+  };
+
+  // 预定义主题配色 - 柠檬绿
+  static final Map<String, Color> limeGradientColors = {
+    'primary': const Color(0xFF84CC16),
+    'primaryLight': const Color(0xFFA3E635),
+    'primaryDark': const Color(0xFF4D7C0F),
+    'background': const Color(0xFF0F1A0E),
+    'cardBackground': const Color(0xFF162314),
+    'textPrimary': const Color(0xFFF8FAFC),
+    'textSecondary': const Color(0xFFE2E8F0),
+    'border': const Color(0xFF4D7C0F),
+  };
+
+  static final Map<String, List<Color>> limeGradientGradients = {
+    'primary': [
+      const Color(0xFF4D7C0F),
+      const Color(0xFF84CC16),
+      const Color(0xFFA3E635)
+    ],
+    'accent': [
+      const Color(0xFF65A30D),
+      const Color(0xFFA3E635),
+      const Color(0xFFD9F99D)
+    ],
+    'background': [
+      const Color(0xFF0F1A0E),
+      const Color(0xFF141F12),
+      const Color(0xFF1A271A)
+    ],
+    'card': [const Color(0xFF162314), const Color(0xFF212F1C)],
+    'button': [const Color(0xFF4D7C0F), const Color(0xFF84CC16)],
+    'text': [const Color(0xFFF8FAFC), const Color(0xFFE2E8F0)],
+    'border': [const Color(0xFF4D7C0F), const Color(0xFFA3E635)],
+    'success': [const Color(0xFF34D399), const Color(0xFF10B981)],
+    'warning': [const Color(0xFFFBBF24), const Color(0xFFD97706)],
+    'error': [const Color(0xFFEF4444), const Color(0xFFDC2626)],
+  };
+
+  // 预定义主题配色 - 青春橙
+  static final Map<String, Color> orangeGradientColors = {
+    'primary': const Color(0xFFF97316),
+    'primaryLight': const Color(0xFFFB923C),
+    'primaryDark': const Color(0xFFC2410C),
+    'background': const Color(0xFF1A120E),
+    'cardBackground': const Color(0xFF241A14),
+    'textPrimary': const Color(0xFFF8FAFC),
+    'textSecondary': const Color(0xFFE2E8F0),
+    'border': const Color(0xFFC2410C),
+  };
+
+  static final Map<String, List<Color>> orangeGradientGradients = {
+    'primary': [
+      const Color(0xFFC2410C),
+      const Color(0xFFF97316),
+      const Color(0xFFFB923C)
+    ],
+    'accent': [
+      const Color(0xFFEA580C),
+      const Color(0xFFFB923C),
+      const Color(0xFFFED7AA)
+    ],
+    'background': [
+      const Color(0xFF1A120E),
+      const Color(0xFF21170F),
+      const Color(0xFF2A1D14)
+    ],
+    'card': [const Color(0xFF241A14), const Color(0xFF30241C)],
+    'button': [const Color(0xFFC2410C), const Color(0xFFF97316)],
+    'text': [const Color(0xFFF8FAFC), const Color(0xFFE2E8F0)],
+    'border': [const Color(0xFFC2410C), const Color(0xFFFB923C)],
+    'success': [const Color(0xFF34D399), const Color(0xFF10B981)],
+    'warning': [const Color(0xFFFBBF24), const Color(0xFFD97706)],
+    'error': [const Color(0xFFEF4444), const Color(0xFFDC2626)],
+  };
+
+  // 预定义主题配色 - 明亮主题
+  static final Map<String, Color> lightThemeColors = {
+    'primary': const Color(0xFF6B46C1),
+    'primaryLight': const Color(0xFF8B5CF6),
+    'primaryDark': const Color(0xFF4C1D95),
+    'background': const Color(0xFFF8FAFC),
+    'cardBackground': const Color(0xFFFFFFFF),
+    'textPrimary': const Color(0xFF1E293B),
+    'textSecondary': const Color(0xFF475569),
+    'border': const Color(0xFFCBD5E1),
+  };
+
+  static final Map<String, List<Color>> lightThemeGradients = {
+    'primary': [
+      const Color(0xFF4C1D95),
+      const Color(0xFF6B46C1),
+      const Color(0xFF8B5CF6)
+    ],
+    'accent': [
+      const Color(0xFF7C3AED),
+      const Color(0xFF8B5CF6),
+      const Color(0xFFB794F4)
+    ],
+    'background': [
+      const Color(0xFFF8FAFC),
+      const Color(0xFFF1F5F9),
+      const Color(0xFFE2E8F0)
+    ],
+    'card': [const Color(0xFFFFFFFF), const Color(0xFFF8FAFC)],
+    'button': [const Color(0xFF6B46C1), const Color(0xFF8B5CF6)],
+    'text': [const Color(0xFF1E293B), const Color(0xFF334155)],
+    'border': [const Color(0xFFCBD5E1), const Color(0xFFE2E8F0)],
+    'success': [const Color(0xFF34D399), const Color(0xFF10B981)],
+    'warning': [const Color(0xFFFBBF24), const Color(0xFFD97706)],
+    'error': [const Color(0xFFEF4444), const Color(0xFFDC2626)],
+  };
+
+  // 主题名称枚举
+  static const Map<String, String> themeNames = {
+    'default': '默认紫色',
+    'pink': '渐变粉',
+    'blue': '活力蓝',
+    'lime': '柠檬绿',
+    'orange': '青春橙',
+    'light': '明亮模式',
+  };
+
   Map<String, Color> colors;
   Map<String, List<Color>> gradients;
 
@@ -116,6 +311,36 @@ class ThemeConfig {
   void resetToDefault() {
     colors = Map.from(defaultColors);
     gradients = Map.from(defaultGradients);
+  }
+
+  // 应用预设主题
+  void applyPresetTheme(String themeName) {
+    switch (themeName) {
+      case 'pink':
+        colors = Map.from(pinkGradientColors);
+        gradients = Map.from(pinkGradientGradients);
+        break;
+      case 'blue':
+        colors = Map.from(blueGradientColors);
+        gradients = Map.from(blueGradientGradients);
+        break;
+      case 'lime':
+        colors = Map.from(limeGradientColors);
+        gradients = Map.from(limeGradientGradients);
+        break;
+      case 'orange':
+        colors = Map.from(orangeGradientColors);
+        gradients = Map.from(orangeGradientGradients);
+        break;
+      case 'light':
+        colors = Map.from(lightThemeColors);
+        gradients = Map.from(lightThemeGradients);
+        break;
+      case 'default':
+      default:
+        resetToDefault();
+        break;
+    }
   }
 
   // 更新单个颜色

@@ -34,29 +34,14 @@ class ModelConfigCard extends StatelessWidget {
       title: 'AI模型配置',
       children: [
         _buildModelSelector(context),
-        _buildSwitchItem(
-          '流式响应',
-          'stream_mode',
-          editedData['stream_mode'] ?? sessionData['stream_mode'] ?? true,
-          description: '开启后AI回复将逐字显示，关闭则等待生成完毕后一次性显示',
-        ),
-        _buildSwitchItem(
-          '永久记忆',
-          'permanent_memory',
-          editedData['permanent_memory'] ??
-              sessionData['permanent_memory'] ??
-              false,
-          description: '开启后记忆轮数将被锁定至100轮，使用新技术实现理论上的永久性记忆（测试阶段）',
-          showBeta: true,
-        ),
         _buildEnhanceModeSelector(context),
         _buildSliderItem(
           '温度',
           'temperature',
           temperatureController,
           0.0,
-          1.0,
-          20,
+          2.0,
+          40,
         ),
         _buildSliderItem(
           'Top P',
@@ -80,7 +65,7 @@ class ModelConfigCard extends StatelessWidget {
           'max_tokens',
           maxTokensController,
           100,
-          8196,
+          8192,
           81,
           isInt: true,
         ),
@@ -92,9 +77,6 @@ class ModelConfigCard extends StatelessWidget {
           500,
           499,
           isInt: true,
-          isDisabled: editedData['permanent_memory'] ??
-              sessionData['permanent_memory'] ??
-              false,
         ),
         _buildSliderItem(
           '搜索深度',
@@ -403,109 +385,6 @@ class ModelConfigCard extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSwitchItem(
-    String label,
-    String field,
-    bool value, {
-    String? description,
-    bool showBeta = false,
-  }) {
-    return Container(
-      width: double.infinity,
-      margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.05),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(6.w),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      field == 'stream_mode' ? Icons.stream : Icons.memory,
-                      color: AppTheme.primaryColor,
-                      size: 16.sp,
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (showBeta) ...[
-                    SizedBox(width: 6.w),
-                    Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                      decoration: BoxDecoration(
-                        color: Colors.amber,
-                        borderRadius: BorderRadius.circular(4.r),
-                      ),
-                      child: Text(
-                        'Beta',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              Switch(
-                value: value,
-                onChanged: (newValue) {
-                  onUpdateField(field, newValue);
-
-                  // 当开启永久记忆时，锁定记忆轮数为100
-                  if (field == 'permanent_memory' && newValue) {
-                    onUpdateField('memory_turns', 100);
-                    memoryTurnsController.text = '100';
-                  }
-                },
-                activeColor: AppTheme.primaryColor,
-                activeTrackColor: AppTheme.primaryColor.withOpacity(0.3),
-              ),
-            ],
-          ),
-          if (description != null) ...[
-            SizedBox(height: 8.h),
-            Padding(
-              padding: EdgeInsets.only(left: 36.w),
-              child: Text(
-                description,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
-                  fontSize: 12.sp,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );

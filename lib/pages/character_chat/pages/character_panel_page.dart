@@ -36,8 +36,6 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   final Map<String, dynamic> _editedData = {};
   String? _error;
   int _currentPageIndex = 0;
-  bool _streamMode = true;
-  bool _permanentMemory = false;
   String _enhanceMode = 'disabled';
 
   final _settingController = TextEditingController();
@@ -51,7 +49,6 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   final _prefixController = TextEditingController();
   final _suffixController = TextEditingController();
   final _userSettingController = TextEditingController();
-  final _statusBarController = TextEditingController();
   String _uiSettings = 'markdown';
 
   final List<String> _pageNames = [
@@ -80,7 +77,6 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
     _prefixController.dispose();
     _suffixController.dispose();
     _userSettingController.dispose();
-    _statusBarController.dispose();
     super.dispose();
   }
 
@@ -100,8 +96,6 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
       setState(() {
         _sessionData = data;
         _isLoading = false;
-        _streamMode = data['stream_mode'] ?? true;
-        _permanentMemory = data['permanent_memory'] ?? false;
         _enhanceMode = data['enhance_mode'] ?? 'disabled';
       });
 
@@ -122,17 +116,6 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
       _prefixController.text = data['prefix'] ?? '';
       _suffixController.text = data['suffix'] ?? '';
       _userSettingController.text = data['user_setting'] ?? '';
-
-      // 直接使用原始状态栏数据
-      if (data['status_bar'] is String) {
-        _statusBarController.text = data['status_bar'];
-      } else if (data['status_bar'] != null) {
-        // 将对象转换为格式化的JSON字符串
-        _statusBarController.text =
-            const JsonEncoder.withIndent('    ').convert(data['status_bar']);
-      } else {
-        _statusBarController.text = '';
-      }
 
       _uiSettings = data['ui_settings'] ?? 'markdown';
     } catch (e) {
@@ -352,7 +335,6 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
           onUpdateField: _updateField,
           settingController: _settingController,
           userSettingController: _userSettingController,
-          statusBarController: _statusBarController,
         );
       case 2:
         return ModelConfigCard(

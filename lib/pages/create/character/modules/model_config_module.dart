@@ -9,13 +9,11 @@ class ModelConfigModule extends StatefulWidget {
   final double topP;
   final int topK;
   final int maxTokens;
-  final bool streamMode;
   final Function(String) onModelNameChanged;
   final Function(double) onTemperatureChanged;
   final Function(double) onTopPChanged;
   final Function(int) onTopKChanged;
   final Function(int) onMaxTokensChanged;
-  final Function(bool) onStreamModeChanged;
 
   const ModelConfigModule({
     super.key,
@@ -24,13 +22,11 @@ class ModelConfigModule extends StatefulWidget {
     required this.topP,
     required this.topK,
     required this.maxTokens,
-    this.streamMode = true,
     required this.onModelNameChanged,
     required this.onTemperatureChanged,
     required this.onTopPChanged,
     required this.onTopKChanged,
     required this.onMaxTokensChanged,
-    required this.onStreamModeChanged,
   });
 
   @override
@@ -147,48 +143,6 @@ class _ModelConfigModuleState extends State<ModelConfigModule> {
                 },
               ),
               SizedBox(height: 16.h),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '流式响应',
-                    style: AppTheme.secondaryStyle,
-                  ),
-                  Switch(
-                    value: widget.streamMode,
-                    onChanged: widget.onStreamModeChanged,
-                    activeColor: AppTheme.primaryColor,
-                  ),
-                ],
-              ),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4.w),
-                child: RichText(
-                  text: TextSpan(
-                    style: AppTheme.hintStyle,
-                    children: [
-                      const TextSpan(text: '开启后AI回复将'),
-                      TextSpan(
-                        text: '逐字显示',
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const TextSpan(text: '，关闭则'),
-                      TextSpan(
-                        text: '等待生成完毕',
-                        style: TextStyle(
-                          color: Colors.amber,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const TextSpan(text: '后一次性显示'),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: 16.h),
               _buildParameterSection(
                 title: '温度',
                 description: RichText(
@@ -238,8 +192,8 @@ class _ModelConfigModuleState extends State<ModelConfigModule> {
                   child: Slider(
                     value: widget.temperature,
                     min: 0.0,
-                    max: 1.0,
-                    divisions: 20,
+                    max: 2.0,
+                    divisions: 40,
                     onChanged: widget.onTemperatureChanged,
                   ),
                 ),
@@ -388,7 +342,7 @@ class _ModelConfigModuleState extends State<ModelConfigModule> {
                   child: Slider(
                     value: widget.maxTokens.toDouble(),
                     min: 100,
-                    max: 8196,
+                    max: 8192,
                     divisions: 81,
                     onChanged: (value) =>
                         widget.onMaxTokensChanged(value.toInt()),

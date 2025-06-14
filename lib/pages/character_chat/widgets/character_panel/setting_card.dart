@@ -8,7 +8,6 @@ class SettingCard extends StatelessWidget {
   final Function(String, dynamic) onUpdateField;
   final TextEditingController settingController;
   final TextEditingController userSettingController;
-  final TextEditingController statusBarController;
 
   const SettingCard({
     super.key,
@@ -16,7 +15,6 @@ class SettingCard extends StatelessWidget {
     required this.onUpdateField,
     required this.settingController,
     required this.userSettingController,
-    required this.statusBarController,
   });
 
   @override
@@ -43,15 +41,6 @@ class SettingCard extends StatelessWidget {
           suffix: '可编辑',
           isMultiLine: true,
           icon: Icons.person_outline,
-        ),
-        _buildEditableInfoItem(
-          '状态栏',
-          'status_bar',
-          statusBarController,
-          enabled: true,
-          suffix: '可编辑',
-          isMultiLine: true,
-          icon: Icons.view_headline,
         ),
       ],
     );
@@ -155,7 +144,6 @@ class SettingCard extends StatelessWidget {
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   fillColor: Colors.transparent,
-                  hintText: field == 'status_bar' ? '请用标准json格式' : null,
                   hintStyle: TextStyle(
                     fontSize: 12.sp,
                     color: Colors.white.withOpacity(0.3),

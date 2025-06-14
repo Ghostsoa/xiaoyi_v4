@@ -36,6 +36,13 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   Uint8List? _cachedCoverImage;
   bool _isLoadingCover = false;
 
+  // 滚动控制
+  final ScrollController _scrollController = ScrollController();
+  double _scrollOffset = 0;
+
+  // 用于DraggableScrollableSheet的控制器
+  late ScrollController _sheetScrollController;
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +50,19 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     _likeCount = widget.item['like_count'] ?? 0;
     _isFavorite = widget.item['is_favorited'] ?? false;
     _loadCoverImage();
+
+    // 监听滚动事件
+    _scrollController.addListener(() {
+      setState(() {
+        _scrollOffset = _scrollController.offset;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCoverImage({bool forceReload = false}) async {
@@ -237,6 +257,29 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     );
   }
 
+  void _navigateToContent() {
+    if (widget.item["item_type"] == "character_card") {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CharacterInitPage(
+            characterData: widget.item,
+          ),
+        ),
+      );
+    } else if (widget.item["item_type"] == "novel_card") {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NovelInitPage(
+            novelData: widget.item,
+          ),
+        ),
+      );
+    }
+    // TODO: 其他类型的跳转逻辑
+  }
+
   String _getItemTypeText(String type) {
     switch (type) {
       case 'character_card':
@@ -281,361 +324,458 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     final DateTime createdAt = DateTime.parse(widget.item['created_at']);
     final DateTime updatedAt = DateTime.parse(widget.item['updated_at']);
 
+    // 获取屏幕高度
+    final double screenHeight = MediaQuery.of(context).size.height;
+    // 封面占满屏幕
+    final double coverHeight = screenHeight;
+    // 内容区域初始位置（从屏幕的60%处开始）
+    final double initialContentOffset = screenHeight * 0.6;
+    // 内容区域可以拉到的最小位置（顶部保留空间）
+    final double minContentOffset = screenHeight * 0.15;
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: CustomScrollView(
-        slivers: [
-          // 顶部图片和返回按钮
-          SliverAppBar(
-            backgroundColor: AppTheme.background,
-            expandedHeight: 250.h,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: widget.item['cover_uri'] != null
-                  ? _buildCoverImage()
-                  : Container(
-                      color: AppTheme.cardBackground,
-                      child: Icon(
-                        Icons.image_rounded,
-                        size: 48.sp,
-                        color: AppTheme.textSecondary,
-                      ),
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        children: [
+          // 背景色
+          Container(color: AppTheme.background),
+
+          // 封面图片 - 占满全屏
+          Positioned.fill(
+            child: widget.item['cover_uri'] != null
+                ? _buildCoverImage()
+                : Container(
+                    color: AppTheme.cardBackground,
+                    child: Icon(
+                      Icons.image_rounded,
+                      size: 48.sp,
+                      color: AppTheme.textSecondary,
                     ),
+                  ),
+          ),
+
+          // 返回按钮 - 放在左上角
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10.h,
+            left: 16.w,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                padding: EdgeInsets.all(10.w),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.3),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white,
+                  size: 20.sp,
+                ),
+              ),
             ),
           ),
 
-          // 内容区域
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(16.w),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 标题和作者信息
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
+          // 内容区域 - 可拖动
+          NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              // 当内容向上滚动超过封面时，改变AppBar颜色
+              if (notification is ScrollUpdateNotification) {
+                setState(() {
+                  _scrollOffset = notification.metrics.pixels;
+                });
+              }
+              return false;
+            },
+            child: DraggableScrollableSheet(
+              initialChildSize: initialContentOffset / screenHeight,
+              minChildSize: minContentOffset / screenHeight,
+              maxChildSize: 0.9, // 最大可以占屏幕的90%
+              builder: (context, scrollController) {
+                _sheetScrollController = scrollController;
+                return Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.background,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(24.r),
+                      topRight: Radius.circular(24.r),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 15,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
+                  ),
+                  child: CustomScrollView(
+                    controller: scrollController,
+                    physics: const ClampingScrollPhysics(),
+                    slivers: [
+                      // 顶部拖动指示器
+                      SliverToBoxAdapter(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              widget.item['title'] ?? '',
-                              style: AppTheme.headingStyle,
-                            ),
-                            SizedBox(height: 4.h),
-                            Row(
-                              children: [
-                                Text(
-                                  '@${widget.item["author_name"]}',
-                                  style: AppTheme.secondaryStyle,
+                            SizedBox(height: 12.h),
+                            Center(
+                              child: Container(
+                                width: 40.w,
+                                height: 5.h,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(2.5.r),
                                 ),
-                                SizedBox(width: 6.w),
-                                GestureDetector(
-                                  onTap: () {
-                                    final String authorId =
-                                        widget.item['author_id']?.toString() ??
-                                            '';
-                                    final String authorName =
-                                        widget.item['author_name'] ?? '未知作者';
+                              ),
+                            ),
+                            SizedBox(height: 16.h),
+                          ],
+                        ),
+                      ),
 
-                                    if (authorId.isNotEmpty) {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => AuthorItemsPage(
-                                            authorId: authorId,
-                                            authorName: authorName,
-                                          ),
+                      // 内容主体
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 标题和作者信息
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          widget.item['title'] ?? '',
+                                          style: AppTheme.headingStyle,
                                         ),
-                                      );
-                                    } else {
-                                      CustomToast.show(
-                                        context,
-                                        message: '获取作者信息失败',
-                                        type: ToastType.error,
-                                      );
-                                    }
-                                  },
-                                  child: Container(
+                                        SizedBox(height: 4.h),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '@${widget.item["author_name"]}',
+                                              style: AppTheme.secondaryStyle,
+                                            ),
+                                            SizedBox(width: 6.w),
+                                            GestureDetector(
+                                              onTap: () {
+                                                final String authorId = widget
+                                                        .item['author_id']
+                                                        ?.toString() ??
+                                                    '';
+                                                final String authorName = widget
+                                                        .item['author_name'] ??
+                                                    '未知作者';
+
+                                                if (authorId.isNotEmpty) {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (context) =>
+                                                          AuthorItemsPage(
+                                                        authorId: authorId,
+                                                        authorName: authorName,
+                                                      ),
+                                                    ),
+                                                  );
+                                                } else {
+                                                  CustomToast.show(
+                                                    context,
+                                                    message: '获取作者信息失败',
+                                                    type: ToastType.error,
+                                                  );
+                                                }
+                                              },
+                                              child: Container(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: 8.w,
+                                                  vertical: 2.h,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.primaryColor
+                                                      .withOpacity(0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          12.r),
+                                                  border: Border.all(
+                                                    color: AppTheme.primaryColor
+                                                        .withOpacity(0.3),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Icons
+                                                          .collections_bookmark_outlined,
+                                                      size: 14.sp,
+                                                      color:
+                                                          AppTheme.primaryColor,
+                                                    ),
+                                                    SizedBox(width: 4.w),
+                                                    Text(
+                                                      '作者作品',
+                                                      style: TextStyle(
+                                                        fontSize: 12.sp,
+                                                        color: AppTheme
+                                                            .primaryColor,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // 互动数据
+                                  Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.local_fire_department_rounded,
+                                            size: 16.sp,
+                                            color: Colors.redAccent,
+                                          ),
+                                          SizedBox(width: 4.w),
+                                          Text(
+                                            '${widget.item["hot_score"]}',
+                                            style: TextStyle(
+                                              fontSize: 14.sp,
+                                              color: Colors.redAccent,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: 4.h),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.favorite_rounded,
+                                            size: 16.sp,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                          SizedBox(width: 4.w),
+                                          Text(
+                                            '${widget.item["like_count"]}',
+                                            style: AppTheme.secondaryStyle,
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: 4.h),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.chat_rounded,
+                                            size: 16.sp,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                          SizedBox(width: 4.w),
+                                          Text(
+                                            '${widget.item["dialog_count"]}',
+                                            style: AppTheme.secondaryStyle,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+
+                              SizedBox(height: 16.h),
+
+                              // 类型和标签区域
+                              Row(
+                                children: [
+                                  Container(
                                     padding: EdgeInsets.symmetric(
-                                      horizontal: 8.w,
-                                      vertical: 2.h,
+                                      horizontal: 12.w,
+                                      vertical: 6.h,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.primaryColor
-                                          .withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12.r),
-                                      border: Border.all(
-                                        color: AppTheme.primaryColor
-                                            .withOpacity(0.3),
-                                      ),
+                                      color: _getItemTypeColor(
+                                          widget.item["item_type"]),
+                                      borderRadius: BorderRadius.circular(
+                                          AppTheme.radiusSmall),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Icon(
-                                          Icons.collections_bookmark_outlined,
-                                          size: 14.sp,
-                                          color: AppTheme.primaryColor,
+                                          _getItemTypeIcon(
+                                              widget.item["item_type"]),
+                                          size: 16.sp,
+                                          color: Colors.white,
                                         ),
                                         SizedBox(width: 4.w),
                                         Text(
-                                          '作者作品',
+                                          _getItemTypeText(
+                                              widget.item["item_type"]),
                                           style: TextStyle(
-                                            fontSize: 12.sp,
-                                            color: AppTheme.primaryColor,
+                                            fontSize: 14.sp,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w500,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
+                                ],
+                              ),
+                              SizedBox(height: 24.h),
+
+                              // 操作按钮区域
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
+                                children: [
+                                  // 点赞按钮
+                                  _buildActionButton(
+                                    icon: _isLiked
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    label: _isLiked ? '已点赞' : '点赞',
+                                    color: Colors.pink,
+                                    onPressed: _isLiking ? null : _toggleLike,
+                                  ),
+
+                                  // 收藏按钮
+                                  _buildActionButton(
+                                    icon: _isFavorite
+                                        ? Icons.star
+                                        : Icons.star_border,
+                                    label: _isFavorite ? '已收藏' : '收藏',
+                                    color: Colors.blue,
+                                    onPressed:
+                                        _isFavoriting ? null : _toggleFavorite,
+                                  ),
+
+                                  // 激励按钮
+                                  _buildActionButton(
+                                    icon: Icons.workspace_premium,
+                                    label: _isRewarding ? '激励中' : '激励',
+                                    color: Colors.amber[700] ?? Colors.amber,
+                                    onPressed:
+                                        _isRewarding ? null : _showRewardDialog,
+                                  ),
+
+                                  // 开始阅读/对话按钮
+                                  _buildActionButton(
+                                    icon: Icons.chat,
+                                    label:
+                                        widget.item["item_type"] == "novel_card"
+                                            ? '阅读'
+                                            : '对话',
+                                    color: AppTheme.primaryColor,
+                                    onPressed: _navigateToContent,
+                                  ),
+                                ],
+                              ),
+
+                              Divider(
+                                  height: 40.h,
+                                  thickness: 1,
+                                  color: Colors.grey.withOpacity(0.2)),
+
+                              // 描述
+                              if (widget.item['description'] != null) ...[
+                                Text(
+                                  '简介',
+                                  style: AppTheme.titleStyle,
                                 ),
+                                SizedBox(height: 8.h),
+                                Text(
+                                  widget.item['description'],
+                                  style:
+                                      AppTheme.bodyStyle.copyWith(height: 1.5),
+                                ),
+                                SizedBox(height: 16.h),
                               ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      // 互动数据
-                      Column(
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.local_fire_department_rounded,
-                                size: 16.sp,
-                                color: Colors.redAccent,
-                              ),
-                              SizedBox(width: 4.w),
-                              Text(
-                                '${widget.item["hot_score"]}',
-                                style: TextStyle(
-                                  fontSize: 14.sp,
-                                  color: Colors.redAccent,
+
+                              // 标签
+                              if ((widget.item['tags'] as List?)?.isNotEmpty ??
+                                  false) ...[
+                                Text(
+                                  '标签',
+                                  style: AppTheme.titleStyle,
                                 ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 4.h),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.favorite_rounded,
-                                size: 16.sp,
-                                color: AppTheme.textSecondary,
-                              ),
-                              SizedBox(width: 4.w),
-                              Text(
-                                '${widget.item["like_count"]}',
-                                style: AppTheme.secondaryStyle,
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 4.h),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.chat_rounded,
-                                size: 16.sp,
-                                color: AppTheme.textSecondary,
-                              ),
-                              SizedBox(width: 4.w),
-                              Text(
-                                '${widget.item["dialog_count"]}',
-                                style: AppTheme.secondaryStyle,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                                SizedBox(height: 8.h),
+                                Wrap(
+                                  spacing: 8.w,
+                                  runSpacing: 8.h,
+                                  children: (widget.item['tags'] as List)
+                                      .map((tag) => Container(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 12.w,
+                                              vertical: 6.h,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.primaryColor,
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      AppTheme.radiusSmall),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.tag_rounded,
+                                                  size: 14.sp,
+                                                  color: Colors.white,
+                                                ),
+                                                SizedBox(width: 4.w),
+                                                Text(
+                                                  tag,
+                                                  style: TextStyle(
+                                                    fontSize:
+                                                        AppTheme.smallSize,
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ))
+                                      .toList(),
+                                ),
+                                SizedBox(height: 16.h),
+                              ],
 
-                  SizedBox(height: 16.h),
-
-                  // 类型和标签区域
-                  Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12.w,
-                          vertical: 6.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getItemTypeColor(widget.item["item_type"]),
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusSmall),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _getItemTypeIcon(widget.item["item_type"]),
-                              size: 16.sp,
-                              color: Colors.white,
-                            ),
-                            SizedBox(width: 4.w),
-                            Text(
-                              _getItemTypeText(widget.item["item_type"]),
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
+                              // 时间信息
+                              Text(
+                                '其他信息',
+                                style: AppTheme.titleStyle,
                               ),
-                            ),
-                          ],
+                              SizedBox(height: 8.h),
+                              _buildInfoItem(
+                                  '创建时间',
+                                  _formatDateTime(
+                                      createdAt.add(const Duration(hours: 8)))),
+                              _buildInfoItem(
+                                  '更新时间',
+                                  _formatDateTime(
+                                      updatedAt.add(const Duration(hours: 8)))),
+
+                              // 底部空白
+                              SizedBox(height: 24.h),
+                            ],
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: 16.h),
-
-                  // 描述
-                  if (widget.item['description'] != null) ...[
-                    Text(
-                      '简介',
-                      style: AppTheme.titleStyle,
-                    ),
-                    SizedBox(height: 8.h),
-                    Text(
-                      widget.item['description'],
-                      style: AppTheme.bodyStyle.copyWith(height: 1.5),
-                    ),
-                    SizedBox(height: 16.h),
-                  ],
-
-                  // 标签
-                  if ((widget.item['tags'] as List?)?.isNotEmpty ?? false) ...[
-                    Text(
-                      '标签',
-                      style: AppTheme.titleStyle,
-                    ),
-                    SizedBox(height: 8.h),
-                    Wrap(
-                      spacing: 8.w,
-                      runSpacing: 8.h,
-                      children: (widget.item['tags'] as List)
-                          .map((tag) => Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 12.w,
-                                  vertical: 6.h,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor,
-                                  borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusSmall),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.tag_rounded,
-                                      size: 14.sp,
-                                      color: Colors.white,
-                                    ),
-                                    SizedBox(width: 4.w),
-                                    Text(
-                                      tag,
-                                      style: TextStyle(
-                                        fontSize: AppTheme.smallSize,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ))
-                          .toList(),
-                    ),
-                    SizedBox(height: 16.h),
-                  ],
-
-                  // 时间信息
-                  Text(
-                    '其他信息',
-                    style: AppTheme.titleStyle,
-                  ),
-                  SizedBox(height: 8.h),
-                  _buildInfoItem('创建时间',
-                      _formatDateTime(createdAt.add(const Duration(hours: 8)))),
-                  _buildInfoItem('更新时间',
-                      _formatDateTime(updatedAt.add(const Duration(hours: 8)))),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
-      ),
-      // 底部操作栏
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-        decoration: BoxDecoration(
-          color: AppTheme.cardBackground,
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.shadowColor.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            // 点赞按钮
-            _buildActionButton(
-              icon: _isLiked ? Icons.favorite : Icons.favorite_border,
-              label: _isLiked ? '已点赞' : '点赞',
-              color: Colors.pink,
-              onPressed: _isLiking ? null : _toggleLike,
-            ),
-
-            // 收藏按钮
-            _buildActionButton(
-              icon: _isFavorite ? Icons.star : Icons.star_border,
-              label: _isFavorite ? '已收藏' : '收藏',
-              color: Colors.blue,
-              onPressed: _isFavoriting ? null : _toggleFavorite,
-            ),
-
-            // 激励按钮
-            _buildActionButton(
-              icon: Icons.workspace_premium,
-              label: _isRewarding ? '激励中' : '激励',
-              color: Colors.amber[700] ?? Colors.amber,
-              onPressed: _isRewarding ? null : _showRewardDialog,
-            ),
-
-            // 开始阅读/对话按钮
-            _buildActionButton(
-              icon: Icons.chat,
-              label: widget.item["item_type"] == "novel_card" ? '阅读' : '对话',
-              color: AppTheme.primaryColor,
-              onPressed: () {
-                if (widget.item["item_type"] == "character_card") {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CharacterInitPage(
-                        characterData: widget.item,
-                      ),
-                    ),
-                  );
-                } else if (widget.item["item_type"] == "novel_card") {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => NovelInitPage(
-                        novelData: widget.item,
-                      ),
-                    ),
-                  );
-                }
-                // TODO: 其他类型的跳转逻辑
-              },
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -662,30 +802,33 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
     return Stack(
       children: [
+        // 实际图像
         Image.memory(
           _cachedCoverImage!,
           fit: BoxFit.cover,
           height: double.infinity,
           width: double.infinity,
         ),
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: Container(
-            height: 80.h,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  AppTheme.background.withOpacity(0.8),
-                ],
+        // 顶部渐变 (当滚动时显示)
+        if (_scrollOffset > 50)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 80.h,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(min(0.5, _scrollOffset / 200)),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -717,32 +860,43 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
+  double min(double a, double b) => a < b ? a : b;
+
   Widget _buildActionButton({
     required IconData icon,
     required String label,
     required Color color,
     required void Function()? onPressed,
   }) {
-    return InkWell(
-      onTap: onPressed,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 24.sp,
-            color: color,
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            label,
-            style: TextStyle(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: onPressed,
+          customBorder: const CircleBorder(),
+          child: Container(
+            padding: EdgeInsets.all(12.w),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 24.sp,
               color: color,
-              fontSize: 12.sp,
             ),
           ),
-        ],
-      ),
+        ),
+        SizedBox(height: 6.h),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }
