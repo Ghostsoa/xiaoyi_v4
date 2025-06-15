@@ -629,21 +629,13 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
               }
             });
           } else {
-            // 创建安全的 characterData
-            final Map<String, dynamic> safeCharacterData = {
-              'name': sessionName,
-              'id': sessionId,
-              'cover_uri': coverUri,
-              'ui_settings': _safeGet(session, 'ui_settings', 'markdown'),
-            };
-
             // 跳转到聊天页面
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => CharacterChatPage(
                   sessionData: session,
-                  characterData: safeCharacterData,
+                  characterData: session,  // 直接使用session数据而不是创建新对象
                 ),
               ),
             );

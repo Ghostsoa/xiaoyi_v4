@@ -49,4 +49,13 @@ class SseResponse {
 
   bool? get enhanced =>
       data.containsKey('enhanced') ? data['enhanced'] as bool : null;
+
+  List<String>? get keywords {
+    if (data.containsKey('keywords') && data['keywords'] != null) {
+      if (data['keywords'] is List) {
+        return List<String>.from(data['keywords']);
+      }
+    }
+    return null;
+  }
 }

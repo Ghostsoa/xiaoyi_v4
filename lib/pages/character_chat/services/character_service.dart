@@ -184,4 +184,24 @@ class CharacterService {
       throw '更新会话版本失败: $e';
     }
   }
+
+  /// 获取角色卡详情
+  Future<Map<String, dynamic>> getCharacterDetail(int characterId) async {
+    try {
+      final response = await _httpClient.get(
+        '/hall/items/$characterId/detail',
+        queryParameters: {
+          'type': 'character_card',
+        },
+      );
+
+      if (response.data['code'] == 0) {
+        return response.data['data'];
+      } else {
+        throw response.data['msg'] ?? '获取角色卡详情失败';
+      }
+    } catch (e) {
+      throw '获取角色卡详情失败: $e';
+    }
+  }
 }

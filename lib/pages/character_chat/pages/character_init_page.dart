@@ -169,7 +169,7 @@ class _CharacterInitPageState extends State<CharacterInitPage>
             MaterialPageRoute(
               builder: (context) => CharacterChatPage(
                 sessionData: sessionData,
-                characterData: widget.characterData,
+                characterData: sessionData, // 直接使用服务端返回的完整会话数据
               ),
             ),
           );

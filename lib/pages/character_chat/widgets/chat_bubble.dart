@@ -31,6 +31,8 @@ class ChatBubble extends StatefulWidget {
   final Function()? onMessageDeleted;
   final Function()? onMessageRevoked;
   final Function(String msgId)? onMessageRegenerate;
+  final String? createdAt;
+  final List<dynamic>? keywords;
 
   const ChatBubble({
     super.key,
@@ -51,6 +53,8 @@ class ChatBubble extends StatefulWidget {
     this.onMessageDeleted,
     this.onMessageRevoked,
     this.onMessageRegenerate,
+    this.createdAt,
+    this.keywords,
   });
 
   @override
@@ -553,7 +557,9 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
     }
 
     if ((widget.status == null && !widget.isLoading) &&
-        widget.enhance == null) {
+        widget.enhance == null &&
+        widget.createdAt == null &&
+        (widget.keywords == null || widget.keywords!.isEmpty)) {
       return const SizedBox.shrink();
     }
 
@@ -561,7 +567,128 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
       return _buildStatusText();
     }
 
-    return _buildEnhanceTagContent();
+    // 构建一个行，包含关键词、增强标记和时间信息
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 关键词部分
+        if (widget.keywords != null && widget.keywords!.isNotEmpty)
+          GestureDetector(
+            onTap: () => _showKeywordsDialog(),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4.r),
+                border: Border.all(
+                  color: Colors.blue.withOpacity(0.3),
+                  width: 0.5,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.tag,
+                    size: 10.sp,
+                    color: Colors.blue,
+                  ),
+                  SizedBox(width: 2.w),
+                  Text(
+                    '${widget.keywords!.length}个关键词',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontSize: 10.sp,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        
+        // 间隔
+        if ((widget.keywords != null && widget.keywords!.isNotEmpty) && 
+            (widget.enhance != null || widget.createdAt != null))
+          SizedBox(width: 8.w),
+          
+        // 增强标记
+        if (widget.enhance != null) _buildEnhanceTagContent(),
+        
+        // 间隔
+        if (widget.enhance != null && widget.createdAt != null) 
+          SizedBox(width: 8.w),
+          
+        // 时间信息
+        if (widget.createdAt != null)
+          Text(
+            _formatDateTime(widget.createdAt!),
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+      ],
+    );
+  }
+  
+  // 格式化时间的辅助方法
+  String _formatDateTime(String dateTimeStr) {
+    try {
+      final dateTime = DateTime.parse(dateTimeStr);
+      // 转换为本地时间
+      final localDateTime = dateTime.toLocal();
+      // 格式化为 yyyy-MM-dd HH:mm:ss 格式
+      return '${localDateTime.year}-${localDateTime.month.toString().padLeft(2, '0')}-${localDateTime.day.toString().padLeft(2, '0')} ${localDateTime.hour.toString().padLeft(2, '0')}:${localDateTime.minute.toString().padLeft(2, '0')}:${localDateTime.second.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return dateTimeStr;
+    }
+  }
+
+  // 显示关键词弹窗
+  void _showKeywordsDialog() {
+    if (widget.keywords == null || widget.keywords!.isEmpty) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'AI触发的关键词',
+          style: TextStyle(
+            fontSize: 16.sp,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: widget.keywords!.map((keyword) => Padding(
+              padding: EdgeInsets.only(bottom: 8.h),
+              child: Row(
+                children: [
+                  Icon(Icons.tag, size: 14.sp, color: Colors.blue),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      keyword,
+                      style: TextStyle(fontSize: 14.sp),
+                    ),
+                  ),
+                ],
+              ),
+            )).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('关闭'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildContent() {
