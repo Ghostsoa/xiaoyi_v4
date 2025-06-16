@@ -100,10 +100,10 @@ class ModelConfigCard extends StatelessWidget {
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
+        color: AppTheme.cardBackground.withOpacity(0.6),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: AppTheme.textPrimary.withOpacity(0.05),
           width: 1,
         ),
       ),
@@ -128,7 +128,7 @@ class ModelConfigCard extends StatelessWidget {
               Text(
                 '回复增强',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.w500,
                 ),
@@ -157,7 +157,7 @@ class ModelConfigCard extends StatelessWidget {
             child: Text(
               '利用特殊技术增强角色的回复质量，选择合适的模式获得更好的体验',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: AppTheme.textSecondary,
                 fontSize: 12.sp,
               ),
             ),
@@ -217,12 +217,12 @@ class ModelConfigCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? AppTheme.primaryColor.withOpacity(0.1)
-              : Colors.black.withOpacity(0.1),
+              : AppTheme.cardBackground.withOpacity(0.4),
           borderRadius: BorderRadius.circular(8.r),
           border: Border.all(
             color: isSelected
                 ? AppTheme.primaryColor
-                : Colors.white.withOpacity(0.1),
+                : AppTheme.textPrimary.withOpacity(0.1),
             width: 1,
           ),
         ),
@@ -237,7 +237,7 @@ class ModelConfigCard extends StatelessWidget {
                 border: Border.all(
                   color: isSelected
                       ? AppTheme.primaryColor
-                      : Colors.white.withOpacity(0.3),
+                      : AppTheme.textSecondary,
                   width: 1.5,
                 ),
               ),
@@ -257,7 +257,7 @@ class ModelConfigCard extends StatelessWidget {
                   Text(
                     title,
                     style: TextStyle(
-                      color: isSelected ? AppTheme.primaryColor : Colors.white,
+                      color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
                       fontSize: 14.sp,
                       fontWeight:
                           isSelected ? FontWeight.bold : FontWeight.normal,
@@ -267,7 +267,7 @@ class ModelConfigCard extends StatelessWidget {
                   Text(
                     description,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: AppTheme.textSecondary,
                       fontSize: 12.sp,
                     ),
                   ),
@@ -286,10 +286,10 @@ class ModelConfigCard extends StatelessWidget {
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
+        color: AppTheme.cardBackground.withOpacity(0.6),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: AppTheme.textPrimary.withOpacity(0.05),
           width: 1,
         ),
       ),
@@ -314,7 +314,7 @@ class ModelConfigCard extends StatelessWidget {
               Text(
                 '模型',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.w500,
                 ),
@@ -371,7 +371,7 @@ class ModelConfigCard extends StatelessWidget {
                           '未知',
                       style: TextStyle(
                         fontSize: 16.sp,
-                        color: Colors.white,
+                        color: AppTheme.textPrimary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -405,10 +405,10 @@ class ModelConfigCard extends StatelessWidget {
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
+        color: AppTheme.cardBackground.withOpacity(0.6),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: AppTheme.textPrimary.withOpacity(0.05),
           width: 1,
         ),
       ),
@@ -438,7 +438,7 @@ class ModelConfigCard extends StatelessWidget {
                   Text(
                     label,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(isDisabled ? 0.5 : 1.0),
+                      color: AppTheme.textPrimary.withOpacity(isDisabled ? 0.5 : 1.0),
                       fontSize: 16.sp,
                       fontWeight: FontWeight.w500,
                     ),
@@ -537,14 +537,14 @@ class ModelConfigCard extends StatelessWidget {
                 Text(
                   min.toString(),
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
+                    color: AppTheme.textSecondary,
                     fontSize: 10.sp,
                   ),
                 ),
                 Text(
                   max.toString(),
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
+                    color: AppTheme.textSecondary,
                     fontSize: 10.sp,
                   ),
                 ),

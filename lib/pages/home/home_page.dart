@@ -713,90 +713,85 @@ class HomePageState extends State<HomePage> {
         itemBuilder: (context, index) {
           return Container(
             width: 120.w,
-            margin: EdgeInsets.only(right: 8.w),
+            margin: EdgeInsets.only(right: 12.w),
             child: Stack(
               children: [
-                Shimmer.fromColors(
-                  baseColor: AppTheme.cardBackground,
-                  highlightColor: AppTheme.cardBackground.withOpacity(0.5),
-                  child: Container(
-                    width: 120.w,
-                    height: 150.w,
-                    decoration: BoxDecoration(
+                // 主卡片
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12.r),
+                  child: Shimmer.fromColors(
+                    baseColor: AppTheme.cardBackground,
+                    highlightColor: AppTheme.cardBackground.withOpacity(0.5),
+                    child: Container(
+                      width: 120.w,
+                      height: 150.w,
                       color: AppTheme.cardBackground,
-                      borderRadius: BorderRadius.circular(8.r),
                     ),
                   ),
                 ),
+                // 标题渐变遮罩层
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: EdgeInsets.fromLTRB(12.w, 32.h, 12.w, 12.h),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.8),
+                        ],
+                      ),
+                    ),
+                    child: Shimmer.fromColors(
+                      baseColor: AppTheme.cardBackground,
+                      highlightColor: AppTheme.cardBackground.withOpacity(0.5),
+                      child: Container(
+                        height: 14.h,
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardBackground,
+                          borderRadius: BorderRadius.circular(2.r),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // 热门标签
                 if (isHotSection && index < 3)
                   Positioned(
-                    left: 0,
-                    top: 0,
+                    left: 8.w,
+                    top: 8.h,
                     child: Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                       decoration: BoxDecoration(
                         color: [
-                          Colors.redAccent,
-                          Colors.orangeAccent,
-                          Colors.amber,
-                        ][index]
-                            .withOpacity(0.3),
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(8.r),
-                          bottomRight: Radius.circular(8.r),
-                        ),
+                          const Color(0xFFFF6B6B),
+                          const Color(0xFFFFAB4C),
+                          const Color(0xFFFFD93D),
+                        ][index].withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(6.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Shimmer.fromColors(
                         baseColor: AppTheme.cardBackground,
-                        highlightColor:
-                            AppTheme.cardBackground.withOpacity(0.5),
+                        highlightColor: AppTheme.cardBackground.withOpacity(0.5),
                         child: Container(
-                          width: 12.w,
-                          height: 14.h,
+                          width: 32.w,
+                          height: 12.h,
                           color: AppTheme.cardBackground,
                         ),
                       ),
                     ),
                   ),
-                Positioned(
-                  right: 4.w,
-                  top: 4.h,
-                  child: Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(4.r),
-                    ),
-                    child: Shimmer.fromColors(
-                      baseColor: AppTheme.cardBackground,
-                      highlightColor: AppTheme.cardBackground.withOpacity(0.5),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 12.w,
-                            height: 12.h,
-                            decoration: BoxDecoration(
-                              color: AppTheme.cardBackground,
-                              borderRadius: BorderRadius.circular(2.r),
-                            ),
-                          ),
-                          SizedBox(width: 4.w),
-                          Container(
-                            width: 20.w,
-                            height: 10.h,
-                            decoration: BoxDecoration(
-                              color: AppTheme.cardBackground,
-                              borderRadius: BorderRadius.circular(2.r),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           );

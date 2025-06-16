@@ -304,7 +304,15 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide.none,
+              borderSide: BorderSide(color: AppTheme.primaryColor, width: 1),
+            ),
+            labelStyle: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 14.sp,
+            ),
+            hintStyle: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 14.sp,
             ),
           ),
           style: AppTheme.bodyStyle,
@@ -335,7 +343,7 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide.none,
+              borderSide: BorderSide(color: AppTheme.primaryColor, width: 1),
             ),
             // 添加后缀计数器
             suffixText: '$_descriptionCount/$_maxDescriptionCount',
@@ -348,6 +356,14 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
             // 添加错误提示
             errorText:
                 _descriptionCount > _maxDescriptionCount ? '超出最大字数限制' : null,
+            labelStyle: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 14.sp,
+            ),
+            hintStyle: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 14.sp,
+            ),
           ),
           style: AppTheme.bodyStyle,
           minLines: 3,

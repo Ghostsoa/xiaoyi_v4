@@ -301,11 +301,11 @@ class ProfilePageState extends State<ProfilePage> {
             // 使用UserDao清除用户数据
             await _userDao.clearUserInfo();
 
-            // 清除登录凭据
+            // 只清除登录状态，保留账号密码
             final prefs = await SharedPreferences.getInstance();
-            await prefs.remove('email');
-            await prefs.remove('password');
-            await prefs.setBool('rememberMe', false);
+            // 保留email和password，不清除
+            // 只修改自动登录状态
+            await prefs.setBool('autoLogin', false);
             await prefs.setBool('isNewRegistered', false);
 
             _showSuccessToast('退出登录成功');

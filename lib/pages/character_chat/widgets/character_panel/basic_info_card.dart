@@ -41,10 +41,10 @@ class BasicInfoCard extends StatelessWidget {
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
+        color: AppTheme.cardBackground.withOpacity(0.6),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: AppTheme.textPrimary.withOpacity(0.05),
           width: 1,
         ),
       ),
@@ -64,7 +64,7 @@ class BasicInfoCard extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                    color: AppTheme.textSecondary,
                     fontSize: 14.sp,
                   ),
                 ),
@@ -73,7 +73,7 @@ class BasicInfoCard extends StatelessWidget {
                   value,
                   style: TextStyle(
                     fontSize: 16.sp,
-                    color: Colors.white,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
               ],

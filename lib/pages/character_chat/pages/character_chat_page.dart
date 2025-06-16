@@ -1326,6 +1326,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       setState(() {
         _isShowingPhrases = false;
       });
+    } else {
+      _isShowingPhrases = false;
     }
   }
   
@@ -1965,7 +1967,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                         bottom: padding.bottom + 8.h,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withOpacity(0.05),
                         border: Border(
                           top: BorderSide(
                             color: Colors.white.withOpacity(0.1),
@@ -1980,18 +1982,14 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                             width: 36.w,
                             height: 36.w,
                             margin: EdgeInsets.only(right: 8.w),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: _handleMenuToggle,
-                                borderRadius: BorderRadius.circular(18.r),
-                                child: Icon(
-                                  _isMenuExpanded
-                                      ? Icons.keyboard_arrow_down
-                                      : Icons.keyboard_arrow_up,
-                                  color: Colors.white,
-                                  size: 24.sp,
-                                ),
+                            alignment: Alignment.center,
+                            child: GestureDetector(
+                              onTap: _handleMenuToggle,
+                              child: AnimatedIcon(
+                                icon: AnimatedIcons.menu_close,
+                                progress: _menuAnimationController,
+                                color: Colors.white,
+                                size: 24.sp,
                               ),
                             ),
                           ),
@@ -2003,21 +2001,21 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                 maxHeight: 120.h,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
+                                color: Colors.black.withOpacity(0.05),
                                 borderRadius: BorderRadius.circular(18.r),
                               ),
                               child: TextField(
                                 controller: _messageController,
                                 focusNode: _focusNode,
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: AppTheme.textPrimary,
                                   fontSize: 14.sp,
                                 ),
                                 maxLines: null,
                                 decoration: InputDecoration(
                                   hintText: '发送消息...',
                                   hintStyle: TextStyle(
-                                    color: Colors.white.withOpacity(0.6),
+                                    color: AppTheme.textSecondary.withOpacity(0.6),
                                     fontSize: 14.sp,
                                   ),
                                   contentPadding: EdgeInsets.symmetric(
@@ -2066,7 +2064,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                         height: _menuHeightAnimation.value,
                         padding: EdgeInsets.symmetric(horizontal: 16.w),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.3),
+                          color: Colors.black.withOpacity(0.05),
                           border: Border(
                             top: BorderSide(
                               color: Colors.white.withOpacity(0.1),

@@ -34,7 +34,7 @@ class BaseCard extends StatelessWidget {
           ),
         ],
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+          color: AppTheme.textPrimary.withOpacity(0.1),
           width: 1,
         ),
       ),
@@ -61,13 +61,13 @@ class BaseCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 18.sp,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                 ],
               ),
               Divider(
-                color: Colors.white.withOpacity(0.1),
+                color: AppTheme.textPrimary.withOpacity(0.1),
                 height: 32.h,
                 thickness: 1,
               ),

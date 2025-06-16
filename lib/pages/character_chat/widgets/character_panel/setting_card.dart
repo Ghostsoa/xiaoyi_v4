@@ -60,10 +60,10 @@ class SettingCard extends StatelessWidget {
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
+        color: AppTheme.cardBackground.withOpacity(0.6),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: AppTheme.textPrimary.withOpacity(0.05),
           width: 1,
         ),
       ),
@@ -90,7 +90,7 @@ class SettingCard extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.w500,
                 ),
@@ -124,10 +124,10 @@ class SettingCard extends StatelessWidget {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: AppTheme.textPrimary.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(8.r),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
+                  color: AppTheme.textPrimary.withOpacity(0.1),
                   width: 1,
                 ),
               ),
@@ -135,7 +135,7 @@ class SettingCard extends StatelessWidget {
                 controller: controller,
                 style: TextStyle(
                   fontSize: 15.sp,
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                 ),
                 decoration: InputDecoration(
                   isDense: true,
@@ -146,7 +146,7 @@ class SettingCard extends StatelessWidget {
                   fillColor: Colors.transparent,
                   hintStyle: TextStyle(
                     fontSize: 12.sp,
-                    color: Colors.white.withOpacity(0.3),
+                    color: AppTheme.textSecondary.withOpacity(0.5),
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -158,10 +158,10 @@ class SettingCard extends StatelessWidget {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.03),
+                color: AppTheme.textPrimary.withOpacity(0.03),
                 borderRadius: BorderRadius.circular(8.r),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.05),
+                  color: AppTheme.textPrimary.withOpacity(0.05),
                   width: 1,
                 ),
               ),

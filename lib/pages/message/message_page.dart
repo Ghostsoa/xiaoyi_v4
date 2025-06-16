@@ -1114,18 +1114,13 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
     try {
       setState(() => _isLoading = true);
 
-      // 一一删除选中的会话
-      for (final id in _selectedIds) {
-        try {
-          if (_isCharacterMode) {
-            await _messageService.deleteSession(id);
-          } else {
-            await _messageService.deleteNovelSession(id);
-          }
-        } catch (e) {
-          debugPrint('删除会话失败: $e');
-        }
-      }
+      // 转换Set为List
+      final List<int> sessionIdList = _selectedIds.toList();
+      
+      // 批量删除会话
+      final Map<String, dynamic> result = _isCharacterMode
+          ? await _messageService.batchDeleteCharacterSessions(sessionIdList)
+          : await _messageService.batchDeleteNovelSessions(sessionIdList);
 
       // 重新加载列表
       await _onRefresh();
@@ -1142,8 +1137,8 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
       if (mounted) {
         CustomToast.show(
           context,
-          message: '删除成功',
-          type: ToastType.success,
+          message: result['msg'],
+          type: result['success'] ? ToastType.success : ToastType.error,
         );
       }
     } catch (e) {
@@ -1800,11 +1795,10 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
 
       setState(() => _isLoading = true);
 
-      if (_isCharacterMode) {
-        await _messageService.deleteSession(sessionId);
-      } else {
-        await _messageService.deleteNovelSession(sessionId);
-      }
+      // 使用批量删除API删除单个会话
+      final Map<String, dynamic> result = _isCharacterMode
+          ? await _messageService.batchDeleteCharacterSessions([sessionId])
+          : await _messageService.batchDeleteNovelSessions([sessionId]);
 
       // 重新加载列表
       await _onRefresh();
@@ -1812,8 +1806,8 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
       if (mounted) {
         CustomToast.show(
           context,
-          message: '删除成功',
-          type: ToastType.success,
+          message: result['msg'],
+          type: result['success'] ? ToastType.success : ToastType.error,
         );
       }
     } catch (e) {

@@ -69,10 +69,10 @@ class InteractionCard extends StatelessWidget {
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
+        color: AppTheme.cardBackground.withOpacity(0.6),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: AppTheme.textPrimary.withOpacity(0.05),
           width: 1,
         ),
       ),
@@ -97,7 +97,7 @@ class InteractionCard extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.w500,
                 ),
@@ -128,10 +128,10 @@ class InteractionCard extends StatelessWidget {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: AppTheme.textPrimary.withOpacity(0.05),
               borderRadius: BorderRadius.circular(8.r),
               border: Border.all(
-                color: Colors.white.withOpacity(0.1),
+                color: AppTheme.textPrimary.withOpacity(0.1),
                 width: 1,
               ),
             ),
@@ -139,7 +139,7 @@ class InteractionCard extends StatelessWidget {
               controller: controller,
               style: TextStyle(
                 fontSize: 15.sp,
-                color: Colors.white,
+                color: AppTheme.textPrimary,
               ),
               decoration: InputDecoration(
                 isDense: true,
@@ -151,7 +151,7 @@ class InteractionCard extends StatelessWidget {
                 hintText: _getHintForField(field),
                 hintStyle: TextStyle(
                   fontSize: 14.sp,
-                  color: Colors.white.withOpacity(0.3),
+                  color: AppTheme.textSecondary.withOpacity(0.5),
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -196,10 +196,10 @@ class InteractionCard extends StatelessWidget {
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
+        color: AppTheme.cardBackground.withOpacity(0.6),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: AppTheme.textPrimary.withOpacity(0.05),
           width: 1,
         ),
       ),
@@ -226,7 +226,7 @@ class InteractionCard extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                    color: AppTheme.textSecondary,
                     fontSize: 14.sp,
                   ),
                 ),
@@ -235,7 +235,7 @@ class InteractionCard extends StatelessWidget {
                   value,
                   style: TextStyle(
                     fontSize: 16.sp,
-                    color: Colors.white,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
               ],
@@ -265,10 +265,10 @@ class InteractionCard extends StatelessWidget {
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
+        color: AppTheme.cardBackground.withOpacity(0.6),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: AppTheme.textPrimary.withOpacity(0.05),
           width: 1,
         ),
       ),
@@ -293,7 +293,7 @@ class InteractionCard extends StatelessWidget {
               Text(
                 'UI格式化类型',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.w500,
                 ),
@@ -322,7 +322,7 @@ class InteractionCard extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(16.w),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: AppTheme.textPrimary.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12.r),
             ),
             child: Column(
@@ -387,7 +387,7 @@ class InteractionCard extends StatelessWidget {
           border: Border.all(
             color: isSelected
                 ? AppTheme.primaryColor
-                : Colors.white.withOpacity(0.2),
+                : AppTheme.textPrimary.withOpacity(0.2),
             width: 1,
           ),
         ),
@@ -395,7 +395,7 @@ class InteractionCard extends StatelessWidget {
           children: [
             Icon(
               _getIconForOption(value),
-              color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+              color: isSelected ? Colors.white : AppTheme.textPrimary.withOpacity(0.7),
               size: 18.sp,
             ),
             SizedBox(width: 12.w),
@@ -403,7 +403,7 @@ class InteractionCard extends StatelessWidget {
               label,
               style: TextStyle(
                 color:
-                    isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+                    isSelected ? Colors.white : AppTheme.textPrimary.withOpacity(0.7),
                 fontSize: 15.sp,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),

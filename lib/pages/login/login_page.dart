@@ -25,6 +25,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
   bool _rememberMe = false;
   bool _isLoading = false;
+  bool _autoLogin = false;
 
   @override
   void initState() {
@@ -47,6 +48,7 @@ class _LoginPageState extends State<LoginPage> {
           _emailController.text = savedEmail;
           _passwordController.text = savedPassword;
           _rememberMe = false;
+          _autoLogin = false;
         });
       }
 
@@ -57,6 +59,7 @@ class _LoginPageState extends State<LoginPage> {
       final savedEmail = prefs.getString('email');
       final savedPassword = prefs.getString('password');
       final savedRememberMe = prefs.getBool('rememberMe');
+      final savedAutoLogin = prefs.getBool('autoLogin');
 
       if (savedEmail != null &&
           savedPassword != null &&
@@ -65,7 +68,18 @@ class _LoginPageState extends State<LoginPage> {
           _emailController.text = savedEmail;
           _passwordController.text = savedPassword;
           _rememberMe = true;
+          _autoLogin = savedAutoLogin ?? false;
         });
+        
+        // 如果设置了自动登录，则尝试自动登录
+        if (savedAutoLogin == true) {
+          // 使用Future.delayed确保界面先绘制完成
+          Future.delayed(Duration(milliseconds: 500), () {
+            if (mounted) {
+              _login(silent: true);
+            }
+          });
+        }
       }
     }
   }
@@ -78,11 +92,13 @@ class _LoginPageState extends State<LoginPage> {
       await prefs.setString('email', _emailController.text);
       await prefs.setString('password', _passwordController.text);
       await prefs.setBool('rememberMe', true);
+      await prefs.setBool('autoLogin', _autoLogin);
     } else {
-      // 如果不勾选记住我，则清除保存的凭据
+      // 如果不勾选记住我，则清除保存的凭据和自动登录设置
       await prefs.remove('email');
       await prefs.remove('password');
       await prefs.setBool('rememberMe', false);
+      await prefs.setBool('autoLogin', false);
     }
   }
 
@@ -99,7 +115,7 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  Future<void> _login() async {
+  Future<void> _login({bool silent = false}) async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
@@ -119,12 +135,14 @@ class _LoginPageState extends State<LoginPage> {
           final userData = response['data'];
           await _loginService.saveUserData(userData);
 
-          // 登录成功提示
-          CustomToast.show(
-            context,
-            message: response['msg'] ?? '登录成功',
-            type: ToastType.success,
-          );
+          // 登录成功提示（静默模式下不显示）
+          if (!silent && mounted) {
+            CustomToast.show(
+              context,
+              message: response['msg'] ?? '登录成功',
+              type: ToastType.success,
+            );
+          }
 
           // 导航到主页面
           if (mounted) {
@@ -134,20 +152,24 @@ class _LoginPageState extends State<LoginPage> {
             );
           }
         } else {
-          // 显示错误消息
+          // 显示错误消息（静默模式下不显示）
+          if (!silent && mounted) {
+            CustomToast.show(
+              context,
+              message: response['msg'] ?? '登录失败',
+              type: ToastType.error,
+            );
+          }
+        }
+      } catch (e) {
+        // 处理异常（静默模式下不显示）
+        if (!silent && mounted) {
           CustomToast.show(
             context,
-            message: response['msg'] ?? '登录失败',
+            message: e.toString(),
             type: ToastType.error,
           );
         }
-      } catch (e) {
-        // 处理异常
-        CustomToast.show(
-          context,
-          message: e.toString(),
-          type: ToastType.error,
-        );
       } finally {
         if (mounted) {
           setState(() {
@@ -173,14 +195,32 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   SizedBox(height: 60.h),
                   // 标题
-                  Text(
-                    '欢迎回来',
-                    style: AppTheme.headingStyle,
+                  Row(
+                    children: [
+                      Text(
+                        '小懿AI ',
+                        style: AppTheme.headingStyle.copyWith(
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      Text(
+                        '欢迎回来 ✨',
+                        style: AppTheme.headingStyle,
+                      ),
+                    ],
                   ),
                   SizedBox(height: 12.h),
-                  Text(
-                    '请登录您的账户',
-                    style: AppTheme.secondaryStyle,
+                  Row(
+                    children: [
+                      Text(
+                        '请登录您的账户 ',
+                        style: AppTheme.secondaryStyle,
+                      ),
+                      Text(
+                        '😊',
+                        style: TextStyle(fontSize: 16.sp),
+                      ),
+                    ],
                   ),
                   SizedBox(height: 40.h),
 
@@ -252,6 +292,10 @@ class _LoginPageState extends State<LoginPage> {
                               onChanged: (value) {
                                 setState(() {
                                   _rememberMe = value ?? false;
+                                  // 如果取消记住我，同时取消自动登录
+                                  if (!_rememberMe) {
+                                    _autoLogin = false;
+                                  }
                                 });
                               },
                               shape: RoundedRectangleBorder(
@@ -265,6 +309,10 @@ class _LoginPageState extends State<LoginPage> {
                             onTap: () {
                               setState(() {
                                 _rememberMe = !_rememberMe;
+                                // 如果取消记住我，同时取消自动登录
+                                if (!_rememberMe) {
+                                  _autoLogin = false;
+                                }
                               });
                             },
                             child: Text(
@@ -288,7 +336,52 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 32.h),
+                  SizedBox(height: 16.h),
+                  
+                  // 自动登录选项
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 24.w,
+                        height: 24.w,
+                        child: Checkbox(
+                          value: _autoLogin,
+                          onChanged: _rememberMe ? (value) {
+                            setState(() {
+                              _autoLogin = value ?? false;
+                            });
+                          } : null,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                                AppTheme.radiusXSmall),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      GestureDetector(
+                        onTap: _rememberMe ? () {
+                          setState(() {
+                            _autoLogin = !_autoLogin;
+                          });
+                        } : null,
+                        child: Row(
+                          children: [
+                            Text(
+                              '自动登录 ',
+                              style: AppTheme.secondaryStyle.copyWith(
+                                color: _rememberMe ? AppTheme.textSecondary : AppTheme.textHint,
+                              ),
+                            ),
+                            Text(
+                              '🔑',
+                              style: TextStyle(fontSize: 14.sp),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16.h),
 
                   // 登录按钮
                   _isLoading
@@ -298,7 +391,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         )
                       : CustomButton(
-                          onPressed: _login,
+                          onPressed: () => _login(),
                           child: Text('登录'),
                         ),
                   SizedBox(height: 24.h),

@@ -51,29 +51,57 @@ class MessageService {
     }
   }
 
-  /// 删除角色会话
-  Future<void> deleteSession(int id) async {
+  /// 批量删除角色会话
+  Future<Map<String, dynamic>> batchDeleteCharacterSessions(List<int> sessionIds) async {
     try {
-      final response = await _httpClient.delete('/sessions/character/$id');
+      final response = await _httpClient.post(
+        '/sessions/character/batch-delete',
+        data: {'sessionIds': sessionIds},
+      );
 
-      if (response.data['code'] != 0) {
-        throw response.data['msg'] ?? '删除会话失败';
+      if (response.data['code'] == 0) {
+        return {
+          'success': true,
+          'msg': response.data['msg'] ?? '批量删除成功',
+        };
+      } else {
+        return {
+          'success': false,
+          'msg': response.data['msg'] ?? '批量删除失败',
+        };
       }
     } catch (e) {
-      throw '删除会话失败: $e';
+      return {
+        'success': false,
+        'msg': '批量删除失败: $e',
+      };
     }
   }
 
-  /// 删除小说会话
-  Future<void> deleteNovelSession(int id) async {
+  /// 批量删除小说会话
+  Future<Map<String, dynamic>> batchDeleteNovelSessions(List<int> sessionIds) async {
     try {
-      final response = await _httpClient.delete('/sessions/novel/$id');
+      final response = await _httpClient.post(
+        '/sessions/novel/batch-delete',
+        data: {'sessionIds': sessionIds},
+      );
 
-      if (response.data['code'] != 0) {
-        throw response.data['message'] ?? '删除小说会话失败';
+      if (response.data['code'] == 0) {
+        return {
+          'success': true,
+          'msg': response.data['msg'] ?? '批量删除成功',
+        };
+      } else {
+        return {
+          'success': false,
+          'msg': response.data['msg'] ?? '批量删除失败',
+        };
       }
     } catch (e) {
-      throw '删除小说会话失败: $e';
+      return {
+        'success': false,
+        'msg': '批量删除失败: $e',
+      };
     }
   }
 

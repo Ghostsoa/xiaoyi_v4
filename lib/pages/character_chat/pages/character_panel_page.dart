@@ -210,7 +210,7 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
               style: TextStyle(
                 fontSize: 18.sp,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: AppTheme.textPrimary,
               ),
             ),
             SizedBox(height: 16.h),
@@ -222,7 +222,7 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: Colors.white.withOpacity(0.1),
+                      color: AppTheme.textPrimary.withOpacity(0.1),
                       width: 1,
                     ),
                   ),
@@ -262,65 +262,64 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   }
 
   Widget _buildLoadingContent() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        top: kToolbarHeight + MediaQuery.of(context).padding.top + 16.h,
-        left: 16.w,
-        right: 16.w,
-        bottom: 16.h,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildShimmerCard(title: '基本信息', itemCount: 6),
-        ],
-      ),
+    return Column(
+      children: [
+        _buildPageSelector(),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: _buildShimmerCard(title: '基本信息', itemCount: 6),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildPageSelector() {
     return Container(
-      height: 48.h,
-      margin: EdgeInsets.only(bottom: 16.h),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _pageNames.length,
-        padding: EdgeInsets.symmetric(horizontal: 16.w),
-        separatorBuilder: (context, index) => SizedBox(width: 24.w),
-        itemBuilder: (context, index) {
+      height: 40.h,
+      margin: EdgeInsets.only(bottom: 8.h),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(_pageNames.length, (index) {
           final isSelected = _currentPageIndex == index;
-          return GestureDetector(
-            onTap: () {
+          return TextButton(
+            onPressed: () {
               setState(() {
                 _currentPageIndex = index;
               });
             },
-            child: Column(
-              children: [
-                Text(
-                  _pageNames[index],
-                  style: TextStyle(
-                    color: isSelected
-                        ? AppTheme.primaryColor
-                        : AppTheme.textSecondary,
-                    fontSize: 16.sp,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            style: ButtonStyle(
+              padding: WidgetStateProperty.all(EdgeInsets.symmetric(horizontal: 8.w)),
+              backgroundColor: WidgetStateProperty.all(Colors.transparent),
+              overlayColor: WidgetStateProperty.all(Colors.transparent),
+              shadowColor: WidgetStateProperty.all(Colors.transparent),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              textStyle: WidgetStateProperty.all(TextStyle(
+                decoration: TextDecoration.none,
+              )),
+            ),
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 5.h, horizontal: 8.w),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+                    width: 2.0,
                   ),
                 ),
-                SizedBox(height: 8.h),
-                Container(
-                  width: 16.w,
-                  height: 2.h,
-                  decoration: BoxDecoration(
-                    color:
-                        isSelected ? AppTheme.primaryColor : Colors.transparent,
-                    borderRadius: BorderRadius.circular(1.r),
-                  ),
+              ),
+              child: Text(
+                _pageNames[index],
+                style: TextStyle(
+                  color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                  fontSize: 15.sp,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 ),
-              ],
+              ),
             ),
           );
-        },
+        }),
       ),
     );
   }
@@ -373,7 +372,10 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
     if (_error != null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('角色信息'),
+          title: Text(
+            '角色信息',
+            style: TextStyle(color: AppTheme.textPrimary),
+          ),
           centerTitle: true,
         ),
         body: Center(
@@ -390,7 +392,10 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
               SizedBox(height: 8.h),
               TextButton(
                 onPressed: _loadSessionData,
-                child: const Text('重试'),
+                child: Text(
+                  '重试',
+                  style: TextStyle(color: AppTheme.primaryColor),
+                ),
               ),
             ],
           ),
@@ -400,21 +405,20 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: AppTheme.background,
         elevation: 0,
-        shadowColor: AppTheme.background,
+        shadowColor: Colors.transparent,
         title: Text(
           '角色信息',
           style: TextStyle(
-            color: Colors.white,
+            color: AppTheme.textPrimary,
             fontSize: 18.sp,
             fontWeight: FontWeight.w500,
           ),
         ),
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: AppTheme.textPrimary),
         actions: [
           if (!_isLoading)
             TextButton(
@@ -440,59 +444,15 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
             ),
         ],
       ),
-      body: Stack(
+      body: _isLoading ? _buildLoadingContent() : Column(
         children: [
-          // 背景
-          if (_coverImage != null)
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: MemoryImage(_coverImage!),
-                    fit: BoxFit.cover,
-                    colorFilter: ColorFilter.mode(
-                      Colors.black.withOpacity(0.7),
-                      BlendMode.darken,
-                    ),
-                  ),
-                ),
+          _buildPageSelector(),
+          Expanded(
+            child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                child: _buildCurrentPage(),
               ),
-            ),
-          // 渐变遮罩
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    AppTheme.background.withOpacity(0.8),
-                    AppTheme.background,
-                  ],
-                  stops: const [0.0, 0.3, 0.6],
-                ),
-              ),
-            ),
           ),
-          // 内容
-          _isLoading
-              ? _buildLoadingContent()
-              : Column(
-                  children: [
-                    SizedBox(
-                        height: kToolbarHeight +
-                            MediaQuery.of(context).padding.top +
-                            16.h),
-                    _buildPageSelector(),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.symmetric(horizontal: 16.w),
-                        child: _buildCurrentPage(),
-                      ),
-                    ),
-                  ],
-                ),
         ],
       ),
     );
