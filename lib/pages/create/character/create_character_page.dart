@@ -46,6 +46,10 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   final _prefixController = TextEditingController();
   final _suffixController = TextEditingController();
   final _userSettingController = TextEditingController();
+  final _worldBackgroundController = TextEditingController();
+  final _rulesController = TextEditingController();
+  final _positiveDialogExamplesController = TextEditingController();
+  final _negativeDialogExamplesController = TextEditingController();
   bool _settingEditable = true;
   String _uiSettings = 'markdown';
 
@@ -88,6 +92,10 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     _suffixController.text = character['suffix'] ?? '';
     _userSettingController.text =
         character['userSetting'] ?? '你应该尊重用户，并提供准确的信息。';
+    _worldBackgroundController.text = character['worldBackground'] ?? '';
+    _rulesController.text = character['rules'] ?? '';
+    _positiveDialogExamplesController.text = character['positiveDialogExamples'] ?? '';
+    _negativeDialogExamplesController.text = character['negativeDialogExamples'] ?? '';
     _settingEditable = character['settingEditable'] ?? true;
     _uiSettings = character['uiSettings'] ?? 'markdown';
     _modelName = character['modelName'] ?? 'gemini-2.0-flash';
@@ -132,6 +140,10 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     _prefixController.dispose();
     _suffixController.dispose();
     _userSettingController.dispose();
+    _worldBackgroundController.dispose();
+    _rulesController.dispose();
+    _positiveDialogExamplesController.dispose();
+    _negativeDialogExamplesController.dispose();
     super.dispose();
   }
 
@@ -164,6 +176,10 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
         "prefix": _prefixController.text,
         "suffix": _suffixController.text,
         "userSetting": _userSettingController.text,
+        "worldBackground": _worldBackgroundController.text,
+        "rules": _rulesController.text,
+        "positiveDialogExamples": _positiveDialogExamplesController.text,
+        "negativeDialogExamples": _negativeDialogExamplesController.text,
         "uiSettings": _uiSettings,
         "searchDepth": _searchDepth,
         "worldbookMap": _worldbookMap,
@@ -253,6 +269,10 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           settingController: _settingController,
           greetingController: _greetingController,
           userSettingController: _userSettingController,
+          worldBackgroundController: _worldBackgroundController,
+          rulesController: _rulesController,
+          positiveDialogExamplesController: _positiveDialogExamplesController,
+          negativeDialogExamplesController: _negativeDialogExamplesController,
           settingEditable: _settingEditable,
           onSettingEditableChanged: (value) =>
               setState(() => _settingEditable = value),

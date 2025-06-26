@@ -19,9 +19,9 @@ void main() async {
   await Permission.photos.request();
   await Permission.camera.request();
   await Permission.microphone.request();
-
-  // 初始化网络监控服务 - 不等待其完成，让它在后台运行
-  NetworkMonitorService().initializeAsync();
+  
+  // 同步初始化网络监控服务，确保至少有一次节点检查完成
+  await initNetworkMonitor();
 
   // 强制竖屏
   SystemChrome.setPreferredOrientations([
@@ -52,20 +52,47 @@ void main() async {
   );
 }
 
+/// 初始化网络监控服务
+/// 同步等待第一次节点检测完成
+Future<void> initNetworkMonitor() async {
+  debugPrint('[App启动] 正在初始化网络监控服务...');
+  
+  try {
+    // 获取API节点 - 这会触发必要的初始化和节点检测
+    final endpoint = await NetworkMonitorService().getApiEndpoint();
+    debugPrint('[App启动] 网络监控服务初始化成功，当前节点: $endpoint');
+    
+    // 修复：不再尝试访问HttpClient的私有成员
+    // 直接记录一个日志，确认流程继续向前
+    debugPrint('[App启动] 已获取可用API节点，准备进入应用主界面');
+  } catch (e) {
+    // 即使初始化失败也继续启动应用
+    debugPrint('[App启动] 网络监控服务初始化失败: $e');
+    debugPrint('[App启动] 将在后续请求中尝试重新获取API节点');
+  } finally {
+    debugPrint('[App启动] 网络监控初始化流程已完成，即将显示登录界面');
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // 记录构建MyApp组件的日志
+    debugPrint('[App启动] 正在构建MyApp组件');
+    
     // 获取主题控制器
     final themeController = Provider.of<ThemeController>(context);
 
-    return UnfocusWrapper(
+    // 构建应用
+    final app = UnfocusWrapper(
       child: ScreenUtilInit(
         designSize: const Size(375, 812), // 设计图尺寸
         minTextAdapt: true,
         splitScreenMode: true,
         builder: (_, child) {
+          debugPrint('[App启动] 正在构建MaterialApp');
           return MaterialApp(
             navigatorKey: HttpClient.navigatorKey, // 添加navigatorKey用于全局导航
             title: '小懿AI',
@@ -74,13 +101,21 @@ class MyApp extends StatelessWidget {
             themeMode: ThemeMode.dark,
             darkTheme: themeController.themeData,
             // 登录页面作为首页
-            home: Container(
-              color: AppTheme.background,
-              child: const LoginPage(),
+            home: Builder(
+              builder: (context) {
+                debugPrint('[App启动] 正在构建LoginPage');
+                return Container(
+                  color: AppTheme.background,
+                  child: const LoginPage(),
+                );
+              },
             ),
           );
         },
       ),
     );
+    
+    debugPrint('[App启动] MyApp构建完成');
+    return app;
   }
 }
