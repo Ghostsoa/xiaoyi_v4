@@ -1,9 +1,15 @@
 allprojects {
     repositories {
-        google()
-        mavenCentral()
+        // google()   // 注释掉或保留
+        // mavenCentral() // 注释掉或保留
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
     }
 }
+
+
 
 rootProject.buildDir = "../build"
 subprojects {

@@ -12,6 +12,7 @@ import 'edit_profile_page.dart';
 import 'earn_coin_page.dart';
 import 'theme_settings_page.dart';
 import 'api_key_manage_page.dart';
+import 'network_settings_page.dart';
 import 'exchange_page.dart';
 import 'widgets/user_info_widget.dart';
 import 'widgets/user_assets_widget.dart';
@@ -211,6 +212,16 @@ class ProfilePageState extends State<ProfilePage> {
 
   void _handleSettingTap(SettingItemType type) async {
     switch (type) {
+      case SettingItemType.network:
+        // 跳转到网络节点设置页面
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const NetworkSettingsPage(),
+          ),
+        );
+        break;
+
       case SettingItemType.theme:
         // 跳转到主题设置页面
         Navigator.push(

@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../theme/app_theme.dart';
 
 enum SettingItemType {
+  network,
   theme,
   help,
   about,
@@ -38,6 +39,11 @@ class SettingsWidget extends StatelessWidget {
             style: AppTheme.titleStyle,
           ),
           SizedBox(height: 16.h),
+          _buildSettingItem(
+            icon: Icons.language,
+            title: '网络节点设置',
+            onTap: () => onSettingTap(SettingItemType.network),
+          ),
           _buildSettingItem(
             icon: Icons.palette_outlined,
             title: '主题设置',

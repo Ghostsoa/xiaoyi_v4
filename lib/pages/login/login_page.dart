@@ -9,6 +9,7 @@ import '../register/register_page.dart';
 import '../main/main_page.dart';
 import 'login_service.dart';
 import '../forgot_password/forgot_password_page.dart';
+import '../profile/network_settings_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -70,7 +71,7 @@ class _LoginPageState extends State<LoginPage> {
           _rememberMe = true;
           _autoLogin = savedAutoLogin ?? false;
         });
-        
+
         // 如果设置了自动登录，则尝试自动登录
         if (savedAutoLogin == true) {
           // 使用Future.delayed确保界面先绘制完成
@@ -337,7 +338,7 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                   SizedBox(height: 16.h),
-                  
+
                   // 自动登录选项
                   Row(
                     children: [
@@ -346,30 +347,36 @@ class _LoginPageState extends State<LoginPage> {
                         height: 24.w,
                         child: Checkbox(
                           value: _autoLogin,
-                          onChanged: _rememberMe ? (value) {
-                            setState(() {
-                              _autoLogin = value ?? false;
-                            });
-                          } : null,
+                          onChanged: _rememberMe
+                              ? (value) {
+                                  setState(() {
+                                    _autoLogin = value ?? false;
+                                  });
+                                }
+                              : null,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                                AppTheme.radiusXSmall),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusXSmall),
                           ),
                         ),
                       ),
                       SizedBox(width: 8.w),
                       GestureDetector(
-                        onTap: _rememberMe ? () {
-                          setState(() {
-                            _autoLogin = !_autoLogin;
-                          });
-                        } : null,
+                        onTap: _rememberMe
+                            ? () {
+                                setState(() {
+                                  _autoLogin = !_autoLogin;
+                                });
+                              }
+                            : null,
                         child: Row(
                           children: [
                             Text(
                               '自动登录 ',
                               style: AppTheme.secondaryStyle.copyWith(
-                                color: _rememberMe ? AppTheme.textSecondary : AppTheme.textHint,
+                                color: _rememberMe
+                                    ? AppTheme.textSecondary
+                                    : AppTheme.textHint,
                               ),
                             ),
                             Text(
@@ -418,6 +425,39 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                   SizedBox(height: 24.h),
+
+                  // 添加网络线路设置按钮
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const NetworkSettingsPage(),
+                          ),
+                        );
+                      },
+                      icon: Icon(
+                        Icons.settings_ethernet,
+                        size: 18.w,
+                        color: AppTheme.textSecondary,
+                      ),
+                      label: Text(
+                        '网络线路设置',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 14.sp,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16.w,
+                          vertical: 8.h,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
                 ],
               ),
             ),

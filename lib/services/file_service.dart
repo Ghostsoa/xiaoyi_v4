@@ -161,7 +161,7 @@ class FileService {
         return cachedResponse;
       }
 
-      // 直接使用HttpClient获取文件，它会自动处理节点选择
+      // 使用HttpClient获取文件，它会使用用户选择的节点
       final response = await _httpClient.get(
         '/files',
         queryParameters: {'uri': uri},
