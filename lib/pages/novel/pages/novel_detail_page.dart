@@ -438,7 +438,7 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
                   decoration: InputDecoration(
                     contentPadding: EdgeInsets.all(12.w),
                     border: InputBorder.none,
-                    hintText: '请输入${title}内容',
+                    hintText: '请输入$title内容',
                     hintStyle: TextStyle(
                       color: widget.textColor.withOpacity(0.4),
                     ),

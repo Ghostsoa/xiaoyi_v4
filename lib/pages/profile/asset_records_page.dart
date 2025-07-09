@@ -335,6 +335,8 @@ class _AssetRecordsPageState extends State<AssetRecordsPage>
         return '经验值';
       case 'play_time':
         return '畅玩时长';
+      case 'vip':
+        return 'VIP';
       default:
         return '未知类型';
     }
@@ -530,7 +532,11 @@ class _AssetRecordsPageState extends State<AssetRecordsPage>
                                           ? Colors.amber.withOpacity(0.2)
                                           : assetType == 'exp'
                                               ? Colors.blue.withOpacity(0.2)
-                                              : Colors.green.withOpacity(0.2),
+                                              : assetType == 'vip'
+                                                  ? Colors.purple
+                                                      .withOpacity(0.2)
+                                                  : Colors.green
+                                                      .withOpacity(0.2),
                                       borderRadius: BorderRadius.circular(4.r),
                                     ),
                                     child: Text(
@@ -542,7 +548,9 @@ class _AssetRecordsPageState extends State<AssetRecordsPage>
                                             ? Colors.amber[800]
                                             : assetType == 'exp'
                                                 ? Colors.blue[800]
-                                                : Colors.green[800],
+                                                : assetType == 'vip'
+                                                    ? Colors.purple[800]
+                                                    : Colors.green[800],
                                       ),
                                     ),
                                   ),
@@ -605,12 +613,15 @@ class _AssetRecordsPageState extends State<AssetRecordsPage>
                                             ? '经验值: $balance'
                                             : assetType == 'play_time'
                                                 ? '畅玩时长: $balance小时'
-                                                : '余额: $balance',
+                                                : assetType == 'vip'
+                                                    ? 'VIP: $balance天'
+                                                    : '余额: $balance',
                                     style: AppTheme.secondaryStyle,
                                   ),
                                 ],
                               ),
-                              if (assetType == 'play_time' &&
+                              if ((assetType == 'play_time' ||
+                                      assetType == 'vip') &&
                                   record['play_time_expire_at'] != null) ...[
                                 SizedBox(height: 8.h),
                                 Text(

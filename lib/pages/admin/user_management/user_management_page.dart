@@ -37,6 +37,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
   bool _isAddingPlayTime = false;
   bool _isDeductingPlayTime = false; // 新增：扣除畅玩时长操作状态
   bool _isClearingAssets = false; // 新增：清空资产操作状态
+  bool _isAddingVIP = false; // 新增：添加VIP操作状态
+  bool _isDeductingVIP = false; // 新增：减少VIP操作状态
 
   // 资产操作控制器
   final TextEditingController _coinAmountController = TextEditingController();
@@ -65,6 +67,17 @@ class _UserManagementPageState extends State<UserManagementPage> {
 
   // 新增：清空资产原因控制器
   final TextEditingController _clearAssetsReasonController =
+      TextEditingController();
+
+  // 新增：VIP时长控制器
+  final TextEditingController _vipDaysController = TextEditingController();
+  final TextEditingController _vipDescriptionController =
+      TextEditingController();
+
+  // 新增：扣除VIP时长控制器
+  final TextEditingController _deductVipDaysController =
+      TextEditingController();
+  final TextEditingController _deductVipDescriptionController =
       TextEditingController();
 
   // 搜索类型选项
@@ -97,6 +110,10 @@ class _UserManagementPageState extends State<UserManagementPage> {
     _deductPlayTimeHoursController.dispose(); // 新增释放
     _deductPlayTimeDescriptionController.dispose(); // 新增释放
     _clearAssetsReasonController.dispose(); // 新增释放
+    _vipDaysController.dispose(); // 新增释放
+    _vipDescriptionController.dispose(); // 新增释放
+    _deductVipDaysController.dispose(); // 新增释放
+    _deductVipDescriptionController.dispose(); // 新增释放
 
     super.dispose();
   }
@@ -507,6 +524,104 @@ class _UserManagementPageState extends State<UserManagementPage> {
     }
   }
 
+  // 新增：增加用户VIP天数
+  Future<void> _addUserVIP(int userId, String username) async {
+    if (_vipDaysController.text.isEmpty ||
+        _vipDescriptionController.text.isEmpty) {
+      _showErrorToast('请填写必填字段');
+      return;
+    }
+
+    final double days;
+    try {
+      days = double.parse(_vipDaysController.text);
+      if (days <= 0) {
+        _showErrorToast('天数必须大于0');
+        return;
+      }
+    } catch (e) {
+      _showErrorToast('请输入有效的数字');
+      return;
+    }
+
+    setState(() {
+      _isAddingVIP = true;
+    });
+
+    try {
+      final result = await _userService.manageUserVIP(
+        userId,
+        days: days,
+        description: _vipDescriptionController.text,
+      );
+
+      final DateTime expireAt = DateTime.parse(result['data']['vip_expire_at'])
+          .add(const Duration(hours: 8));
+      _showSuccessToast('成功增加 $days 天VIP会员，有效期至: ${_formatDateTime(expireAt)}');
+      _clearVipForm();
+      Navigator.pop(context); // 关闭弹窗
+    } catch (e) {
+      _showErrorToast('操作失败: $e');
+    } finally {
+      setState(() {
+        _isAddingVIP = false;
+      });
+    }
+  }
+
+  // 新增：扣除用户VIP天数
+  Future<void> _deductUserVIP(int userId, String username) async {
+    if (_deductVipDaysController.text.isEmpty ||
+        _deductVipDescriptionController.text.isEmpty) {
+      _showErrorToast('请填写必填字段');
+      return;
+    }
+
+    final double days;
+    try {
+      days = double.parse(_deductVipDaysController.text);
+      if (days <= 0) {
+        _showErrorToast('天数必须大于0');
+        return;
+      }
+    } catch (e) {
+      _showErrorToast('请输入有效的数字');
+      return;
+    }
+
+    setState(() {
+      _isDeductingVIP = true;
+    });
+
+    try {
+      final result = await _userService.manageUserVIP(
+        userId,
+        days: -days, // 负数表示扣除
+        description: _deductVipDescriptionController.text,
+      );
+
+      String message = '成功扣除 $days 天VIP会员';
+      if (result['data']['vip_expire_at'] != null) {
+        final DateTime expireAt =
+            DateTime.parse(result['data']['vip_expire_at'])
+                .add(const Duration(hours: 8));
+        message += '，有效期至: ${_formatDateTime(expireAt)}';
+      } else {
+        message += '，用户VIP已过期';
+      }
+
+      _showSuccessToast(message);
+      _clearDeductVipForm();
+      Navigator.pop(context); // 关闭弹窗
+    } catch (e) {
+      _showErrorToast('操作失败: $e');
+    } finally {
+      setState(() {
+        _isDeductingVIP = false;
+      });
+    }
+  }
+
   // 显示增加小懿币弹窗
   void _showAddCoinDialog(int userId, String username) {
     _clearCoinForm();
@@ -764,6 +879,112 @@ class _UserManagementPageState extends State<UserManagementPage> {
     );
   }
 
+  // 新增：显示添加VIP天数弹窗
+  void _showAddVIPDialog(int userId, String username) {
+    _clearVipForm();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('增加VIP天数 - $username'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildTextField(
+                controller: _vipDaysController,
+                labelText: '增加天数*',
+                hintText: '请输入天数，支持小数',
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                ],
+              ),
+              SizedBox(height: 16.h),
+              _buildTextField(
+                controller: _vipDescriptionController,
+                labelText: '变动描述*',
+                hintText: '例如：管理员赠送VIP',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('取消'),
+          ),
+          TextButton(
+            onPressed:
+                _isAddingVIP ? null : () => _addUserVIP(userId, username),
+            child: _isAddingVIP
+                ? SizedBox(
+                    width: 20.w,
+                    height: 20.h,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Text('确认'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 新增：显示扣除VIP天数弹窗
+  void _showDeductVIPDialog(int userId, String username) {
+    _clearDeductVipForm();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('扣除VIP天数 - $username'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildTextField(
+                controller: _deductVipDaysController,
+                labelText: '扣除天数*',
+                hintText: '请输入天数，支持小数',
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                ],
+              ),
+              SizedBox(height: 16.h),
+              _buildTextField(
+                controller: _deductVipDescriptionController,
+                labelText: '扣除原因*',
+                hintText: '例如：违规行为扣除VIP',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('取消'),
+          ),
+          TextButton(
+            onPressed:
+                _isDeductingVIP ? null : () => _deductUserVIP(userId, username),
+            child: _isDeductingVIP
+                ? SizedBox(
+                    width: 20.w,
+                    height: 20.h,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Text('确认'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // 新增：显示清空用户资产弹窗
   void _showClearAssetsDialog(int userId, String username) {
     _clearClearAssetsForm();
@@ -895,6 +1116,29 @@ class _UserManagementPageState extends State<UserManagementPage> {
             ),
           ),
           SimpleDialogOption(
+            // 新增：增加VIP天数
+            onPressed: () {
+              Navigator.pop(context);
+              _showAddVIPDialog(userId, username);
+            },
+            child: ListTile(
+              leading: Icon(Icons.card_membership, color: Colors.amber),
+              title: Text('增加VIP天数'),
+            ),
+          ),
+          SimpleDialogOption(
+            // 新增：扣除VIP天数
+            onPressed: () {
+              Navigator.pop(context);
+              _showDeductVIPDialog(userId, username);
+            },
+            child: ListTile(
+              leading:
+                  Icon(Icons.card_membership_outlined, color: Colors.brown),
+              title: Text('扣除VIP天数'),
+            ),
+          ),
+          SimpleDialogOption(
             // 新增：清空用户资产
             onPressed: () {
               Navigator.pop(context);
@@ -940,6 +1184,18 @@ class _UserManagementPageState extends State<UserManagementPage> {
   // 新增：清除清空资产表单
   void _clearClearAssetsForm() {
     _clearAssetsReasonController.clear();
+  }
+
+  // 新增：清除VIP表单
+  void _clearVipForm() {
+    _vipDaysController.clear();
+    _vipDescriptionController.clear();
+  }
+
+  // 新增：清除扣除VIP表单
+  void _clearDeductVipForm() {
+    _deductVipDaysController.clear();
+    _deductVipDescriptionController.clear();
   }
 
   // 格式化日期时间（比原有的只有日期的格式化更详细）

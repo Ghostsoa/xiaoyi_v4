@@ -50,9 +50,6 @@ class InteractionCard extends StatelessWidget {
         _buildUiSettingsItem(),
         _buildInfoItem(
             '设定可编辑', sessionData['setting_editable'] == true ? '是' : '否'),
-        _buildInfoItem('总对话轮数', (sessionData['total_turns'] ?? 0).toString()),
-        if (sessionData['last_message']?.isNotEmpty == true)
-          _buildInfoItem('最后消息', sessionData['last_message']),
       ],
     );
   }
@@ -395,15 +392,18 @@ class InteractionCard extends StatelessWidget {
           children: [
             Icon(
               _getIconForOption(value),
-              color: isSelected ? Colors.white : AppTheme.textPrimary.withOpacity(0.7),
+              color: isSelected
+                  ? Colors.white
+                  : AppTheme.textPrimary.withOpacity(0.7),
               size: 18.sp,
             ),
             SizedBox(width: 12.w),
             Text(
               label,
               style: TextStyle(
-                color:
-                    isSelected ? Colors.white : AppTheme.textPrimary.withOpacity(0.7),
+                color: isSelected
+                    ? Colors.white
+                    : AppTheme.textPrimary.withOpacity(0.7),
                 fontSize: 15.sp,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),

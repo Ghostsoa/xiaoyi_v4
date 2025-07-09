@@ -18,7 +18,7 @@ class _ExchangePageState extends State<ExchangePage> {
   final _formKey = GlobalKey<FormState>();
 
   bool _isLoading = false;
-  String _exchangeRate = "100小懿币 = 3小时畅玩时长"; // 默认兑换比例
+  final String _exchangeRate = "100小懿币 = 3小时畅玩时长"; // 默认兑换比例
   double _playTimeHours = 0; // 可兑换的畅玩时长
 
   @override

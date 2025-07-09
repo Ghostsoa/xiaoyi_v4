@@ -10,7 +10,6 @@ import '../widgets/character_panel/basic_info_card.dart';
 import '../widgets/character_panel/setting_card.dart';
 import '../widgets/character_panel/model_config_card.dart';
 import '../widgets/character_panel/interaction_card.dart';
-import 'dart:convert';
 
 class CharacterPanelPage extends StatefulWidget {
   final Map<String, dynamic> characterData;
@@ -53,7 +52,7 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
 
   final List<String> _pageNames = [
     '基本信息',
-    '人设信息',
+    '设定',
     'AI模型',
     '交互设置',
   ];
@@ -290,7 +289,8 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
               });
             },
             style: ButtonStyle(
-              padding: WidgetStateProperty.all(EdgeInsets.symmetric(horizontal: 8.w)),
+              padding: WidgetStateProperty.all(
+                  EdgeInsets.symmetric(horizontal: 8.w)),
               backgroundColor: WidgetStateProperty.all(Colors.transparent),
               overlayColor: WidgetStateProperty.all(Colors.transparent),
               shadowColor: WidgetStateProperty.all(Colors.transparent),
@@ -304,7 +304,8 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                    color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+                    color:
+                        isSelected ? AppTheme.primaryColor : Colors.transparent,
                     width: 2.0,
                   ),
                 ),
@@ -312,7 +313,9 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
               child: Text(
                 _pageNames[index],
                 style: TextStyle(
-                  color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                  color: isSelected
+                      ? AppTheme.primaryColor
+                      : AppTheme.textSecondary,
                   fontSize: 15.sp,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 ),
@@ -444,17 +447,19 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
             ),
         ],
       ),
-      body: _isLoading ? _buildLoadingContent() : Column(
-        children: [
-          _buildPageSelector(),
-          Expanded(
-            child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: _buildCurrentPage(),
-              ),
-          ),
-        ],
-      ),
+      body: _isLoading
+          ? _buildLoadingContent()
+          : Column(
+              children: [
+                _buildPageSelector(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(horizontal: 16.w),
+                    child: _buildCurrentPage(),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,7 +50,7 @@ class NetworkMonitorService {
   static final List<EndpointInfo> defaultEndpoints = [
     EndpointInfo(url: 'https://hk2.xiaoyi.ink', name: '香港线路', isDefault: true),
     EndpointInfo(url: 'https://jp.xiaoyi.ink', name: '日本线路', isDefault: true),
-    EndpointInfo(url: 'https://mg1.xiaoyi.ink', name: '美国线路', isDefault: true),
+    EndpointInfo(url: 'https://mg.xl9.xyz', name: '美国线路', isDefault: true),
   ];
 
   /// 节点健康检查超时设置
@@ -74,7 +73,7 @@ class NetworkMonitorService {
 
   /// 初始化标记
   bool _initialized = false;
-  Completer<void> _initCompleter = Completer<void>();
+  final Completer<void> _initCompleter = Completer<void>();
 
   /// 节点状态记录
   Map<String, dynamic> _endpointStatusMap = {};

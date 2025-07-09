@@ -204,4 +204,113 @@ class CharacterService {
       throw '获取角色卡详情失败: $e';
     }
   }
+
+  /// 获取角色卡会话的所有存档
+  Future<List<Map<String, dynamic>>> getSessionSaveSlots(int sessionId) async {
+    try {
+      final response = await _httpClient.get(
+        '/sessions/character/$sessionId/save-slots',
+      );
+
+      if (response.data['code'] == 0) {
+        return List<Map<String, dynamic>>.from(
+            response.data['data']['list'] ?? []);
+      } else {
+        throw response.data['msg'] ?? '获取存档列表失败';
+      }
+    } catch (e) {
+      throw '获取存档列表失败: $e';
+    }
+  }
+
+  /// 创建新存档
+  Future<Map<String, dynamic>> createSaveSlot(
+      int sessionId, String saveName) async {
+    try {
+      final response = await _httpClient.post(
+        '/sessions/character/$sessionId/save-slots',
+        data: {
+          'save_name': saveName,
+        },
+      );
+
+      if (response.data['code'] == 0) {
+        return response.data['data'];
+      } else {
+        throw response.data['msg'] ?? '创建存档失败';
+      }
+    } catch (e) {
+      throw '创建存档失败: $e';
+    }
+  }
+
+  /// 激活指定存档
+  Future<void> activateSaveSlot(int sessionId, String saveSlotId) async {
+    try {
+      final response = await _httpClient.put(
+        '/sessions/character/$sessionId/save-slots/$saveSlotId/activate',
+      );
+
+      if (response.data['code'] != 0) {
+        throw response.data['msg'] ?? '激活存档失败';
+      }
+    } catch (e) {
+      throw '激活存档失败: $e';
+    }
+  }
+
+  /// 重命名存档
+  Future<void> renameSaveSlot(
+      int sessionId, String saveSlotId, String newName) async {
+    try {
+      final response = await _httpClient.put(
+        '/sessions/character/$sessionId/save-slots/$saveSlotId',
+        data: {
+          'save_name': newName,
+        },
+      );
+
+      if (response.data['code'] != 0) {
+        throw response.data['msg'] ?? '重命名存档失败';
+      }
+    } catch (e) {
+      throw '重命名存档失败: $e';
+    }
+  }
+
+  /// 删除存档
+  Future<void> deleteSaveSlot(int sessionId, String saveSlotId) async {
+    try {
+      final response = await _httpClient.delete(
+        '/sessions/character/$sessionId/save-slots/$saveSlotId',
+      );
+
+      if (response.data['code'] != 0) {
+        throw response.data['msg'] ?? '删除存档失败';
+      }
+    } catch (e) {
+      throw '删除存档失败: $e';
+    }
+  }
+
+  /// 复制当前存档（创建快照）
+  Future<Map<String, dynamic>> duplicateSaveSlot(
+      int sessionId, String saveName) async {
+    try {
+      final response = await _httpClient.post(
+        '/sessions/character/$sessionId/save-slots/duplicate',
+        data: {
+          'save_name': saveName,
+        },
+      );
+
+      if (response.data['code'] == 0) {
+        return response.data['data'];
+      } else {
+        throw response.data['msg'] ?? '创建存档快照失败';
+      }
+    } catch (e) {
+      throw '创建存档快照失败: $e';
+    }
+  }
 }

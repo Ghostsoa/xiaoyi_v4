@@ -7,6 +7,8 @@ class UserAssetsWidget extends StatelessWidget {
   final double exp;
   final double playTime;
   final String? playTimeExpireAt;
+  final bool isVip;
+  final String? vipExpireAt;
   final bool isAssetLoading;
   final bool refreshSuccess;
   final VoidCallback onRefresh;
@@ -19,6 +21,8 @@ class UserAssetsWidget extends StatelessWidget {
     required this.exp,
     required this.playTime,
     this.playTimeExpireAt,
+    this.isVip = false,
+    this.vipExpireAt,
     required this.isAssetLoading,
     required this.refreshSuccess,
     required this.onRefresh,
@@ -145,49 +149,56 @@ class UserAssetsWidget extends StatelessWidget {
             ],
           ),
           SizedBox(height: 24.h),
-          // 资产内容区域
+          // 资产内容区域 - 新布局，移除经验值，添加高阶魔法师
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildAssetItem(
-                context,
-                icon: Icons.monetization_on_outlined,
-                label: '小懿币',
-                value: '${coin.toStringAsFixed(2)}',
-                iconColor: Colors.amber,
-                onTap: () => onAssetTap('coin'),
+              Expanded(
+                child: _buildAssetItem(
+                  context,
+                  icon: Icons.monetization_on_outlined,
+                  label: '小懿币',
+                  value: coin.toStringAsFixed(0),
+                  iconColor: Colors.amber,
+                  onTap: () => onAssetTap('coin'),
+                ),
               ),
-              _buildAssetItem(
-                context,
-                icon: Icons.star_outline_rounded,
-                label: '经验值',
-                value: '${exp.toStringAsFixed(2)}',
-                iconColor: Colors.blue,
-                onTap: () => onAssetTap('exp'),
+              Expanded(
+                child: _buildAssetItem(
+                  context,
+                  icon: Icons.access_time,
+                  label: '畅玩时长',
+                  value: _formatPlayTime(playTime),
+                  iconColor: Colors.green,
+                  onTap: () => onAssetTap('play_time'),
+                ),
               ),
-              _buildAssetItem(
-                context,
-                icon: Icons.access_time,
-                label: '畅玩时长',
-                value: '${playTime.toStringAsFixed(2)}小时',
-                iconColor: Colors.green,
-                onTap: () => onAssetTap('play_time'),
+              Expanded(
+                child: _buildAssetItem(
+                  context,
+                  icon: Icons.auto_awesome,
+                  label: '高阶魔法师',
+                  value: isVip ? '已激活' : '未激活',
+                  iconColor: Colors.purple,
+                  onTap: () => onAssetTap('vip'),
+                  isActive: isVip,
+                ),
               ),
             ],
           ),
-          if (playTimeExpireAt != null) ...[
-            SizedBox(height: 16.h),
-            Text(
-              '畅玩时长有效期至: ${_formatExpireDate(playTimeExpireAt!)}',
-              style: TextStyle(
-                fontSize: 12.sp,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ],
         ],
       ),
     );
+  }
+
+  // 格式化畅玩时长，超过24小时显示为天数，不足1天显示小时数
+  String _formatPlayTime(double hours) {
+    if (hours >= 24) {
+      final days = hours / 24; // 保留小数部分
+      return '${days.toStringAsFixed(1)}天'; // 显示1位小数
+    } else {
+      return '${hours.toStringAsFixed(1)}小时'; // 显示1位小数
+    }
   }
 
   Widget _buildAssetItem(
@@ -197,6 +208,7 @@ class UserAssetsWidget extends StatelessWidget {
     required String value,
     required Color iconColor,
     VoidCallback? onTap,
+    bool isActive = true,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -206,7 +218,7 @@ class UserAssetsWidget extends StatelessWidget {
             width: 48.w,
             height: 48.w,
             decoration: BoxDecoration(
-              color: iconColor,
+              color: isActive ? iconColor : Colors.grey,
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -221,7 +233,7 @@ class UserAssetsWidget extends StatelessWidget {
             style: TextStyle(
               fontSize: 15.sp,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+              color: isActive ? AppTheme.textPrimary : Colors.grey,
             ),
           ),
           SizedBox(height: 4.h),
@@ -229,20 +241,11 @@ class UserAssetsWidget extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 14.sp,
-              color: AppTheme.textSecondary,
+              color: isActive ? AppTheme.textSecondary : Colors.grey,
             ),
           ),
         ],
       ),
     );
-  }
-
-  String _formatExpireDate(String dateString) {
-    try {
-      final date = DateTime.parse(dateString).add(const Duration(hours: 8));
-      return '${date.year}年${date.month.toString().padLeft(2, '0')}月${date.day.toString().padLeft(2, '0')}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    } catch (e) {
-      return dateString;
-    }
   }
 }

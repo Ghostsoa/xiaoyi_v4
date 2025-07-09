@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/custom_toast.dart';
@@ -742,15 +741,15 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
 
     switch (status) {
       case 1:
-        statusText = '启用';
+        statusText = '正常使用';
         statusColor = Colors.green;
         break;
       case 0:
-        statusText = '停用';
+        statusText = '暂停使用';
         statusColor = Colors.orange;
         break;
       case 3:
-        statusText = '封禁';
+        statusText = '供应商封禁';
         statusColor = Colors.red;
         break;
       default:

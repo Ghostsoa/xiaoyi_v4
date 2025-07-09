@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shimmer/shimmer.dart';
-import 'dart:ui';
-import 'dart:math' as math;
 import '../../../theme/app_theme.dart';
 import 'formatters/base_formatter.dart';
 import 'formatters/status_formatter.dart';
@@ -138,8 +136,9 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
   }
 
   Future<void> _deleteMessage() async {
-    if (widget.msgId == null || widget.sessionId == null || _isProcessing)
+    if (widget.msgId == null || widget.sessionId == null || _isProcessing) {
       return;
+    }
 
     final bool? confirmed = await showDialog<bool>(
       context: context,
@@ -197,7 +196,7 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
 
   Future<void> _revokeMessage() async {
     debugPrint(
-        '尝试撤销消息: msgId=${widget.msgId}, sessionId=${widget.sessionId}, isProcessing=${_isProcessing}');
+        '尝试撤销消息: msgId=${widget.msgId}, sessionId=${widget.sessionId}, isProcessing=$_isProcessing');
 
     if (widget.msgId == null || widget.sessionId == null || _isProcessing) {
       debugPrint(
@@ -606,19 +605,19 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
               ),
             ),
           ),
-        
+
         // 间隔
-        if ((widget.keywords != null && widget.keywords!.isNotEmpty) && 
+        if ((widget.keywords != null && widget.keywords!.isNotEmpty) &&
             (widget.enhance != null || widget.createdAt != null))
           SizedBox(width: 8.w),
-          
+
         // 增强标记
         if (widget.enhance != null) _buildEnhanceTagContent(),
-        
+
         // 间隔
-        if (widget.enhance != null && widget.createdAt != null) 
+        if (widget.enhance != null && widget.createdAt != null)
           SizedBox(width: 8.w),
-          
+
         // 时间信息
         if (widget.createdAt != null)
           Text(
@@ -632,7 +631,7 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
       ],
     );
   }
-  
+
   // 格式化时间的辅助方法
   String _formatDateTime(String dateTimeStr) {
     try {
@@ -649,7 +648,7 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
   // 显示关键词弹窗
   void _showKeywordsDialog() {
     if (widget.keywords == null || widget.keywords!.isEmpty) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -664,21 +663,23 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: widget.keywords!.map((keyword) => Padding(
-              padding: EdgeInsets.only(bottom: 8.h),
-              child: Row(
-                children: [
-                  Icon(Icons.tag, size: 14.sp, color: Colors.blue),
-                  SizedBox(width: 8.w),
-                  Expanded(
-                    child: Text(
-                      keyword,
-                      style: TextStyle(fontSize: 14.sp),
-                    ),
-                  ),
-                ],
-              ),
-            )).toList(),
+            children: widget.keywords!
+                .map((keyword) => Padding(
+                      padding: EdgeInsets.only(bottom: 8.h),
+                      child: Row(
+                        children: [
+                          Icon(Icons.tag, size: 14.sp, color: Colors.blue),
+                          SizedBox(width: 8.w),
+                          Expanded(
+                            child: Text(
+                              keyword,
+                              style: TextStyle(fontSize: 14.sp),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ))
+                .toList(),
           ),
         ),
         actions: [

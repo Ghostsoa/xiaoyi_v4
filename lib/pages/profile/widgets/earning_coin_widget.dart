@@ -34,30 +34,57 @@ class EarningCoinWidget extends StatelessWidget {
               width: 48.w,
               height: 48.w,
               decoration: BoxDecoration(
-                color: Colors.amber,
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFFAA00FF),
+                    Color(0xFF6200EA),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0xFF6200EA).withOpacity(0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Icon(
-                Icons.monetization_on_outlined,
+                Icons.auto_awesome,
                 color: Colors.white,
                 size: 24.sp,
               ),
             ),
             SizedBox(width: 16.w),
             Expanded(
-              child: Text(
-                '获取时长',
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '解锁更多特权',
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    '畅玩时长、高阶魔法师、小懿币',
+                    style: TextStyle(
+                      fontSize: 12.sp,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ),
             Icon(
               Icons.arrow_forward_ios,
               size: 18.sp,
-              color: Colors.amber,
+              color: Color(0xFF6200EA),
             ),
           ],
         ),

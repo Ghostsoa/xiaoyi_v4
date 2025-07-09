@@ -23,7 +23,7 @@ class NovelService {
   Future<Map<String, dynamic>> sendNovelChat(
     String sessionId, {
     String? input,
-    Duration timeout = const Duration(seconds: 90),
+    Duration timeout = const Duration(seconds: 180),
   }) async {
     try {
       final Map<String, dynamic> data = {};

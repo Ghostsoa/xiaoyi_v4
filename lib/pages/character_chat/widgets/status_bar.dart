@@ -7,10 +7,10 @@ class StatusBar extends StatelessWidget {
   final Color textColor;
 
   const StatusBar({
-    Key? key,
+    super.key,
     required this.statusData,
     required this.textColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

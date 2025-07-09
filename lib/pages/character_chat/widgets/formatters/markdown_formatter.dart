@@ -656,7 +656,7 @@ class MarkdownFormatter extends BaseFormatter {
         .removeWhere((line) => line.contains('---') || line.contains('==='));
 
     // --- 开始修改 appGridData 生成逻辑 ---
-    const int MAX_SINGLE_SPACE_GRID_ITEMS = 5; // 单空格分隔时，一行中App图标的最大数量
+    const int maxSingleSpaceGridItems = 5; // 单空格分隔时，一行中App图标的最大数量
     List<List<String>> appGridData = []; // 使用 appGridData 作为最终变量名
 
     for (String line in contentLines) {
@@ -690,7 +690,7 @@ class MarkdownFormatter extends BaseFormatter {
                 .toList();
 
             if (singleSpaceCells.length > 1 &&
-                singleSpaceCells.length <= MAX_SINGLE_SPACE_GRID_ITEMS) {
+                singleSpaceCells.length <= maxSingleSpaceGridItems) {
               bool allCellsAppLike = true;
               for (String cellCandidate in singleSpaceCells) {
                 if (!_isAppLikeCell(cellCandidate)) {

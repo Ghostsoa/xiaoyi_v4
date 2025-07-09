@@ -18,6 +18,7 @@ import 'widgets/user_info_widget.dart';
 import 'widgets/user_assets_widget.dart';
 import 'widgets/settings_widget.dart';
 import 'widgets/earning_coin_widget.dart';
+import 'vip_details_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -44,6 +45,8 @@ class ProfilePageState extends State<ProfilePage> {
   double _exp = 0.0;
   double _playTime = 0.0;
   String? _playTimeExpireAt;
+  bool _isVip = false;
+  String? _vipExpireAt;
 
   bool _isLoading = true;
   bool _isAssetLoading = false;
@@ -106,6 +109,8 @@ class ProfilePageState extends State<ProfilePage> {
           _exp = (assets['assets']['exp'] ?? 0).toDouble();
           _playTime = (assets['assets']['play_time'] ?? 0).toDouble();
           _playTimeExpireAt = assets['assets']['play_time_expire_at'];
+          _isVip = assets['assets']['vip'] ?? false;
+          _vipExpireAt = assets['assets']['vip_expire_at'];
         } else {
           // 显示错误消息
           if (mounted) {
@@ -143,6 +148,8 @@ class ProfilePageState extends State<ProfilePage> {
           _exp = (assets['assets']['exp'] ?? 0).toDouble();
           _playTime = (assets['assets']['play_time'] ?? 0).toDouble();
           _playTimeExpireAt = assets['assets']['play_time_expire_at'];
+          _isVip = assets['assets']['vip'] ?? false;
+          _vipExpireAt = assets['assets']['vip_expire_at'];
           _refreshSuccess = true;
         } else {
           // 显示错误消息
@@ -180,11 +187,23 @@ class ProfilePageState extends State<ProfilePage> {
       case 'coin':
         title = '小懿币记录';
         break;
-      case 'exp':
-        title = '经验值记录';
-        break;
       case 'play_time':
         title = '畅玩时长记录';
+        break;
+      case 'vip':
+        // 如果是VIP，且已经激活，跳转到VIP详情页
+        if (_isVip) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VipDetailsPage(
+                vipExpireAt: _vipExpireAt,
+              ),
+            ),
+          );
+          return; // 提前返回，不执行下面的跳转
+        }
+        title = '高阶魔法师记录';
         break;
       default:
         title = '资产记录';
@@ -420,6 +439,7 @@ class ProfilePageState extends State<ProfilePage> {
                           roleDescription: _roleDescription,
                           level: _level,
                           levelName: _levelName,
+                          exp: _exp,
                           onEditPressed: () async {
                             final currentAvatar = await _userDao.getAvatar();
                             final result = await Navigator.push(
@@ -444,6 +464,8 @@ class ProfilePageState extends State<ProfilePage> {
                           exp: _exp,
                           playTime: _playTime,
                           playTimeExpireAt: _playTimeExpireAt,
+                          isVip: _isVip,
+                          vipExpireAt: _vipExpireAt,
                           isAssetLoading: _isAssetLoading,
                           refreshSuccess: _refreshSuccess,
                           onRefresh: _refreshAssets,

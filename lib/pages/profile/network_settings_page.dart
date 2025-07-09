@@ -340,12 +340,6 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: 4.h),
-            Text(url,
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 12.sp,
-                )),
-            SizedBox(height: 4.h),
             Row(
               children: [
                 Text('延迟: ',

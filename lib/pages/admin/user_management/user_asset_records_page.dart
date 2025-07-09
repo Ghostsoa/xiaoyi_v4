@@ -61,6 +61,8 @@ class _UserAssetRecordsPageState extends State<UserAssetRecordsPage> {
         assetType = 'exp';
       } else if (_selectedAssetType == '畅玩时长') {
         assetType = 'play_time';
+      } else if (_selectedAssetType == 'VIP') {
+        assetType = 'vip';
       }
 
       final result = await _userService.getUserAssetRecords(
@@ -92,14 +94,31 @@ class _UserAssetRecordsPageState extends State<UserAssetRecordsPage> {
     );
   }
 
-  // 格式化日期时间
+  // 格式化日期时间（带时区调整：+8小时）
   String _formatDateTime(String? dateStr) {
     if (dateStr == null) return '';
     try {
-      final date = DateTime.parse(dateStr);
+      final date = DateTime.parse(dateStr).add(const Duration(hours: 8));
       return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } catch (e) {
       return dateStr;
+    }
+  }
+
+  // 计算剩余天数
+  String _calculateRemainingDays(String? expiryDateStr) {
+    if (expiryDateStr == null) return '';
+    try {
+      final expiryDate =
+          DateTime.parse(expiryDateStr).add(const Duration(hours: 8));
+      final now = DateTime.now();
+      final difference = expiryDate.difference(now);
+      final days = difference.inHours / 24.0;
+
+      if (days <= 0) return '已过期';
+      return '剩余 ${days.toStringAsFixed(1)} 天';
+    } catch (e) {
+      return '';
     }
   }
 
@@ -112,6 +131,8 @@ class _UserAssetRecordsPageState extends State<UserAssetRecordsPage> {
         return '经验值';
       case 'play_time':
         return '畅玩时长';
+      case 'vip':
+        return 'VIP会员';
       default:
         return '未知';
     }
@@ -213,6 +234,16 @@ class _UserAssetRecordsPageState extends State<UserAssetRecordsPage> {
                                 ? '有效期至：${_formatDateTime(_userAsset!['assets']['play_time_expire_at'])}'
                                 : null,
                           ),
+                          if (_userAsset!['assets']['vip_expire_at'] != null)
+                            _buildAssetItem(
+                              'VIP会员',
+                              _calculateRemainingDays(
+                                  _userAsset!['assets']['vip_expire_at']),
+                              Icons.card_membership,
+                              Colors.deepOrange,
+                              subtitle:
+                                  '有效期至：${_formatDateTime(_userAsset!['assets']['vip_expire_at'])}',
+                            ),
                         ],
                       ),
                     ],
@@ -242,7 +273,8 @@ class _UserAssetRecordsPageState extends State<UserAssetRecordsPage> {
                         icon: Icon(Icons.keyboard_arrow_down,
                             color: textSecondary),
                         padding: EdgeInsets.symmetric(horizontal: 12.w),
-                        items: ['全部', '小懿币', '经验值', '畅玩时长'].map((String value) {
+                        items: ['全部', '小懿币', '经验值', '畅玩时长', 'VIP']
+                            .map((String value) {
                           return DropdownMenuItem<String>(
                             value: value,
                             child: Text(
@@ -389,7 +421,9 @@ class _UserAssetRecordsPageState extends State<UserAssetRecordsPage> {
                                           ),
                                         ),
                                         Text(
-                                          '${record['change_type'] == 'add' ? '+' : '-'}${record['amount']}',
+                                          record['asset_type'] == 'vip'
+                                              ? '${record['change_type'] == 'add' ? '+' : '-'}${record['amount']}天'
+                                              : '${record['change_type'] == 'add' ? '+' : '-'}${record['amount']}',
                                           style: TextStyle(
                                             fontSize: 16.sp,
                                             fontWeight: FontWeight.bold,
@@ -409,6 +443,34 @@ class _UserAssetRecordsPageState extends State<UserAssetRecordsPage> {
                                             fontSize: 12.sp,
                                             color: textSecondary,
                                           ),
+                                        ),
+                                      ),
+                                    if (record['asset_type'] == 'vip' &&
+                                        record['vip_expire_at'] != null)
+                                      Padding(
+                                        padding: EdgeInsets.only(top: 8.h),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '有效期至：${_formatDateTime(record['vip_expire_at'])}',
+                                              style: TextStyle(
+                                                fontSize: 12.sp,
+                                                color: textSecondary,
+                                              ),
+                                            ),
+                                            SizedBox(height: 2.h),
+                                            Text(
+                                              _calculateRemainingDays(
+                                                  record['vip_expire_at']),
+                                              style: TextStyle(
+                                                fontSize: 12.sp,
+                                                color: Colors.deepOrange,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                   ],

@@ -325,4 +325,51 @@ class UserManagementService {
       throw Exception(e.toString());
     }
   }
+
+  // 添加或减少用户VIP时间
+  Future<Map<String, dynamic>> manageUserVIP(
+    int userId, {
+    required double days,
+    required String description,
+    String? refId,
+    String? refType,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'days': days,
+        'description': description,
+      };
+
+      if (refId != null) data['ref_id'] = refId;
+      if (refType != null) data['ref_type'] = refType;
+
+      final response = await _httpClient.post(
+        '/admin/users/$userId/assets/vip',
+        data: data,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception(response.data['msg'] ?? '管理VIP时间失败');
+      }
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+  // 获取用户VIP状态
+  Future<Map<String, dynamic>> getUserVIPStatus(int userId) async {
+    try {
+      final response = await _httpClient.get('/admin/user/$userId/vip');
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception(response.data['msg'] ?? '获取用户VIP状态失败');
+      }
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
 }

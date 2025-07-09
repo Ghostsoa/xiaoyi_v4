@@ -131,7 +131,7 @@ class _DraftPageState extends State<DraftPage> {
           !_imageCache.containsKey(item['coverUri'])) {
         try {
           final fileData = await FileService().getFile(item['coverUri']);
-          if (fileData != null && fileData.data != null) {
+          if (fileData.data != null) {
             _imageCache[item['coverUri']] = fileData.data;
           }
         } catch (e) {
@@ -533,7 +533,7 @@ class _DraftPageState extends State<DraftPage> {
       future: () async {
         try {
           final fileData = await FileService().getFile(uri);
-          if (fileData != null && fileData.data != null) {
+          if (fileData.data != null) {
             // 添加到缓存
             _imageCache[uri] = fileData.data;
             return fileData;
@@ -841,7 +841,7 @@ class _DraftPageState extends State<DraftPage> {
                           SizedBox(width: 6.w),
                           Expanded(
                             child: Text(
-                              '${_formatTime(novel['createdAt'])}',
+                              _formatTime(novel['createdAt']),
                               style: TextStyle(
                                 fontSize: 11.sp,
                                 color: AppTheme.textSecondary,

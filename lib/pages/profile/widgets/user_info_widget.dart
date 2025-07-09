@@ -5,6 +5,7 @@ import '../../../theme/app_theme.dart';
 import '../../../dao/user_dao.dart';
 import '../../../services/file_service.dart';
 import 'dart:typed_data';
+import '../level_distribution_page.dart';
 
 class UserInfoWidget extends StatefulWidget {
   final String username;
@@ -13,6 +14,7 @@ class UserInfoWidget extends StatefulWidget {
   final String roleDescription;
   final int level;
   final String levelName;
+  final double exp;
   final VoidCallback onEditPressed;
 
   const UserInfoWidget({
@@ -23,6 +25,7 @@ class UserInfoWidget extends StatefulWidget {
     required this.roleDescription,
     required this.level,
     required this.levelName,
+    required this.exp,
     required this.onEditPressed,
   });
 
@@ -68,6 +71,19 @@ class _UserInfoWidgetState extends State<UserInfoWidget> {
         _isLoadingAvatar = false;
       });
     }
+  }
+
+  void _navigateToLevelDistribution() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LevelDistributionPage(
+          currentExp: widget.exp.toInt(),
+          currentLevel: widget.level,
+          currentLevelName: widget.levelName,
+        ),
+      ),
+    );
   }
 
   // 根据等级返回对应的颜色配置
@@ -226,7 +242,22 @@ class _UserInfoWidgetState extends State<UserInfoWidget> {
                   ),
                 ),
                 SizedBox(height: 8.h),
-                _buildLevelText(levelColors),
+                GestureDetector(
+                  onTap: _navigateToLevelDistribution,
+                  child: Row(
+                    children: [
+                      _buildLevelText(levelColors),
+                      SizedBox(width: 8.w),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 12.sp,
+                        color: widget.level >= 3
+                            ? levelColors['end']
+                            : AppTheme.textSecondary,
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

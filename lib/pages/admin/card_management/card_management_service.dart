@@ -344,4 +344,32 @@ class CardManagementService {
       throw Exception(e.toString());
     }
   }
+
+  // 获取卡密类型对应的显示文本
+  String getCardTypeText(String cardType) {
+    switch (cardType) {
+      case 'coin':
+        return '小懿币卡';
+      case 'play_time':
+        return '畅玩时长卡';
+      case 'vip':
+        return 'VIP会员卡';
+      default:
+        return '未知类型';
+    }
+  }
+
+  // 获取卡密面额的单位文本
+  String getCardAmountUnitText(String cardType) {
+    switch (cardType) {
+      case 'coin':
+        return '个';
+      case 'play_time':
+        return '小时';
+      case 'vip':
+        return '天';
+      default:
+        return '';
+    }
+  }
 }

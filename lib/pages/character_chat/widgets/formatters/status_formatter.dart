@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'base_formatter.dart';
-import 'dart:collection';
 
 // 标签解析结果
 class TagParseResult {

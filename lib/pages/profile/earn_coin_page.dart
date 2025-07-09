@@ -96,35 +96,10 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
           // 清空输入框
           _codeController.clear();
 
-          // 获取兑换信息
-          final recordData = result['data']['record'];
-          final assetType = recordData['asset_type'];
-          final amount = recordData['amount'];
-
-          // 显示兑换结果
-          String typeStr = '小懿币';
-          if (assetType == 'exp') {
-            typeStr = '经验值';
-          } else if (assetType == 'play_time') {
-            typeStr = '畅玩时长';
-
-            // 如果是畅玩时长，还需要显示过期时间
-            if (recordData['play_time_expire_at'] != null) {
-              final expiryDateStr = recordData['play_time_expire_at']
-                  .toString()
-                  .substring(0, 16)
-                  .replaceAll('T', ' ');
-              _showRedeemSuccessDialog(
-                '恭喜您获得$amount小时畅玩时长',
-                '有效期至: $expiryDateStr',
-              );
-              return;
-            }
-          }
-
+          // 无论兑换什么，都显示相同的成功提示
           _showRedeemSuccessDialog(
-            '恭喜您获得$amount$typeStr',
-            '已添加到您的账户',
+            '兑换成功',
+            '请刷新资产',
           );
         } else {
           // 兑换失败
@@ -443,7 +418,7 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
         backgroundColor: AppTheme.cardBackground,
         elevation: 0,
         title: Text(
-          '获取时长',
+          '解锁更多特权',
           style: AppTheme.titleStyle,
         ),
         leading: IconButton(
@@ -680,7 +655,7 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
                   SizedBox(height: 16.h),
 
                   Text(
-                    '赞助小懿，获得专属兑换码，立即解锁更多功能与资源！',
+                    '您的赞助是小懿持续提供优质服务的动力，每一份支持都将帮助我们创造更好的AI体验！',
                     style: TextStyle(
                       fontSize: 14.sp,
                       color: AppTheme.textSecondary,
@@ -691,17 +666,17 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
 
                   // 赞助好处列表
                   _buildSponsorItem(
-                    '获得畅玩时长，解锁全部功能',
+                    '解锁高阶魔法师特权，体验最新AI技术',
                     AppTheme.textSecondary,
                   ),
                   SizedBox(height: 8.h),
                   _buildSponsorItem(
-                    '体验最新的回复增强技术、永久记忆技术',
+                    '支持我们持续开发，打造更智能的小懿',
                     AppTheme.textSecondary,
                   ),
                   SizedBox(height: 8.h),
                   _buildSponsorItem(
-                    '小懿特供版模型、小说功能等等',
+                    '获得专属兑换码，畅享所有高级功能',
                     AppTheme.textSecondary,
                   ),
 

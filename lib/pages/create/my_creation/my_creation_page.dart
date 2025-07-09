@@ -134,7 +134,7 @@ class _MyCreationPageState extends State<MyCreationPage> {
           !_imageCache.containsKey(item['coverUri'])) {
         try {
           final fileData = await FileService().getFile(item['coverUri']);
-          if (fileData != null && fileData.data != null) {
+          if (fileData.data != null) {
             _imageCache[item['coverUri']] = fileData.data;
           }
         } catch (e) {
@@ -654,7 +654,7 @@ class _MyCreationPageState extends State<MyCreationPage> {
       future: () async {
         try {
           final fileData = await FileService().getFile(uri);
-          if (fileData != null && fileData.data != null) {
+          if (fileData.data != null) {
             // 添加到缓存
             _imageCache[uri] = fileData.data;
             return fileData;

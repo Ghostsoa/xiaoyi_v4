@@ -237,6 +237,7 @@ class _CardManagementPageState extends State<CardManagementPage> {
                   items: const [
                     DropdownMenuItem(value: 'coin', child: Text('小懿币卡')),
                     DropdownMenuItem(value: 'play_time', child: Text('畅玩时长卡')),
+                    DropdownMenuItem(value: 'vip', child: Text('VIP会员卡')),
                   ],
                   onChanged: (value) =>
                       setStateDialog(() => _createCardType = value),
@@ -247,11 +248,16 @@ class _CardManagementPageState extends State<CardManagementPage> {
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: '卡密面额',
-                    hintText: '例如：100, 500',
+                    hintText: _createCardType == 'vip'
+                        ? '例如：30, 90, 365'
+                        : '例如：100, 500',
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8.r)),
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+                    suffixText: _createCardType == null
+                        ? ''
+                        : _cardService.getCardAmountUnitText(_createCardType!),
                   ),
                 ),
                 SizedBox(height: 16.h),
@@ -527,7 +533,8 @@ class _CardManagementPageState extends State<CardManagementPage> {
                   items: const [
                     DropdownMenuItem(value: null, child: Text('全部类型')),
                     DropdownMenuItem(value: 'coin', child: Text('小懿币卡')),
-                    DropdownMenuItem(value: 'play_time', child: Text('畅玩时长卡'))
+                    DropdownMenuItem(value: 'play_time', child: Text('畅玩时长卡')),
+                    DropdownMenuItem(value: 'vip', child: Text('VIP会员卡')),
                   ],
                   onChanged: (value) {
                     setState(() => _selectedCardType = value);
@@ -590,6 +597,10 @@ class _CardManagementPageState extends State<CardManagementPage> {
     final int totalCards = batch['total_cards'] ?? 0;
     final int usedCards = batch['used_cards'] ?? 0;
     final int unusedCards = totalCards - usedCards;
+    final String cardType = batch['card_type'] ?? '';
+    final String cardTypeText = _cardService.getCardTypeText(cardType);
+    final String amountText =
+        '${batch['amount'] ?? '-'}${_cardService.getCardAmountUnitText(cardType)}';
 
     return Card(
       elevation: 1,
@@ -638,10 +649,10 @@ class _CardManagementPageState extends State<CardManagementPage> {
               ),
               SizedBox(height: 8.h),
               Row(children: [
-                Text('类型: ${batch['card_type'] == 'coin' ? '小懿币卡' : '畅玩时长卡'}',
+                Text('类型: $cardTypeText',
                     style: TextStyle(fontSize: 13.sp, color: textSecondary)),
                 SizedBox(width: 16.w),
-                Text('面额: ${batch['amount'] ?? '-'}',
+                Text('面额: $amountText',
                     style: TextStyle(fontSize: 13.sp, color: textSecondary))
               ]),
               SizedBox(height: 4.h),
@@ -868,6 +879,11 @@ class _CardManagementPageState extends State<CardManagementPage> {
     }
 
     final batchId = card['batch_id'];
+    final batchInfo = card['batch'] as Map<String, dynamic>?;
+    final String cardType = batchInfo?['card_type'] ?? '';
+    final String cardTypeText = _cardService.getCardTypeText(cardType);
+    final String amountText =
+        '${batchInfo?['amount'] ?? '-'}${_cardService.getCardAmountUnitText(cardType)}';
 
     return Card(
       elevation: 1,
@@ -929,6 +945,20 @@ class _CardManagementPageState extends State<CardManagementPage> {
                   style: TextStyle(fontSize: 13.sp, color: textSecondary),
                 ),
                 SizedBox(width: 16.w),
+                Text(
+                  '类型: $cardTypeText',
+                  style: TextStyle(fontSize: 13.sp, color: textSecondary),
+                ),
+                SizedBox(width: 16.w),
+                Text(
+                  '面额: $amountText',
+                  style: TextStyle(fontSize: 13.sp, color: textSecondary),
+                ),
+              ],
+            ),
+            SizedBox(height: 8.h),
+            Row(
+              children: [
                 if (statusCode == 1)
                   Text(
                     '使用者ID: ${card['used_by'] ?? '-'}',

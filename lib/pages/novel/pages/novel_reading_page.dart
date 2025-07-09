@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'dart:developer' as developer;
@@ -14,9 +13,7 @@ import '../widgets/novel_content_bubble.dart';
 import '../widgets/novel_top_bar.dart';
 import '../widgets/novel_ai_interaction_area.dart';
 import '../utils/novel_content_parser.dart';
-import 'dart:typed_data';
 import '../widgets/novel_settings_sheet.dart';
-import '../pages/novel_detail_page.dart';
 
 class NovelReadingPage extends StatefulWidget {
   final Map<String, dynamic> sessionData;
@@ -42,7 +39,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
   // 界面设置
   bool _showControls = true;
   bool _showAiInteraction = true;
-  bool _isLoading = false;
+  final bool _isLoading = false;
   bool _isGenerating = false;
   bool _isLoadingHistory = false;
   int _currentHistoryPage = 1;
@@ -779,7 +776,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
         }
         responseForLog['data'] = dataMap;
       }
-      debugPrint("原始响应(不含content): ${responseForLog}");
+      debugPrint("原始响应(不含content): $responseForLog");
 
       if (response['code'] != 0) {
         throw response['msg'] ?? '请求失败';

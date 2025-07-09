@@ -16,6 +16,7 @@ import '../../../widgets/custom_toast.dart';
 import 'ui_settings_page.dart';
 import '../../../pages/login/login_page.dart';
 import '../../../pages/home/pages/item_detail_page.dart';
+import 'chat_archive_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // 常用记录数据模型
@@ -67,15 +68,16 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
-  
+
   // 添加常用记录相关变量
   List<CommonPhrase> _commonPhrases = [];
   bool _isShowingPhrases = false;
   OverlayEntry? _phrasesOverlay;
   final GlobalKey _commonPhrasesKey = GlobalKey();
   final TextEditingController _phraseNameController = TextEditingController();
-  final TextEditingController _phraseContentController = TextEditingController();
-  
+  final TextEditingController _phraseContentController =
+      TextEditingController();
+
   // 添加输入框是否聚焦的状态
   bool _isInputFocused = false;
 
@@ -121,7 +123,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
   // 添加刷新按钮动画控制器
   late AnimationController _refreshAnimationController;
-  
+
   // 添加功能气泡动画控制器
   late AnimationController _bubbleAnimationController;
   late Animation<double> _bubbleOpacityAnimation;
@@ -184,20 +186,20 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     );
 
     _menuAnimationController.addListener(() => setState(() {}));
-    
+
     // 初始化功能气泡动画控制器
     _bubbleAnimationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    
+
     _bubbleOpacityAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _bubbleAnimationController,
         curve: Curves.easeOut,
       ),
     );
-    
+
     _bubbleAnimationController.addListener(() => setState(() {}));
 
     // 改进滚动监听
@@ -215,11 +217,11 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         _currentInputText = _messageController.text;
       });
     });
-    
+
     // 添加焦点监听
     _focusNode.addListener(_onFocusChange);
   }
-  
+
   // 焦点变化监听方法
   void _onFocusChange() {
     setState(() {
@@ -245,7 +247,14 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     _bubbleAnimationController.dispose();
     _phraseNameController.dispose();
     _phraseContentController.dispose();
-    _hidePhrasesList(); // 确保overlay被移除
+
+    // 直接移除overlay，而不是调用_hidePhrasesList
+    if (_phrasesOverlay != null) {
+      _phrasesOverlay?.remove();
+      _phrasesOverlay = null;
+    }
+    _isShowingPhrases = false;
+
     super.dispose();
   }
 
@@ -523,12 +532,12 @@ class _CharacterChatPageState extends State<CharacterChatPage>
             if (response.enhanced != null) {
               _messages[0]['enhanced'] = response.enhanced;
             }
-            
+
             // 保存关键词数据
             if (response.keywords != null) {
               _messages[0]['keywords'] = response.keywords;
             }
-            
+
             // 如果没有createdAt字段，添加当前时间
             if (_messages[0]['createdAt'] == null) {
               _messages[0]['createdAt'] = DateTime.now().toIso8601String();
@@ -1094,17 +1103,16 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       );
 
       // 调用API获取角色卡详情
-      final characterDetail = await _characterService.getCharacterDetail(characterId);
-      
+      final characterDetail =
+          await _characterService.getCharacterDetail(characterId);
+
       // 关闭加载指示器
       if (mounted) {
         Navigator.of(context).pop();
       }
 
       // 检查响应状态码
-      if (characterDetail is Map<String, dynamic> && 
-          characterDetail.containsKey('code') && 
-          characterDetail['code'] != 0) {
+      if (characterDetail.containsKey('code') && characterDetail['code'] != 0) {
         if (mounted) {
           CustomToast.show(
             context,
@@ -1131,7 +1139,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       if (mounted) {
         Navigator.of(context).pop();
       }
-      
+
       // 显示错误提示
       if (mounted) {
         CustomToast.show(
@@ -1148,32 +1156,34 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     final TextEditingController controller = _messageController;
     final TextSelection selection = controller.selection;
     final String currentText = controller.text;
-    
+
     String newText;
     TextSelection newSelection;
-    
+
     // 如果有选中文本，则在两侧添加括号
     if (selection.start != selection.end) {
-      final String selectedText = currentText.substring(selection.start, selection.end);
-      newText = currentText.replaceRange(selection.start, selection.end, '($selectedText)');
+      final String selectedText =
+          currentText.substring(selection.start, selection.end);
+      newText = currentText.replaceRange(
+          selection.start, selection.end, '($selectedText)');
       newSelection = TextSelection.collapsed(offset: selection.end + 2);
     } else {
       // 如果没有选中文本，则插入空括号，并将光标放在括号中间
       newText = currentText.replaceRange(selection.start, selection.end, '()');
       newSelection = TextSelection.collapsed(offset: selection.start + 1);
     }
-    
+
     controller.value = controller.value.copyWith(
       text: newText,
       selection: newSelection,
     );
   }
-  
+
   // 添加清空输入框方法
   void _clearInput() {
     _messageController.clear();
   }
-  
+
   // 添加功能气泡UI组件
   Widget _buildFunctionBubble({
     Widget? icon,
@@ -1220,11 +1230,10 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       final prefs = await SharedPreferences.getInstance();
       final phrasesJson = prefs.getString('common_phrases') ?? '[]';
       final List<dynamic> phrasesList = jsonDecode(phrasesJson);
-      
+
       setState(() {
-        _commonPhrases = phrasesList
-            .map((item) => CommonPhrase.fromJson(item))
-            .toList();
+        _commonPhrases =
+            phrasesList.map((item) => CommonPhrase.fromJson(item)).toList();
       });
     } catch (e) {
       debugPrint('加载常用记录失败: $e');
@@ -1234,12 +1243,13 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       });
     }
   }
-  
+
   // 保存常用记录
   Future<void> _saveCommonPhrases() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final phrasesJson = jsonEncode(_commonPhrases.map((p) => p.toJson()).toList());
+      final phrasesJson =
+          jsonEncode(_commonPhrases.map((p) => p.toJson()).toList());
       await prefs.setString('common_phrases', phrasesJson);
     } catch (e) {
       debugPrint('保存常用记录失败: $e');
@@ -1248,7 +1258,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       }
     }
   }
-  
+
   // 添加常用记录
   Future<void> _addCommonPhrase(String name, String content) async {
     if (name.trim().isEmpty || content.trim().isEmpty) {
@@ -1257,71 +1267,73 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       }
       return;
     }
-    
+
     final newPhrase = CommonPhrase(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name.trim(),
       content: content.trim(),
     );
-    
+
     setState(() {
       _commonPhrases.add(newPhrase);
     });
-    
+
     await _saveCommonPhrases();
-    
+
     if (mounted) {
       CustomToast.show(context, message: '添加成功', type: ToastType.success);
     }
   }
-  
+
   // 删除常用记录
   Future<void> _deleteCommonPhrase(String id) async {
     setState(() {
       _commonPhrases.removeWhere((phrase) => phrase.id == id);
     });
-    
+
     await _saveCommonPhrases();
   }
-  
+
   // 使用常用记录
   void _useCommonPhrase(String content) {
     final TextEditingController controller = _messageController;
     final TextSelection selection = controller.selection;
     final String currentText = controller.text;
-    
+
     // 在光标位置插入内容
     final int start = selection.start;
     final int end = selection.end;
-    
+
     if (start < 0 || end < 0) {
       // 如果没有有效的光标位置，则追加到末尾
       controller.text = currentText + content;
-      controller.selection = TextSelection.collapsed(offset: controller.text.length);
+      controller.selection =
+          TextSelection.collapsed(offset: controller.text.length);
     } else {
       // 在光标位置插入内容
       final newText = currentText.replaceRange(start, end, content);
       controller.text = newText;
-      controller.selection = TextSelection.collapsed(offset: start + content.length);
+      controller.selection =
+          TextSelection.collapsed(offset: start + content.length);
     }
-    
+
     _hidePhrasesList();
   }
-  
+
   // 显示常用记录列表
   void _showPhrasesList() {
     setState(() {
       _isShowingPhrases = true;
     });
   }
-  
+
   // 隐藏常用记录列表
   void _hidePhrasesList() {
     if (_phrasesOverlay != null) {
       _phrasesOverlay?.remove();
       _phrasesOverlay = null;
     }
-    
+
     if (mounted) {
       setState(() {
         _isShowingPhrases = false;
@@ -1330,7 +1342,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       _isShowingPhrases = false;
     }
   }
-  
+
   // 构建常用记录列表UI
   Widget _buildPhrasesList() {
     return Container(
@@ -1381,7 +1393,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                   child: Center(
                     child: Text(
                       '暂无快捷语',
-                      style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12.sp),
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 12.sp),
                     ),
                   ),
                 )
@@ -1390,7 +1404,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                   child: ListView.builder(
                     shrinkWrap: true,
                     padding: EdgeInsets.zero,
-                    itemCount: _commonPhrases.length > 10 ? 10 : _commonPhrases.length, // 最多显示10条
+                    itemCount: _commonPhrases.length > 10
+                        ? 10
+                        : _commonPhrases.length, // 最多显示10条
                     itemBuilder: (context, index) {
                       final phrase = _commonPhrases[index];
                       return Container(
@@ -1403,13 +1419,15 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                           onTap: () => _useCommonPhrase(phrase.content),
                           borderRadius: BorderRadius.circular(4.r),
                           child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 8.w, vertical: 6.h),
                             child: Row(
                               children: [
                                 Expanded(
                                   child: Text(
                                     phrase.name,
-                                    style: TextStyle(color: Colors.white, fontSize: 12.sp),
+                                    style: TextStyle(
+                                        color: Colors.white, fontSize: 12.sp),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -1440,7 +1458,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   void _showAddPhraseDialog() {
     _phraseNameController.clear();
     _phraseContentController.clear();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1486,6 +1504,22 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     );
   }
 
+  // 添加跳转到存档页面的方法
+  void _navigateToChatArchive() async {
+    final bool? needRefresh = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ChatArchivePage(
+          sessionId: widget.sessionData['id'].toString(),
+        ),
+      ),
+    );
+
+    // 如果返回值为true，表示有存档被激活，需要刷新消息
+    if (needRefresh == true && mounted) {
+      _refreshMessages();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewInsets = MediaQuery.of(context).viewInsets;
@@ -1512,7 +1546,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
               SizedBox(height: padding.top - 8.h),
               // 自定义顶部栏
               Container(
-                height: 56.h,  // 增加高度以容纳两行文本
+                height: 56.h, // 增加高度以容纳两行文本
                 padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 2.h),
                 child: Row(
                   children: [
@@ -1555,7 +1589,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                       width: 36.w,
                                       height: 36.w,
                                       color: Colors.grey.withOpacity(0.3),
-                                      child: Icon(Icons.person, color: Colors.white),
+                                      child: Icon(Icons.person,
+                                          color: Colors.white),
                                     ),
                             ),
                             SizedBox(width: 12.w),
@@ -1575,7 +1610,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  if (widget.characterData['author_name'] != null)
+                                  if (widget.characterData['author_name'] !=
+                                      null)
                                     Text(
                                       '@${widget.characterData['author_name']}',
                                       style: TextStyle(
@@ -1641,100 +1677,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                           ),
                         ),
                       ),
-                    // 刷新按钮
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _isRefreshing
-                            ? null
-                            : () async {
-                                setState(() => _isRefreshing = true);
-
-                                try {
-                                  final result = await _characterService
-                                      .getSessionMessages(
-                                    widget.sessionData['id'],
-                                    page: 1,
-                                    pageSize: _pageSize,
-                                  );
-
-                                  if (!mounted) return;
-
-                                  final List<dynamic> messageList =
-                                      result['list'] ?? [];
-                                  final pagination = result['pagination'] ?? {};
-
-                                  // 直接使用服务器返回的顺序，不需要反转
-                                  final newMessages = messageList
-                                      .map(
-                                        (msg) => {
-                                          'content': msg['content'] ?? '',
-                                          'isUser': msg['role'] == 'user',
-                                          'timestamp': DateTime.now()
-                                              .millisecondsSinceEpoch,
-                                          'tokenCount': msg['tokenCount'] ?? 0,
-                                          'msgId': msg['msgId'],
-                                          'status': 'done',
-                                          'statusBar':
-                                              msg['statusBar'], // 添加状态栏数据
-                                          'enhanced':
-                                              msg['enhanced'], // 添加增强状态数据
-                                          'createdAt': msg['createdAt'], // 添加创建时间
-                                          'keywords': msg['keywords'], // 添加关键词数组
-                                        },
-                                      )
-                                      .toList();
-
-                                  setState(() {
-                                    _messages.clear();
-                                    _messages.addAll(newMessages);
-                                    _totalPages =
-                                        pagination['total_pages'] ?? 1;
-                                    _currentPage = 1;
-                                  });
-
-                                  // 滚动到底部
-                                  _scrollToBottom();
-                                } catch (e) {
-                                  debugPrint('刷新消息失败: $e');
-                                  if (mounted) {
-                                    CustomToast.show(
-                                      context,
-                                      message: e.toString(),
-                                      type: ToastType.error,
-                                    );
-                                  }
-                                } finally {
-                                  if (mounted) {
-                                    setState(() => _isRefreshing = false);
-                                  }
-                                }
-                              },
-                        borderRadius: BorderRadius.circular(18.r),
-                        child: Container(
-                          width: 36.w,
-                          height: 36.w,
-                          alignment: Alignment.center,
-                          child: _isRefreshing
-                              ? SizedBox(
-                                  width: 20.w,
-                                  height: 20.w,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.w,
-                                    valueColor:
-                                        const AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                )
-                              : Icon(
-                                  Icons.refresh,
-                                  color: Colors.white,
-                                  size: 24.sp,
-                                ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -1752,8 +1694,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                       _drawerOffset += details.delta.dy;
                       // 限制抽屉范围
                       if (_drawerOffset < 0) _drawerOffset = 0;
-                      if (_drawerOffset > _maxDrawerOffset)
+                      if (_drawerOffset > _maxDrawerOffset) {
                         _drawerOffset = _maxDrawerOffset;
+                      }
                     });
                   },
                   onVerticalDragEnd: (details) {
@@ -1836,58 +1779,62 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                           child: ClipRRect(
                             borderRadius: BorderRadius.vertical(
                                 top: Radius.circular(20.r)),
-                            child: ListView.builder(
-                              reverse: true, // 反转列表,新消息在底部
-                              controller: _scrollController,
-                              padding: EdgeInsets.only(
-                                top: 16.h,
-                                bottom: 16.h,
+                            child: RefreshIndicator(
+                              onRefresh: _refreshMessages,
+                              child: ListView.builder(
+                                reverse: true, // 反转列表,新消息在底部
+                                controller: _scrollController,
+                                padding: EdgeInsets.only(
+                                  top: 16.h,
+                                  bottom: 16.h,
+                                ),
+                                itemCount: _messages.length,
+                                itemBuilder: (context, index) {
+                                  final message = _messages[index];
+                                  return ChatBubble(
+                                    key: ValueKey(message['msgId'] ??
+                                        message['timestamp']),
+                                    message: message['content'],
+                                    isUser: message['isUser'],
+                                    isLoading: message['isLoading'] ?? false,
+                                    status: message['status'],
+                                    bubbleColor: message['isUser']
+                                        ? _userBubbleColor
+                                        : _bubbleColor,
+                                    bubbleOpacity: message['isUser']
+                                        ? _userBubbleOpacity
+                                        : _bubbleOpacity,
+                                    textColor: message['isUser']
+                                        ? _userTextColor
+                                        : _textColor,
+                                    msgId: message['msgId'],
+                                    onEdit: _handleMessageEdit,
+                                    formatMode: _formatMode,
+                                    statusBar: message['statusBar'],
+                                    enhance: message['enhanced'],
+                                    fontSize: _fontSize, // 传递字体大小设置
+                                    sessionId:
+                                        widget.sessionData['id'], // 添加会话ID
+                                    onMessageDeleted: () {
+                                      // 消息删除成功后刷新消息列表
+                                      _refreshMessages();
+                                    },
+                                    onMessageRevoked: () {
+                                      // 消息撤销成功后刷新消息列表
+                                      _refreshMessages();
+                                    },
+                                    onMessageRegenerate: !message['isUser']
+                                        ? _handleRegenerateMessage
+                                        : null, // 只对AI消息添加重新生成功能
+                                    createdAt: message['createdAt'], // 添加创建时间
+                                    keywords: message['keywords'], // 传递关键词数组
+                                  );
+                                },
+                                // 性能优化选项
+                                addAutomaticKeepAlives: false,
+                                addRepaintBoundaries: true,
+                                clipBehavior: Clip.hardEdge,
                               ),
-                              itemCount: _messages.length,
-                              itemBuilder: (context, index) {
-                                final message = _messages[index];
-                                return ChatBubble(
-                                  key: ValueKey(
-                                      message['msgId'] ?? message['timestamp']),
-                                  message: message['content'],
-                                  isUser: message['isUser'],
-                                  isLoading: message['isLoading'] ?? false,
-                                  status: message['status'],
-                                  bubbleColor: message['isUser']
-                                      ? _userBubbleColor
-                                      : _bubbleColor,
-                                  bubbleOpacity: message['isUser']
-                                      ? _userBubbleOpacity
-                                      : _bubbleOpacity,
-                                  textColor: message['isUser']
-                                      ? _userTextColor
-                                      : _textColor,
-                                  msgId: message['msgId'],
-                                  onEdit: _handleMessageEdit,
-                                  formatMode: _formatMode,
-                                  statusBar: message['statusBar'],
-                                  enhance: message['enhanced'],
-                                  fontSize: _fontSize, // 传递字体大小设置
-                                  sessionId: widget.sessionData['id'], // 添加会话ID
-                                  onMessageDeleted: () {
-                                    // 消息删除成功后刷新消息列表
-                                    _refreshMessages();
-                                  },
-                                  onMessageRevoked: () {
-                                    // 消息撤销成功后刷新消息列表
-                                    _refreshMessages();
-                                  },
-                                  onMessageRegenerate: !message['isUser']
-                                      ? _handleRegenerateMessage
-                                      : null, // 只对AI消息添加重新生成功能
-                                  createdAt: message['createdAt'], // 添加创建时间
-                                  keywords: message['keywords'], // 传递关键词数组
-                                );
-                              },
-                              // 性能优化选项
-                              addAutomaticKeepAlives: false,
-                              addRepaintBoundaries: true,
-                              clipBehavior: Clip.hardEdge,
                             ),
                           ),
                         ),
@@ -1910,7 +1857,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                         child: _isShowingPhrases
                             ? _buildPhrasesList() // 显示常用记录列表
                             : Container(
-                                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 16.w, vertical: 8.h),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
@@ -1922,14 +1870,16 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                     ),
                                     // 清空功能气泡
                                     _buildFunctionBubble(
-                                      icon: Icon(Icons.backspace_outlined, color: Colors.white, size: 14.sp),
+                                      icon: Icon(Icons.backspace_outlined,
+                                          color: Colors.white, size: 14.sp),
                                       label: '清空输入框',
                                       onTap: _clearInput,
                                     ),
                                     // 常用记录气泡
                                     _buildFunctionBubble(
                                       key: _commonPhrasesKey,
-                                      icon: Icon(Icons.history, color: Colors.white, size: 14.sp),
+                                      icon: Icon(Icons.history,
+                                          color: Colors.white, size: 14.sp),
                                       label: '快捷语',
                                       onTap: _showPhrasesList,
                                     ),
@@ -1957,7 +1907,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                 ),
                               ),
                       ),
-                      
+
                     // 输入框区域
                     Container(
                       padding: EdgeInsets.only(
@@ -2015,7 +1965,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                 decoration: InputDecoration(
                                   hintText: '发送消息...',
                                   hintStyle: TextStyle(
-                                    color: AppTheme.textSecondary.withOpacity(0.6),
+                                    color:
+                                        AppTheme.textSecondary.withOpacity(0.6),
                                     fontSize: 14.sp,
                                   ),
                                   contentPadding: EdgeInsets.symmetric(
@@ -2043,7 +1994,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                         : null,
                                 borderRadius: BorderRadius.circular(18.r),
                                 child: Icon(
-                                  _isSending ? Icons.stop_rounded : Icons.lightbulb,
+                                  _isSending
+                                      ? Icons.stop_rounded
+                                      : Icons.lightbulb,
                                   color: _isSending
                                       ? Colors.red.withOpacity(0.8)
                                       : _currentInputText.trim().isNotEmpty
@@ -2133,9 +2086,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                               },
                             ),
                             _buildExpandedFunctionButton(
-                              icon: Icons.delete,
-                              label: '清空对话',
-                              onTap: _handleResetSession,
+                              icon: Icons.archive,
+                              label: '存档',
+                              onTap: _navigateToChatArchive,
                             ),
                           ],
                         ),

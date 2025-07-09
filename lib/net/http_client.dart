@@ -133,7 +133,7 @@ class HttpClient {
       final apiEndpoint = await NetworkMonitorService().getCurrentEndpoint();
 
       // 确保返回的节点是字符串类型
-      if (apiEndpoint is! String || apiEndpoint.isEmpty) {
+      if (apiEndpoint.isEmpty) {
         debugPrint('[HttpClient] 获取到的API节点无效: $apiEndpoint');
         return;
       }

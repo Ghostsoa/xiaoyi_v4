@@ -31,6 +31,7 @@ class _BatchCardListPageState extends State<BatchCardListPage> {
   int _totalItems = 0;
   int _totalPages = 1;
   final int _pageSize = 10;
+  Map<String, dynamic>? _batchInfo;
 
   // 批量操作变量
   List<int> _selectedCardIds = [];
@@ -39,7 +40,7 @@ class _BatchCardListPageState extends State<BatchCardListPage> {
   @override
   void initState() {
     super.initState();
-    // TODO: 如果需要，可以从批次详情接口获取批次信息，例如默认的卡密类型
+    _loadBatchInfo();
     _loadCards();
   }
 
@@ -47,6 +48,20 @@ class _BatchCardListPageState extends State<BatchCardListPage> {
   void dispose() {
     _cardSecretController.dispose();
     super.dispose();
+  }
+
+  // 加载批次信息
+  Future<void> _loadBatchInfo() async {
+    try {
+      final result = await _cardService.getBatchDetail(widget.batchId);
+      if (result['code'] == 0) {
+        setState(() {
+          _batchInfo = result['data'];
+        });
+      }
+    } catch (e) {
+      _showErrorToast('加载批次信息失败: $e');
+    }
   }
 
   Future<void> _loadCards() async {
@@ -186,9 +201,14 @@ class _BatchCardListPageState extends State<BatchCardListPage> {
 
       StringBuffer content = StringBuffer();
       content.writeln('批次号: ${batchInfo?['batch_no']}');
-      content.writeln(
-          '类型: ${batchInfo?['card_type'] == 'coin' ? '小懿币卡' : '畅玩时长卡'}');
-      content.writeln('面额: ${batchInfo?['amount']}');
+
+      // 获取卡密类型显示文本
+      final String cardType = batchInfo?['card_type'] ?? '';
+      final String cardTypeText = _cardService.getCardTypeText(cardType);
+      final String amountUnit = _cardService.getCardAmountUnitText(cardType);
+
+      content.writeln('类型: $cardTypeText');
+      content.writeln('面额: ${batchInfo?['amount']}$amountUnit');
       content.writeln('导出时间: ${result['data']?['export_time']}');
       content.writeln('共 ${unusedCards.length} 张未使用卡密:');
       content.writeln('-------------------------------------');
@@ -281,9 +301,16 @@ class _BatchCardListPageState extends State<BatchCardListPage> {
     final textSecondary = AppTheme.textSecondary;
     final surfaceColor = AppTheme.cardBackground;
 
+    // 获取批次类型和面额单位
+    final String cardType = _batchInfo?['card_type'] ?? '';
+    final String cardTypeText = _cardService.getCardTypeText(cardType);
+    final String batchTitle = _batchInfo != null
+        ? '$cardTypeText 批次: ${widget.batchNo}'
+        : '批次: ${widget.batchNo}';
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('批次: ${widget.batchNo} - 卡密列表'),
+        title: Text(batchTitle),
         backgroundColor: background,
         elevation: 0.5,
       ),
@@ -602,6 +629,11 @@ class _BatchCardListPageState extends State<BatchCardListPage> {
     }
 
     final batchInfo = card['batch'] as Map<String, dynamic>?;
+    final cardType = batchInfo?['card_type'] ?? '';
+    final String cardTypeText = _cardService.getCardTypeText(cardType);
+    final String amountText =
+        '${batchInfo?['amount'] ?? '-'}${_cardService.getCardAmountUnitText(cardType)}';
+
     final rowColor = index % 2 == 0
         ? surfaceColor.withOpacity(0.5)
         : surfaceColor.withOpacity(0.8);
@@ -629,14 +661,9 @@ class _BatchCardListPageState extends State<BatchCardListPage> {
             _cellText(batchInfo?['batch_no'] ?? '-', 150.w, textSecondary,
                 maxLines: 1),
             // 卡密类型列
-            _cellText(
-                batchInfo?['card_type'] == 'coin'
-                    ? '小懿币卡'
-                    : (batchInfo?['card_type'] == 'play_time' ? '畅玩时长卡' : '-'),
-                100.w,
-                textSecondary),
+            _cellText(cardTypeText, 100.w, textSecondary),
             // 面额列
-            _cellText('${batchInfo?['amount'] ?? '-'}', 80.w, textSecondary),
+            _cellText(amountText, 80.w, textSecondary),
             // 状态列
             Container(
               width: 80.w,

@@ -440,7 +440,6 @@ class AppTheme {
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: textPrimary,
-        background: background,
       );
     } else {
       return ColorScheme.dark(
@@ -452,7 +451,6 @@ class AppTheme {
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: textPrimary,
-        background: background,
       );
     }
   }
