@@ -1677,6 +1677,25 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                           ),
                         ),
                       ),
+
+                    // 刷新按钮
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _refreshMessages,
+                        borderRadius: BorderRadius.circular(18.r),
+                        child: Container(
+                          width: 36.w,
+                          height: 36.w,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.refresh,
+                            color: Colors.white,
+                            size: 22.sp,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

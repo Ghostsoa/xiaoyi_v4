@@ -191,20 +191,17 @@ class ProfilePageState extends State<ProfilePage> {
         title = '畅玩时长记录';
         break;
       case 'vip':
-        // 如果是VIP，且已经激活，跳转到VIP详情页
-        if (_isVip) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => VipDetailsPage(
-                vipExpireAt: _vipExpireAt,
-              ),
+        // 无论是否激活，都跳转到VIP详情页
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VipDetailsPage(
+              vipExpireAt: _vipExpireAt,
+              isVip: _isVip,
             ),
-          );
-          return; // 提前返回，不执行下面的跳转
-        }
-        title = '高阶魔法师记录';
-        break;
+          ),
+        );
+        return; // 提前返回，不执行下面的跳转
       default:
         title = '资产记录';
     }

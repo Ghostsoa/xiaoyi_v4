@@ -6,8 +6,13 @@ import 'profile_server.dart';
 
 class VipDetailsPage extends StatefulWidget {
   final String? vipExpireAt;
+  final bool isVip;
 
-  const VipDetailsPage({super.key, this.vipExpireAt});
+  const VipDetailsPage({
+    super.key,
+    this.vipExpireAt,
+    required this.isVip,
+  });
 
   @override
   State<VipDetailsPage> createState() => _VipDetailsPageState();
@@ -24,12 +29,58 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
   @override
   void initState() {
     super.initState();
-    _loadModelQuotas();
     _formatExpireTime();
+
+    // 只有激活状态才加载配额数据
+    if (widget.isVip) {
+      _loadModelQuotas();
+    } else {
+      // 未激活状态显示示例数据
+      _setPlaceholderModelQuotas();
+    }
+  }
+
+  // 为未激活状态设置示例配额数据
+  void _setPlaceholderModelQuotas() {
+    setState(() {
+      _modelQuotas = [
+        ModelQuota(
+          modelName: 'gemini-2.5-Pro',
+          description: '高性能AI大语言模型',
+          dailyLimit: 50,
+          usedQuota: 0,
+          remainQuota: 0,
+        ),
+        ModelQuota(
+          modelName: 'gemini-2.5-flash',
+          description: '响应速度更快的AI模型',
+          dailyLimit: 150,
+          usedQuota: 0,
+          remainQuota: 0,
+        ),
+        ModelQuota(
+          modelName: 'gemini-2.0-flash',
+          description: '稳定性更高的AI模型',
+          dailyLimit: 150,
+          usedQuota: 0,
+          remainQuota: 0,
+        ),
+        ModelQuota(
+          modelName: 'gemini-2.5flash-lite',
+          description: '轻量级AI模型，无限制使用',
+          dailyLimit: -1,
+          usedQuota: 0,
+          remainQuota: 0,
+        ),
+      ];
+      _isLoading = false;
+    });
   }
 
   void _formatExpireTime() {
-    if (widget.vipExpireAt != null && widget.vipExpireAt!.isNotEmpty) {
+    if (widget.isVip &&
+        widget.vipExpireAt != null &&
+        widget.vipExpireAt!.isNotEmpty) {
       try {
         final expireDate = DateTime.parse(widget.vipExpireAt!);
         _formattedExpireTime =
@@ -37,8 +88,10 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
       } catch (e) {
         _formattedExpireTime = widget.vipExpireAt!;
       }
-    } else {
+    } else if (widget.isVip) {
       _formattedExpireTime = '永久有效';
+    } else {
+      _formattedExpireTime = '未激活';
     }
   }
 
@@ -100,9 +153,11 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
   }
 
   void _refreshModelQuotas() {
-    // 只使用静默刷新
-    if (!_isRefreshing) {
+    // 只有激活状态下才能刷新
+    if (widget.isVip && !_isRefreshing) {
       _loadModelQuotas();
+    } else if (!widget.isVip) {
+      _showToast('请先激活高阶魔法师特权', ToastType.info);
     }
   }
 
@@ -131,26 +186,28 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
-          _isRefreshing
-              ? Container(
-                  margin: EdgeInsets.only(right: 16.w),
-                  width: 20.sp,
-                  height: 20.sp,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.w,
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+          // 只在激活状态下显示刷新按钮
+          if (widget.isVip)
+            _isRefreshing
+                ? Container(
+                    margin: EdgeInsets.only(right: 16.w),
+                    width: 20.sp,
+                    height: 20.sp,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.w,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                    ),
+                  )
+                : IconButton(
+                    icon: Icon(
+                      Icons.refresh,
+                      color: AppTheme.textPrimary,
+                      size: 20.sp,
+                    ),
+                    onPressed: _refreshModelQuotas,
+                    tooltip: '刷新配额',
                   ),
-                )
-              : IconButton(
-                  icon: Icon(
-                    Icons.refresh,
-                    color: AppTheme.textPrimary,
-                    size: 20.sp,
-                  ),
-                  onPressed: _refreshModelQuotas,
-                  tooltip: '刷新配额',
-                ),
         ],
       ),
       body: _isLoading
@@ -192,6 +249,12 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
 
                   // 模型配额列表
                   _buildModelQuotaList(),
+
+                  // 未激活时显示激活提示
+                  if (!widget.isVip) ...[
+                    SizedBox(height: 24.h),
+                    _buildActivationPrompt(),
+                  ],
                 ],
               ),
             ),
@@ -204,17 +267,18 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Colors.purple.shade700,
-            Colors.purple.shade500,
-          ],
+          colors: widget.isVip
+              ? [Colors.purple.shade700, Colors.purple.shade500]
+              : [Colors.grey.shade700, Colors.grey.shade500],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.purple.withOpacity(0.3),
+            color: widget.isVip
+                ? Colors.purple.withOpacity(0.3)
+                : Colors.black.withOpacity(0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -227,7 +291,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
             children: [
               Icon(
                 Icons.auto_awesome,
-                color: Colors.amber,
+                color: widget.isVip ? Colors.amber : Colors.grey.shade300,
                 size: 24.sp,
               ),
               SizedBox(width: 8.w),
@@ -247,7 +311,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
                   borderRadius: BorderRadius.circular(4.r),
                 ),
                 child: Text(
-                  '已激活',
+                  widget.isVip ? '已激活' : '未激活',
                   style: TextStyle(
                     fontSize: 12.sp,
                     color: Colors.white,
@@ -257,27 +321,29 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
               ),
             ],
           ),
-          SizedBox(height: 16.h),
-          Row(
-            children: [
-              Text(
-                '有效期至:',
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  color: Colors.white.withOpacity(0.8),
+          if (widget.isVip) ...[
+            SizedBox(height: 16.h),
+            Row(
+              children: [
+                Text(
+                  '有效期至:',
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
                 ),
-              ),
-              SizedBox(width: 8.w),
-              Text(
-                _formattedExpireTime,
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                SizedBox(width: 8.w),
+                Text(
+                  _formattedExpireTime,
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -399,8 +465,9 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
     // 计算使用进度
     double progress = 0.0;
     bool isUnlimited = quota.dailyLimit == -1;
+    bool isInactive = !widget.isVip;
 
-    if (!isUnlimited && quota.dailyLimit > 0) {
+    if (!isInactive && !isUnlimited && quota.dailyLimit > 0) {
       progress = quota.usedQuota / quota.dailyLimit;
       progress = progress.clamp(0.0, 1.0); // 确保进度在0-1之间
     }
@@ -431,7 +498,9 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
                   style: TextStyle(
                     fontSize: 16.sp,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
+                    color: isInactive
+                        ? AppTheme.textSecondary
+                        : AppTheme.textPrimary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -439,14 +508,22 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
                 decoration: BoxDecoration(
-                  color: Colors.purple.withOpacity(0.1),
+                  color: isInactive
+                      ? Colors.grey.withOpacity(0.1)
+                      : (isUnlimited
+                          ? Colors.green.withOpacity(0.1)
+                          : Colors.purple.withOpacity(0.1)),
                   borderRadius: BorderRadius.circular(4.r),
                 ),
                 child: Text(
-                  isUnlimited ? '无限制' : '剩余: ${quota.remainQuota}',
+                  isInactive
+                      ? '未激活'
+                      : (isUnlimited ? '无限制' : '剩余: ${quota.remainQuota}'),
                   style: TextStyle(
                     fontSize: 12.sp,
-                    color: Colors.purple,
+                    color: isInactive
+                        ? Colors.grey
+                        : (isUnlimited ? Colors.green : Colors.purple),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -459,7 +536,9 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
               quota.description,
               style: TextStyle(
                 fontSize: 14.sp,
-                color: AppTheme.textSecondary,
+                color: isInactive
+                    ? AppTheme.textSecondary.withOpacity(0.7)
+                    : AppTheme.textSecondary,
               ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -479,18 +558,25 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
               ),
               Container(
                 height: 6.h,
-                width: isUnlimited
-                    ? MediaQuery.of(context).size.width * 0.8 // 如果是无限制，显示满的进度条
-                    : MediaQuery.of(context).size.width * 0.8 * progress,
+                width: isInactive
+                    ? 0 // 未激活不显示进度
+                    : (isUnlimited
+                        ? MediaQuery.of(context).size.width *
+                            0.8 // 如果是无限制，显示满的进度条
+                        : MediaQuery.of(context).size.width * 0.8 * progress),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      isUnlimited
-                          ? Colors.green.shade400
-                          : Colors.purple.shade300,
-                      isUnlimited
-                          ? Colors.green.shade700
-                          : Colors.purple.shade600,
+                      isInactive
+                          ? Colors.grey.shade400
+                          : (isUnlimited
+                              ? Colors.green.shade400
+                              : Colors.purple.shade300),
+                      isInactive
+                          ? Colors.grey.shade600
+                          : (isUnlimited
+                              ? Colors.green.shade700
+                              : Colors.purple.shade600),
                     ],
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
@@ -502,12 +588,16 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
           ),
           SizedBox(height: 8.h),
           Text(
-            isUnlimited
-                ? '每日限额: 无限制 | 已使用: ${quota.usedQuota}'
-                : '每日限额: ${quota.dailyLimit} | 已使用: ${quota.usedQuota}',
+            isInactive
+                ? '激活后可使用'
+                : (isUnlimited
+                    ? '每日限额: 无限制 | 已使用: ${quota.usedQuota}'
+                    : '每日限额: ${quota.dailyLimit} | 已使用: ${quota.usedQuota}'),
             style: TextStyle(
               fontSize: 12.sp,
-              color: AppTheme.textSecondary,
+              color: isInactive
+                  ? AppTheme.textSecondary.withOpacity(0.7)
+                  : AppTheme.textSecondary,
             ),
           ),
         ],
@@ -560,6 +650,84 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildActivationPrompt() {
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: Colors.amber.withOpacity(0.5),
+          width: 1.w,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: Colors.amber,
+                size: 24.sp,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                '如何获得高阶魔法师特权',
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16.h),
+          Text(
+            '您可以通过以下方式获得高阶魔法师特权:',
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          _buildActivationStep(
+            '1. 在"解锁更多特权"页面中进行赞助',
+            AppTheme.textSecondary,
+          ),
+          SizedBox(height: 8.h),
+          _buildActivationStep(
+            '2. 使用兑换码激活特权',
+            AppTheme.textSecondary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActivationStep(String text, Color textColor) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.check_circle,
+          color: Colors.amber,
+          size: 16.sp,
+        ),
+        SizedBox(width: 8.w),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: textColor,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
