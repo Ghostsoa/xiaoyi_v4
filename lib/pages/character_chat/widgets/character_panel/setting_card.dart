@@ -65,6 +65,8 @@ class _SettingCardState extends State<SettingCard> {
         'negative_dialog_examples', _negativeDialogController.text));
     _supplementSettingController.addListener(() => widget.onUpdateField(
         'supplement_setting', _supplementSettingController.text));
+    widget.userSettingController.addListener(() => widget.onUpdateField(
+        'user_setting', widget.userSettingController.text));
   }
 
   @override
