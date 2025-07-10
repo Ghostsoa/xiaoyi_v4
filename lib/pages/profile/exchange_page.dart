@@ -18,8 +18,8 @@ class _ExchangePageState extends State<ExchangePage> {
   final _formKey = GlobalKey<FormState>();
 
   bool _isLoading = false;
-  final String _exchangeRate = "100小懿币 = 3小时畅玩时长"; // 默认兑换比例
-  double _playTimeHours = 0; // 可兑换的畅玩时长
+  final String _exchangeRate = "100小懿币 = 3小时本源魔法师时长"; // 更新兑换比例描述
+  double _playTimeHours = 0; // 可兑换的本源魔法师时长
 
   @override
   void initState() {
@@ -74,7 +74,7 @@ class _ExchangePageState extends State<ExchangePage> {
       if (mounted) {
         if (result['success']) {
           _showSuccessToast(
-              '兑换成功！获得${_playTimeHours.toStringAsFixed(1)}小时畅玩时长');
+              '兑换成功！获得${_playTimeHours.toStringAsFixed(1)}小时本源魔法师时长');
           _coinController.clear();
 
           // 返回上一页并刷新资产
@@ -200,7 +200,7 @@ class _ExchangePageState extends State<ExchangePage> {
                               ),
                               SizedBox(height: 8.h),
                               Text(
-                                '• 兑换后的畅玩时长将立即生效',
+                                '• 兑换后的本源魔法师特权将立即生效',
                                 style: TextStyle(
                                   fontSize: 14.sp,
                                   color: AppTheme.textSecondary,
@@ -220,7 +220,7 @@ class _ExchangePageState extends State<ExchangePage> {
 
                         SizedBox(height: 24.h),
 
-                        // 时长卡优势说明
+                        // 本源魔法师特权优势说明
                         Container(
                           padding: EdgeInsets.all(16.w),
                           decoration: BoxDecoration(
@@ -243,7 +243,7 @@ class _ExchangePageState extends State<ExchangePage> {
                                   ),
                                   SizedBox(width: 8.w),
                                   Text(
-                                    '畅玩时长卡特权',
+                                    '本源魔法师特权',
                                     style: TextStyle(
                                       fontSize: 16.sp,
                                       fontWeight: FontWeight.bold,
@@ -254,7 +254,7 @@ class _ExchangePageState extends State<ExchangePage> {
                               ),
                               SizedBox(height: 12.h),
                               _buildAdvantageItem(
-                                  '体验全部新功能', '第一时间畅玩所有最新发布的高级功能'),
+                                  '体验全部新功能', '第一时间体验所有最新发布的高级功能'),
                               SizedBox(height: 12.h),
                               _buildAdvantageItem(
                                   '专属回复增强技术', '享受更高质量的AI回复和更智能的问答互动体验'),
@@ -374,7 +374,7 @@ class _ExchangePageState extends State<ExchangePage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                '可兑换畅玩时长',
+                                '可兑换本源魔法师特权时长',
                                 style: TextStyle(
                                   fontSize: 14.sp,
                                   color: AppTheme.textSecondary,

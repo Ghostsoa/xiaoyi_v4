@@ -5,6 +5,7 @@ import '../../../theme/app_theme.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../services/file_service.dart';
 import 'package:dio/dio.dart';
+import 'dart:async';
 
 class CharacterManagementPage extends StatefulWidget {
   const CharacterManagementPage({super.key});
@@ -18,6 +19,10 @@ class _CharacterManagementPageState extends State<CharacterManagementPage> {
   final CharacterService _characterService = CharacterService();
   final RefreshController _refreshController = RefreshController();
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _tagsController = TextEditingController();
+
+  // 添加防抖定时器
+  Timer? _debounce;
 
   List<dynamic> _characters = [];
   bool _isLoading = false;
@@ -25,6 +30,14 @@ class _CharacterManagementPageState extends State<CharacterManagementPage> {
   final int _pageSize = 20;
   CharacterStatus? _selectedStatus;
   String _searchKeyword = '';
+  String _tags = '';
+  String _sortBy = 'created_at';
+  String _sortOrder = 'desc';
+
+  // Sort options
+  final List<Map<String, String>> _sortOptions = [
+    {'value': 'created_at', 'label': '创建时间'},
+  ];
 
   @override
   void initState() {
@@ -36,7 +49,15 @@ class _CharacterManagementPageState extends State<CharacterManagementPage> {
   void dispose() {
     _refreshController.dispose();
     _searchController.dispose();
+    _tagsController.dispose();
+    _debounce?.cancel();
     super.dispose();
+  }
+
+  // 添加防抖函数
+  void _onFilterChanged(VoidCallback callback) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), callback);
   }
 
   Future<void> _onRefresh() async {
@@ -66,6 +87,9 @@ class _CharacterManagementPageState extends State<CharacterManagementPage> {
         pageSize: _pageSize,
         status: _selectedStatus,
         keyword: _searchKeyword,
+        tags: _tags,
+        sortBy: _sortBy,
+        sortOrder: _sortOrder,
       );
 
       if (response.statusCode == 200 && response.data['code'] == 0) {
@@ -190,7 +214,7 @@ class _CharacterManagementPageState extends State<CharacterManagementPage> {
 
   Widget _buildFilterBar() {
     return Container(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
         color: AppTheme.cardBackground,
         border: Border(
@@ -200,68 +224,206 @@ class _CharacterManagementPageState extends State<CharacterManagementPage> {
           ),
         ),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: '搜索角色卡',
-                hintStyle: TextStyle(color: AppTheme.textSecondary),
-                prefixIcon: Icon(Icons.search, color: AppTheme.textSecondary),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12.w),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4.r),
-                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.2)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4.r),
-                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.2)),
+          Row(
+            children: [
+              // 搜索框
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索',
+                    hintStyle: TextStyle(color: AppTheme.textSecondary),
+                    prefixIcon:
+                        Icon(Icons.search, color: AppTheme.textSecondary),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12.w),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4.r),
+                      borderSide:
+                          BorderSide(color: Colors.grey.withOpacity(0.2)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4.r),
+                      borderSide:
+                          BorderSide(color: Colors.grey.withOpacity(0.2)),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    _onFilterChanged(() {
+                      setState(() {
+                        _searchKeyword = value;
+                        _currentPage = 1;
+                        _loadCharacters(refresh: true);
+                      });
+                    });
+                  },
                 ),
               ),
-              onSubmitted: (value) {
-                setState(() {
-                  _searchKeyword = value;
-                  _loadCharacters(refresh: true);
-                });
-              },
-            ),
+              SizedBox(width: 8.w),
+              // 刷新按钮
+              IconButton(
+                icon: Icon(Icons.refresh, color: AppTheme.textSecondary),
+                onPressed: () => _loadCharacters(refresh: true),
+                tooltip: '刷新',
+                constraints: BoxConstraints(minWidth: 36.w, minHeight: 36.w),
+                padding: EdgeInsets.zero,
+              ),
+            ],
           ),
-          SizedBox(width: 12.w),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.withOpacity(0.2)),
-              borderRadius: BorderRadius.circular(4.r),
-            ),
-            child: DropdownButton<CharacterStatus>(
-              value: _selectedStatus,
-              hint:
-                  Text('全部状态', style: TextStyle(color: AppTheme.textSecondary)),
-              underline: const SizedBox(),
-              icon: Icon(Icons.arrow_drop_down, color: AppTheme.textSecondary),
-              items: CharacterStatus.values.map((status) {
-                return DropdownMenuItem(
-                  value: status,
-                  child: Text(
-                    CharacterService.getStatusName(status),
-                    style: TextStyle(color: AppTheme.textPrimary),
+          SizedBox(height: 8.h),
+          Row(
+            children: [
+              // 标签输入框
+              Expanded(
+                flex: 2,
+                child: SizedBox(
+                  height: 36.h,
+                  child: TextField(
+                    controller: _tagsController,
+                    decoration: InputDecoration(
+                      hintText: '标签 (逗号分隔)',
+                      hintStyle: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12.sp,
+                      ),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8.w),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4.r),
+                        borderSide:
+                            BorderSide(color: Colors.grey.withOpacity(0.2)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4.r),
+                        borderSide:
+                            BorderSide(color: Colors.grey.withOpacity(0.2)),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      _onFilterChanged(() {
+                        setState(() {
+                          _tags = value;
+                          _currentPage = 1;
+                          _loadCharacters(refresh: true);
+                        });
+                      });
+                    },
                   ),
-                );
-              }).toList(),
-              onChanged: (CharacterStatus? value) {
-                setState(() {
-                  _selectedStatus = value;
-                  _loadCharacters(refresh: true);
-                });
-              },
-            ),
-          ),
-          SizedBox(width: 8.w),
-          IconButton(
-            icon: Icon(Icons.refresh, color: AppTheme.textSecondary),
-            onPressed: () => _loadCharacters(refresh: true),
-            tooltip: '刷新',
+                ),
+              ),
+              SizedBox(width: 8.w),
+              // 状态筛选
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w),
+                height: 36.h,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<CharacterStatus>(
+                    value: _selectedStatus,
+                    hint: Text('状态',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 12.sp,
+                        )),
+                    icon: Icon(Icons.arrow_drop_down,
+                        color: AppTheme.textSecondary, size: 16.sp),
+                    items: CharacterStatus.values.map((status) {
+                      return DropdownMenuItem(
+                        value: status,
+                        child: Text(
+                          CharacterService.getStatusName(status),
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 12.sp,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (CharacterStatus? value) {
+                      setState(() {
+                        _selectedStatus = value;
+                        _currentPage = 1;
+                        _loadCharacters(refresh: true);
+                      });
+                    },
+                  ),
+                ),
+              ),
+              SizedBox(width: 8.w),
+              // 排序字段
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w),
+                height: 36.h,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _sortBy,
+                    hint: Text('排序',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 12.sp,
+                        )),
+                    icon: Icon(Icons.arrow_drop_down,
+                        color: AppTheme.textSecondary, size: 16.sp),
+                    items: _sortOptions.map((option) {
+                      return DropdownMenuItem(
+                        value: option['value'],
+                        child: Text(
+                          option['label']!,
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 12.sp,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (String? value) {
+                      if (value != null) {
+                        setState(() {
+                          _sortBy = value;
+                          _currentPage = 1;
+                          _loadCharacters(refresh: true);
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ),
+              SizedBox(width: 8.w),
+              // 排序方向
+              Container(
+                height: 36.h,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    _sortOrder == 'desc'
+                        ? Icons.arrow_downward
+                        : Icons.arrow_upward,
+                    color: AppTheme.textSecondary,
+                    size: 16.sp,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _sortOrder = _sortOrder == 'desc' ? 'asc' : 'desc';
+                      _currentPage = 1;
+                      _loadCharacters(refresh: true);
+                    });
+                  },
+                  tooltip: _sortOrder == 'desc' ? '降序' : '升序',
+                  padding: EdgeInsets.zero,
+                  constraints: BoxConstraints(minWidth: 36.w, minHeight: 36.w),
+                ),
+              ),
+            ],
           ),
         ],
       ),

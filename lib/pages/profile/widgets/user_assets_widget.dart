@@ -8,12 +8,12 @@ class UserAssetsWidget extends StatelessWidget {
   final double playTime;
   final String? playTimeExpireAt;
   final bool isVip;
+  final bool isPlayTimeActive; // 添加本源魔法师激活状态
   final String? vipExpireAt;
   final bool isAssetLoading;
   final bool refreshSuccess;
   final VoidCallback onRefresh;
   final Function(String) onAssetTap;
-  final VoidCallback onExchangeTap;
 
   const UserAssetsWidget({
     super.key,
@@ -22,12 +22,12 @@ class UserAssetsWidget extends StatelessWidget {
     required this.playTime,
     this.playTimeExpireAt,
     this.isVip = false,
+    this.isPlayTimeActive = false, // 默认未激活
     this.vipExpireAt,
     required this.isAssetLoading,
     required this.refreshSuccess,
     required this.onRefresh,
     required this.onAssetTap,
-    required this.onExchangeTap,
   });
 
   @override
@@ -53,41 +53,93 @@ class UserAssetsWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              Text(
+                '我的资产',
+                style: TextStyle(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              // 右侧按钮组
               Row(
                 children: [
-                  Text(
-                    '我的资产',
-                    style: TextStyle(
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  SizedBox(width: 8.w),
+                  // 详情按钮
                   GestureDetector(
-                    onTap: onExchangeTap,
+                    onTap: () => onAssetTap('asset_details'),
                     child: Container(
                       padding:
-                          EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor,
-                        borderRadius: BorderRadius.circular(4.r),
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(12.r),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.swap_horiz,
-                            size: 14.sp,
-                            color: Colors.white,
+                            Icons.article_outlined,
+                            size: 16.sp,
+                            color: AppTheme.primaryColor,
                           ),
                           SizedBox(width: 4.w),
                           Text(
-                            '兑换',
+                            '详情',
                             style: TextStyle(
                               fontSize: 12.sp,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  // 刷新按钮
+                  GestureDetector(
+                    onTap: isAssetLoading ? null : onRefresh,
+                    child: Container(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          isAssetLoading
+                              ? SizedBox(
+                                  width: 14.w,
+                                  height: 14.w,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                )
+                              : refreshSuccess
+                                  ? Icon(
+                                      Icons.check_circle_outline,
+                                      size: 16.sp,
+                                      color: Colors.green,
+                                    )
+                                  : Icon(
+                                      Icons.refresh_rounded,
+                                      size: 16.sp,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                          SizedBox(width: 4.w),
+                          Text(
+                            isAssetLoading
+                                ? '刷新中'
+                                : refreshSuccess
+                                    ? '已更新'
+                                    : '刷新',
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: refreshSuccess
+                                  ? Colors.green
+                                  : AppTheme.primaryColor,
                             ),
                           ),
                         ],
@@ -95,56 +147,6 @@ class UserAssetsWidget extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
-              // 刷新按钮
-              GestureDetector(
-                onTap: isAssetLoading ? null : onRefresh,
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      isAssetLoading
-                          ? SizedBox(
-                              width: 14.w,
-                              height: 14.w,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppTheme.primaryColor,
-                              ),
-                            )
-                          : refreshSuccess
-                              ? Icon(
-                                  Icons.check_circle_outline,
-                                  size: 16.sp,
-                                  color: Colors.green,
-                                )
-                              : Icon(
-                                  Icons.refresh_rounded,
-                                  size: 16.sp,
-                                  color: AppTheme.primaryColor,
-                                ),
-                      SizedBox(width: 4.w),
-                      Text(
-                        isAssetLoading
-                            ? '刷新中'
-                            : refreshSuccess
-                                ? '已更新'
-                                : '刷新',
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          color: refreshSuccess
-                              ? Colors.green
-                              : AppTheme.primaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ],
           ),
@@ -166,18 +168,19 @@ class UserAssetsWidget extends StatelessWidget {
               Expanded(
                 child: _buildAssetItem(
                   context,
-                  icon: Icons.access_time,
-                  label: '畅玩时长',
-                  value: _formatPlayTime(playTime),
+                  icon: Icons.auto_fix_high, // 更换为魔法棒图标
+                  label: '本源魔法师',
+                  value: isPlayTimeActive ? '已激活' : '未激活',
                   iconColor: Colors.green,
-                  onTap: () => onAssetTap('play_time'),
+                  onTap: () => onAssetTap('play_time_permission'),
+                  isActive: isPlayTimeActive,
                 ),
               ),
               Expanded(
                 child: _buildAssetItem(
                   context,
-                  icon: Icons.auto_awesome,
-                  label: '高阶魔法师',
+                  icon: Icons.auto_awesome, // 使用与earning_coin_widget相同的图标
+                  label: '契约魔法师',
                   value: isVip ? '已激活' : '未激活',
                   iconColor: Colors.purple,
                   onTap: () => onAssetTap('vip'),
@@ -191,16 +194,6 @@ class UserAssetsWidget extends StatelessWidget {
     );
   }
 
-  // 格式化畅玩时长，超过24小时显示为天数，不足1天显示小时数
-  String _formatPlayTime(double hours) {
-    if (hours >= 24) {
-      final days = hours / 24; // 保留小数部分
-      return '${days.toStringAsFixed(1)}天'; // 显示1位小数
-    } else {
-      return '${hours.toStringAsFixed(1)}小时'; // 显示1位小数
-    }
-  }
-
   Widget _buildAssetItem(
     BuildContext context, {
     required IconData icon,
@@ -209,6 +202,8 @@ class UserAssetsWidget extends StatelessWidget {
     required Color iconColor,
     VoidCallback? onTap,
     bool isActive = true,
+    bool showExchangeButton = false, // 添加显示兑换按钮的参数
+    VoidCallback? onExchangeTap, // 添加兑换按钮点击事件
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -237,12 +232,52 @@ class UserAssetsWidget extends StatelessWidget {
             ),
           ),
           SizedBox(height: 4.h),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14.sp,
-              color: isActive ? AppTheme.textSecondary : Colors.grey,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: isActive ? AppTheme.textSecondary : Colors.grey,
+                ),
+              ),
+              // 显示兑换按钮
+              if (showExchangeButton) ...[
+                SizedBox(width: 4.w),
+                GestureDetector(
+                  // 包裹兑换按钮，使其可点击
+                  onTap: onExchangeTap,
+                  child: Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(2.r),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.add_circle_outline,
+                          color: AppTheme.primaryColor,
+                          size: 10.sp,
+                        ),
+                        SizedBox(width: 2.w),
+                        Text(
+                          '兑换',
+                          style: TextStyle(
+                            fontSize: 10.sp,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),

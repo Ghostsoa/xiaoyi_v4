@@ -3,6 +3,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/character_service.dart';
 import '../../../services/file_service.dart';
 import 'dart:typed_data';
+import 'dart:ui'; // Added for ImageFilter
+import 'dart:async'; // Added for Timer
+import 'package:shimmer/shimmer.dart';
 import 'character_chat_page.dart';
 import '../../../theme/app_theme.dart';
 
@@ -33,9 +36,25 @@ class _CharacterInitPageState extends State<CharacterInitPage>
 
   int _currentPage = 0;
   bool _isLoading = false;
+  bool _hasError = false;
+  String _errorMessage = '';
   Map<String, dynamic>? _initFields;
   List<MapEntry<String, dynamic>> _fieldsList = [];
   final List<MapEntry<String, dynamic>> _interactiveFields = [];
+
+  // 加载提示语
+  final List<String> _loadingTips = [
+    "正在初始化对话...",
+    "正在生成角色记忆...",
+    "正在加载人格设定...",
+    "正在设置交互参数...",
+    "即将与角色相遇...",
+    "正在构建对话场景...",
+    "正在调整AI模型...",
+    "马上就好...",
+  ];
+  int _currentTipIndex = 0;
+  Timer? _tipTimer;
 
   // 缓存封面图片
   Uint8List? _cachedCoverImage;
@@ -101,6 +120,23 @@ class _CharacterInitPageState extends State<CharacterInitPage>
     }
   }
 
+  // 开始轮播提示语
+  void _startTipRotation() {
+    // 如果已经有计时器，先取消
+    _tipTimer?.cancel();
+
+    // 创建新计时器，每3秒切换一次提示语
+    _tipTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (mounted && _isLoading) {
+        setState(() {
+          _currentTipIndex = (_currentTipIndex + 1) % _loadingTips.length;
+        });
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
   Future<void> _loadCoverImage() async {
     if (widget.characterData['cover_uri'] == null ||
         _isLoadingCover ||
@@ -129,6 +165,7 @@ class _CharacterInitPageState extends State<CharacterInitPage>
   void dispose() {
     _pageController.dispose();
     _animationController.dispose();
+    _tipTimer?.cancel();
     // 释放所有控制器和焦点节点
     for (var controller in _controllers.values) {
       controller.dispose();
@@ -142,7 +179,16 @@ class _CharacterInitPageState extends State<CharacterInitPage>
   Future<void> _createSession() async {
     if (_isLoading) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _errorMessage = '';
+      _currentTipIndex = 0;
+    });
+
+    // 开始轮播提示语
+    _startTipRotation();
+
     try {
       final result = await _characterService.createCharacterSession(
         widget.characterData['item_id'] as int,
@@ -165,6 +211,7 @@ class _CharacterInitPageState extends State<CharacterInitPage>
 
         // 跳转到聊天页面
         if (result['code'] == 0) {
+          _tipTimer?.cancel();
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (context) => CharacterChatPage(
@@ -179,13 +226,12 @@ class _CharacterInitPageState extends State<CharacterInitPage>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+          _errorMessage = e.toString();
+        });
+        _tipTimer?.cancel();
       }
     }
   }
@@ -222,46 +268,46 @@ class _CharacterInitPageState extends State<CharacterInitPage>
             SizedBox(height: 32.h),
             ...options.map((option) => Padding(
                   padding: EdgeInsets.only(bottom: 16.h),
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12.r),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton(
-                      onPressed: () {
-                        _initFieldValues[key] = option;
-                        _nextPage();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 24.w,
-                          vertical: 20.h,
-                        ),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                      ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12.r),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                       child: Container(
-                        decoration: AppTheme.buttonDecoration,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 24.w,
-                          vertical: 20.h,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                            width: 1,
+                          ),
                         ),
-                        child: Center(
-                          child: Text(
-                            option,
-                            style: TextStyle(
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              _initFieldValues[key] = option;
+                              _nextPage();
+                            },
+                            splashColor: Colors.white.withOpacity(0.1),
+                            highlightColor: Colors.white.withOpacity(0.2),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 24.w,
+                                vertical: 20.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  option,
+                                  style: TextStyle(
+                                    fontSize: 16.sp,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -295,83 +341,222 @@ class _CharacterInitPageState extends State<CharacterInitPage>
               ),
             ),
             SizedBox(height: 32.h),
-            Container(
-              decoration: BoxDecoration(
-                color: AppTheme.cardBackground,
-                borderRadius: BorderRadius.circular(16.r),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: TextField(
-                controller: controller,
-                focusNode: focusNode,
-                autofocus: true,
-                style: TextStyle(
-                  color: Colors.white,
-                ),
-                decoration: InputDecoration(
-                  hintText: '请输入$key',
-                  hintStyle: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
-                  ),
-                  border: OutlineInputBorder(
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16.r),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(16.r),
-                    borderSide: BorderSide.none,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.2),
+                      width: 1,
+                    ),
                   ),
-                  filled: true,
-                  fillColor: AppTheme.cardBackground,
-                  contentPadding: EdgeInsets.all(20.w),
-                ),
-                maxLines: null,
-                onSubmitted: (value) {
-                  if (value.trim().isNotEmpty) {
-                    _initFieldValues[key] = value.trim();
-                    _nextPage();
-                  }
-                },
-              ),
-            ),
-            SizedBox(height: 32.h),
-            ElevatedButton(
-              onPressed: () {
-                if (controller.text.trim().isNotEmpty) {
-                  _initFieldValues[key] = controller.text.trim();
-                  _nextPage();
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 32.w,
-                  vertical: 16.h,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-              ),
-              child: Container(
-                decoration: AppTheme.buttonDecoration,
-                padding: EdgeInsets.symmetric(
-                  horizontal: 32.w,
-                  vertical: 16.h,
-                ),
-                child: Center(
-                  child: Text(
-                    '确认并继续',
+                  child: TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    autofocus: true,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16.sp,
-                      fontWeight: FontWeight.w500,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: '请输入$key',
+                      hintStyle: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16.r),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: false,
+                      contentPadding: EdgeInsets.all(20.w),
+                    ),
+                    maxLines: null,
+                    onSubmitted: (value) {
+                      if (value.trim().isNotEmpty) {
+                        _initFieldValues[key] = value.trim();
+                        _nextPage();
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: 32.h),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12.r),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      if (controller.text.trim().isNotEmpty) {
+                        _initFieldValues[key] = controller.text.trim();
+                        _nextPage();
+                      }
+                    },
+                    splashColor: Colors.white.withOpacity(0.1),
+                    highlightColor: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12.r),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 32.w,
+                        vertical: 16.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        '确认并继续',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorView() {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Center(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16.r),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                width: double.infinity,
+                margin: EdgeInsets.symmetric(horizontal: 24.w),
+                padding: EdgeInsets.all(24.w),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(16.r),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 48.w,
+                      color: Colors.amber[300],
+                    ),
+                    SizedBox(height: 16.h),
+                    Text(
+                      '初始化失败',
+                      style: TextStyle(
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber[300],
+                      ),
+                    ),
+                    SizedBox(height: 12.h),
+                    Text(
+                      _errorMessage,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        color: Colors.amber[200],
+                      ),
+                    ),
+                    SizedBox(height: 24.h),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withOpacity(0.6),
+                              width: 1.5,
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 24.w,
+                              vertical: 12.h,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                          ),
+                          child: Text(
+                            '返回',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 16.w),
+                        ElevatedButton(
+                          onPressed: _createSession,
+                          style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 24.w,
+                              vertical: 12.h,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            backgroundColor: Colors.white.withOpacity(0.3),
+                          ),
+                          child: Text(
+                            '重试',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingTips() {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 500),
+      child: Shimmer.fromColors(
+        key: ValueKey<int>(_currentTipIndex),
+        baseColor: Colors.white,
+        highlightColor: Colors.white.withOpacity(0.5),
+        child: Text(
+          _loadingTips[_currentTipIndex],
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -438,7 +623,9 @@ class _CharacterInitPageState extends State<CharacterInitPage>
             ),
           ),
           // 内容
-          if (_initFields == null || _interactiveFields.isEmpty)
+          if (_hasError)
+            _buildErrorView()
+          else if (_initFields == null || _interactiveFields.isEmpty)
             Container() // 不显示任何内容，因为会显示加载指示器
           else
             PageView.builder(
@@ -457,33 +644,9 @@ class _CharacterInitPageState extends State<CharacterInitPage>
                 );
               },
             ),
-          if (_isLoading || (_initFields == null || _interactiveFields.isEmpty))
-            Container(
-              color: _isLoading ? Colors.black45 : Colors.transparent,
-              child: Center(
-                child: Container(
-                  padding: EdgeInsets.all(24.w),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardBackground,
-                    borderRadius: BorderRadius.circular(16.r),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircularProgressIndicator(),
-                      SizedBox(height: 16.h),
-                      Text(
-                        '正在初始化对话...',
-                        style: TextStyle(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+          if (_isLoading && !_hasError)
+            Center(
+              child: _buildLoadingTips(),
             ),
         ],
       ),

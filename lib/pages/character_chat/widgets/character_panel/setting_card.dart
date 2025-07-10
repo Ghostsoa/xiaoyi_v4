@@ -54,19 +54,51 @@ class _SettingCardState extends State<SettingCard> {
     _supplementSettingController = TextEditingController(
         text: widget.sessionData['supplement_setting'] ?? '');
 
+    // 将所有设定字段都添加到_editedData中
+    // 不要在初始化时直接调用，改用帧回调
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateAllFields();
+    });
+
     // 添加监听器
-    _worldBackgroundController.addListener(() => widget.onUpdateField(
-        'world_background', _worldBackgroundController.text));
-    _rulesController.addListener(
-        () => widget.onUpdateField('rules', _rulesController.text));
-    _positiveDialogController.addListener(() => widget.onUpdateField(
-        'positive_dialog_examples', _positiveDialogController.text));
-    _negativeDialogController.addListener(() => widget.onUpdateField(
-        'negative_dialog_examples', _negativeDialogController.text));
-    _supplementSettingController.addListener(() => widget.onUpdateField(
-        'supplement_setting', _supplementSettingController.text));
-    widget.userSettingController.addListener(() => widget.onUpdateField(
-        'user_setting', widget.userSettingController.text));
+    widget.settingController.addListener(() {
+      widget.onUpdateField('setting', widget.settingController.text);
+    });
+    _worldBackgroundController.addListener(() {
+      widget.onUpdateField('world_background', _worldBackgroundController.text);
+    });
+    _rulesController.addListener(() {
+      widget.onUpdateField('rules', _rulesController.text);
+    });
+    _positiveDialogController.addListener(() {
+      widget.onUpdateField(
+          'positive_dialog_examples', _positiveDialogController.text);
+    });
+    _negativeDialogController.addListener(() {
+      widget.onUpdateField(
+          'negative_dialog_examples', _negativeDialogController.text);
+    });
+    _supplementSettingController.addListener(() {
+      widget.onUpdateField(
+          'supplement_setting', _supplementSettingController.text);
+    });
+    widget.userSettingController.addListener(() {
+      widget.onUpdateField('user_setting', widget.userSettingController.text);
+    });
+  }
+
+  // 确保所有设定字段都被更新到_editedData中
+  void _updateAllFields() {
+    widget.onUpdateField('setting', widget.settingController.text);
+    widget.onUpdateField('world_background', _worldBackgroundController.text);
+    widget.onUpdateField('rules', _rulesController.text);
+    widget.onUpdateField(
+        'positive_dialog_examples', _positiveDialogController.text);
+    widget.onUpdateField(
+        'negative_dialog_examples', _negativeDialogController.text);
+    widget.onUpdateField(
+        'supplement_setting', _supplementSettingController.text);
+    widget.onUpdateField('user_setting', widget.userSettingController.text);
   }
 
   @override

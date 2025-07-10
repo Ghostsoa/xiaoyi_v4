@@ -107,12 +107,7 @@ class HomePageState extends State<HomePage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('加载失败，请下拉重试'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        // 不显示任何错误提示，用户可以下拉刷新重试
       }
     }
   }
@@ -129,6 +124,7 @@ class HomePageState extends State<HomePage> {
     } catch (e) {
       if (mounted) {
         _refreshController.refreshFailed();
+        // 错误通过刷新控制器的状态显示，不额外显示toast
       }
     }
   }
@@ -281,13 +277,40 @@ class HomePageState extends State<HomePage> {
                 controller: _refreshController,
                 onRefresh: _onRefresh,
                 enablePullDown: true,
-                header: ClassicHeader(
-                  refreshStyle: RefreshStyle.Follow,
-                  idleText: '下拉刷新',
-                  refreshingText: '正在刷新...',
-                  completeText: '刷新完成',
-                  failedText: '刷新失败',
-                  releaseText: '松开刷新',
+                header: CustomHeader(
+                  builder: (BuildContext context, RefreshStatus? mode) {
+                    Widget body;
+                    if (mode == RefreshStatus.idle) {
+                      body = Text('下拉刷新',
+                          style: TextStyle(
+                              color: Colors.white70, fontSize: 14.sp));
+                    } else if (mode == RefreshStatus.refreshing) {
+                      body = Shimmer.fromColors(
+                        baseColor: Colors.white70,
+                        highlightColor: Colors.white,
+                        child: Text(
+                          '正在刷新...',
+                          style: TextStyle(fontSize: 14.sp),
+                        ),
+                      );
+                    } else if (mode == RefreshStatus.failed) {
+                      body = Text('刷新失败',
+                          style:
+                              TextStyle(color: Colors.amber, fontSize: 14.sp));
+                    } else if (mode == RefreshStatus.canRefresh) {
+                      body = Text('松开刷新',
+                          style:
+                              TextStyle(color: Colors.white, fontSize: 14.sp));
+                    } else {
+                      body = Text('刷新完成',
+                          style: TextStyle(
+                              color: Colors.white70, fontSize: 14.sp));
+                    }
+                    return Container(
+                      height: 55.0,
+                      child: Center(child: body),
+                    );
+                  },
                 ),
                 child: CustomScrollView(
                   physics: const BouncingScrollPhysics(),
@@ -765,13 +788,15 @@ class HomePageState extends State<HomePage> {
                     left: 8.w,
                     top: 8.h,
                     child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                       decoration: BoxDecoration(
                         color: [
                           const Color(0xFFFF6B6B),
                           const Color(0xFFFFAB4C),
                           const Color(0xFFFFD93D),
-                        ][index].withOpacity(0.9),
+                        ][index]
+                            .withOpacity(0.9),
                         borderRadius: BorderRadius.circular(6.r),
                         boxShadow: [
                           BoxShadow(
@@ -783,7 +808,8 @@ class HomePageState extends State<HomePage> {
                       ),
                       child: Shimmer.fromColors(
                         baseColor: AppTheme.cardBackground,
-                        highlightColor: AppTheme.cardBackground.withOpacity(0.5),
+                        highlightColor:
+                            AppTheme.cardBackground.withOpacity(0.5),
                         child: Container(
                           width: 32.w,
                           height: 12.h,

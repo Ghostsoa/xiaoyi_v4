@@ -16,10 +16,15 @@ class CharacterService {
     int pageSize = 20,
     CharacterStatus? status,
     String? keyword,
+    String? tags,
+    String sortBy = 'created_at',
+    String sortOrder = 'desc',
   }) async {
     final Map<String, dynamic> queryParams = {
       'page': page,
       'pageSize': pageSize,
+      'sortBy': sortBy,
+      'sortOrder': sortOrder,
     };
 
     if (status != null) {
@@ -28,6 +33,10 @@ class CharacterService {
 
     if (keyword != null && keyword.isNotEmpty) {
       queryParams['keyword'] = keyword;
+    }
+
+    if (tags != null && tags.isNotEmpty) {
+      queryParams['tags'] = tags;
     }
 
     return await _httpClient.get(

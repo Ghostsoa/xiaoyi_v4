@@ -19,6 +19,7 @@ import 'widgets/user_assets_widget.dart';
 import 'widgets/settings_widget.dart';
 import 'widgets/earning_coin_widget.dart';
 import 'vip_details_page.dart';
+import 'play_time_permission_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -46,6 +47,7 @@ class ProfilePageState extends State<ProfilePage> {
   double _playTime = 0.0;
   String? _playTimeExpireAt;
   bool _isVip = false;
+  bool _isPlayTimeActive = false; // 添加本源魔法师激活状态
   String? _vipExpireAt;
 
   bool _isLoading = true;
@@ -109,6 +111,9 @@ class ProfilePageState extends State<ProfilePage> {
           _exp = (assets['assets']['exp'] ?? 0).toDouble();
           _playTime = (assets['assets']['play_time'] ?? 0).toDouble();
           _playTimeExpireAt = assets['assets']['play_time_expire_at'];
+          // 判断时长是否激活 - 如果有剩余时长或者有过期时间，就视为激活
+          _isPlayTimeActive = _playTime > 0 ||
+              (_playTimeExpireAt != null && _playTimeExpireAt!.isNotEmpty);
           _isVip = assets['assets']['vip'] ?? false;
           _vipExpireAt = assets['assets']['vip_expire_at'];
         } else {
@@ -148,6 +153,9 @@ class ProfilePageState extends State<ProfilePage> {
           _exp = (assets['assets']['exp'] ?? 0).toDouble();
           _playTime = (assets['assets']['play_time'] ?? 0).toDouble();
           _playTimeExpireAt = assets['assets']['play_time_expire_at'];
+          // 判断时长是否激活 - 如果有剩余时长或者有过期时间，就视为激活
+          _isPlayTimeActive = _playTime > 0 ||
+              (_playTimeExpireAt != null && _playTimeExpireAt!.isNotEmpty);
           _isVip = assets['assets']['vip'] ?? false;
           _vipExpireAt = assets['assets']['vip_expire_at'];
           _refreshSuccess = true;
@@ -185,11 +193,56 @@ class ProfilePageState extends State<ProfilePage> {
     String title;
     switch (assetType) {
       case 'coin':
-        title = '小懿币记录';
-        break;
+        // 移除点击小懿币的跳转逻辑
+        return;
       case 'play_time':
-        title = '畅玩时长记录';
+        title = '本源魔法师记录';
         break;
+      case 'asset_details':
+        // 跳转到资产详情页，默认显示小懿币记录
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AssetRecordsPage(
+              assetType: 'coin', // 默认显示小懿币记录
+              title: '资产详情',
+              showFilter: true, // 显示筛选选项
+            ),
+          ),
+        );
+        return;
+      case 'play_time_permission_exchange':
+        // 处理本源魔法师的兑换逻辑
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const ExchangePage(),
+          ),
+        ).then((result) {
+          // 如果返回true，表示兑换成功，刷新资产
+          if (result == true) {
+            _refreshAssets();
+          }
+        });
+        return;
+      case 'play_time_permission':
+        // 跳转到本源魔法师权限详情页
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PlayTimePermissionPage(
+              playTimeExpireAt: _playTimeExpireAt,
+              playTime: _playTime,
+              isPlayTimeActive: _isPlayTimeActive,
+            ),
+          ),
+        ).then((result) {
+          // 如果返回true，表示可能在详情页面进行了兑换，需要刷新资产
+          if (result == true) {
+            _refreshAssets();
+          }
+        });
+        return; // 提前返回，不执行下面的跳转
       case 'vip':
         // 无论是否激活，都跳转到VIP详情页
         Navigator.push(
@@ -462,24 +515,12 @@ class ProfilePageState extends State<ProfilePage> {
                           playTime: _playTime,
                           playTimeExpireAt: _playTimeExpireAt,
                           isVip: _isVip,
+                          isPlayTimeActive: _isPlayTimeActive,
                           vipExpireAt: _vipExpireAt,
                           isAssetLoading: _isAssetLoading,
                           refreshSuccess: _refreshSuccess,
                           onRefresh: _refreshAssets,
                           onAssetTap: _handleAssetTap,
-                          onExchangeTap: () async {
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const ExchangePage(),
-                              ),
-                            );
-
-                            // 如果返回true，表示兑换成功，刷新资产
-                            if (result == true) {
-                              _refreshAssets();
-                            }
-                          },
                         ),
                         SizedBox(height: 32.h),
                         // 获取小懿币组件

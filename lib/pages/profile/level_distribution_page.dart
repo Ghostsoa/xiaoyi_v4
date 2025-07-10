@@ -19,11 +19,16 @@ class LevelDistributionPage extends StatelessWidget {
   Widget build(BuildContext context) {
     // 等级分布数据
     final levelDistribution = [
-      {'level': 1, 'minExp': 0, 'maxExp': 999, 'levelName': '小小懿'},
-      {'level': 2, 'minExp': 1000, 'maxExp': 2999, 'levelName': '小懿'},
-      {'level': 3, 'minExp': 3000, 'maxExp': 9999, 'levelName': '劳懿'},
-      {'level': 4, 'minExp': 10000, 'maxExp': 49999, 'levelName': '大牢懿'},
-      {'level': 5, 'minExp': 50000, 'maxExp': 999999999, 'levelName': '神懿'},
+      {'level': 1, 'minExp': 0, 'maxExp': 999, 'levelName': '小懿见习魔法学员'},
+      {'level': 2, 'minExp': 1000, 'maxExp': 2999, 'levelName': '小懿初阶魔法师'},
+      {'level': 3, 'minExp': 3000, 'maxExp': 9999, 'levelName': '小懿高阶魔法术士'},
+      {'level': 4, 'minExp': 10000, 'maxExp': 49999, 'levelName': '小懿顶级魔法导师'},
+      {
+        'level': 5,
+        'minExp': 50000,
+        'maxExp': 999999999,
+        'levelName': '小懿圣阶魔导尊'
+      },
     ];
 
     return Scaffold(
@@ -87,19 +92,19 @@ class LevelDistributionPage extends StatelessWidget {
     switch (currentLevel) {
       case 1:
         nextLevelExp = 1000;
-        nextLevelName = '小懿';
+        nextLevelName = '小懿初阶魔法师';
         break;
       case 2:
         nextLevelExp = 3000;
-        nextLevelName = '劳懿';
+        nextLevelName = '小懿高阶魔法术士';
         break;
       case 3:
         nextLevelExp = 10000;
-        nextLevelName = '大牢懿';
+        nextLevelName = '小懿顶级魔法导师';
         break;
       case 4:
         nextLevelExp = 50000;
-        nextLevelName = '神懿';
+        nextLevelName = '小懿圣阶魔导尊';
         break;
       default:
         nextLevelExp = 0;

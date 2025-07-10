@@ -45,30 +45,37 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
     setState(() {
       _modelQuotas = [
         ModelQuota(
-          modelName: 'gemini-2.5-Pro',
+          modelName: 'gemini-2.5-pro',
           description: '高性能AI大语言模型',
-          dailyLimit: 50,
+          dailyLimit: 100,
           usedQuota: 0,
           remainQuota: 0,
         ),
         ModelQuota(
           modelName: 'gemini-2.5-flash',
           description: '响应速度更快的AI模型',
-          dailyLimit: 150,
+          dailyLimit: 250,
+          usedQuota: 0,
+          remainQuota: 0,
+        ),
+        ModelQuota(
+          modelName: 'gemini-2.5-flash-lite-preview-06-17',
+          description: '轻量级AI模型，无限制使用',
+          dailyLimit: -1,
           usedQuota: 0,
           remainQuota: 0,
         ),
         ModelQuota(
           modelName: 'gemini-2.0-flash',
           description: '稳定性更高的AI模型',
-          dailyLimit: 150,
+          dailyLimit: 250,
           usedQuota: 0,
           remainQuota: 0,
         ),
         ModelQuota(
-          modelName: 'gemini-2.5flash-lite',
-          description: '轻量级AI模型，无限制使用',
-          dailyLimit: -1,
+          modelName: 'gemini-2.0-flash-exp',
+          description: '实验性AI模型，更多新功能',
+          dailyLimit: 250,
           usedQuota: 0,
           remainQuota: 0,
         ),
@@ -82,9 +89,25 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
         widget.vipExpireAt != null &&
         widget.vipExpireAt!.isNotEmpty) {
       try {
-        final expireDate = DateTime.parse(widget.vipExpireAt!);
-        _formattedExpireTime =
-            '${expireDate.year}-${expireDate.month.toString().padLeft(2, '0')}-${expireDate.day.toString().padLeft(2, '0')} ${expireDate.hour.toString().padLeft(2, '0')}:${expireDate.minute.toString().padLeft(2, '0')}';
+        final expireDate =
+            DateTime.parse(widget.vipExpireAt!).add(const Duration(hours: 8));
+        final now = DateTime.now();
+        final difference = expireDate.difference(now);
+
+        // 计算剩余时间（天）
+        final remainingDays = difference.inHours / 24.0;
+
+        if (remainingDays > 0) {
+          // 如果是整数天，不显示小数部分
+          if (remainingDays == remainingDays.roundToDouble()) {
+            _formattedExpireTime = '剩余 ${remainingDays.toInt()} 天';
+          } else {
+            // 否则保留1位小数
+            _formattedExpireTime = '剩余 ${remainingDays.toStringAsFixed(1)} 天';
+          }
+        } else {
+          _formattedExpireTime = '已过期';
+        }
       } catch (e) {
         _formattedExpireTime = widget.vipExpireAt!;
       }
@@ -157,7 +180,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
     if (widget.isVip && !_isRefreshing) {
       _loadModelQuotas();
     } else if (!widget.isVip) {
-      _showToast('请先激活高阶魔法师特权', ToastType.info);
+      _showToast('请先激活契约魔法师特权', ToastType.info);
     }
   }
 
@@ -166,50 +189,58 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
     CustomToast.show(context, message: message, type: type);
   }
 
+  // 添加显示配额说明对话框的方法
+  void _showQuotaInfoDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.info_outline,
+              color: Colors.blue,
+              size: 24.sp,
+            ),
+            SizedBox(width: 8.w),
+            Text(
+              '配额说明',
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          '基础配额保障会根据谷歌官方API调整而相应变化。我们将及时跟进谷歌官方的配额政策，确保为高阶魔法师提供最优质的服务。',
+          style: TextStyle(
+            fontSize: 14.sp,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              '了解',
+              style: TextStyle(
+                color: AppTheme.primaryColor,
+                fontSize: 16.sp,
+              ),
+            ),
+          ),
+        ],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        backgroundColor: AppTheme.cardBackground,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.cardBackground,
-        elevation: 0,
-        title: Text(
-          '高阶魔法师特权',
-          style: AppTheme.titleStyle,
-        ),
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: AppTheme.textPrimary,
-            size: 20.sp,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        actions: [
-          // 只在激活状态下显示刷新按钮
-          if (widget.isVip)
-            _isRefreshing
-                ? Container(
-                    margin: EdgeInsets.only(right: 16.w),
-                    width: 20.sp,
-                    height: 20.sp,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.w,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                    ),
-                  )
-                : IconButton(
-                    icon: Icon(
-                      Icons.refresh,
-                      color: AppTheme.textPrimary,
-                      size: 20.sp,
-                    ),
-                    onPressed: _refreshModelQuotas,
-                    tooltip: '刷新配额',
-                  ),
-        ],
-      ),
       body: _isLoading
           ? Center(
               child: Column(
@@ -227,37 +258,119 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
                   SizedBox(height: 16.h),
                   Text(
                     '加载中...',
-                    style: TextStyle(color: AppTheme.textSecondary),
+                    style: AppTheme.secondaryStyle,
                   ),
                 ],
               ),
             )
-          : SingleChildScrollView(
-              padding: EdgeInsets.all(16.w),
+          : SafeArea(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // VIP状态卡片
-                  _buildVipStatusCard(),
+                  // 自定义顶部栏
+                  _buildCustomHeader(),
 
-                  SizedBox(height: 24.h),
+                  // 内容区域
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      child: Column(
+                        children: [
+                          // VIP状态卡片
+                          _buildVipStatusCard(),
 
-                  // 高阶魔法师介绍
-                  _buildVipIntroduction(),
+                          SizedBox(height: 24.h),
 
-                  SizedBox(height: 24.h),
+                          // 高阶魔法师介绍
+                          _buildVipIntroduction(),
 
-                  // 模型配额列表
-                  _buildModelQuotaList(),
+                          SizedBox(height: 24.h),
 
-                  // 未激活时显示激活提示
-                  if (!widget.isVip) ...[
-                    SizedBox(height: 24.h),
-                    _buildActivationPrompt(),
-                  ],
+                          // 模型配额列表
+                          _buildModelQuotaList(),
+
+                          SizedBox(height: 24.h),
+
+                          // 未激活时显示激活提示
+                          if (!widget.isVip) _buildActivationPrompt(),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
+    );
+  }
+
+  // 自定义顶部栏
+  Widget _buildCustomHeader() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: AppTheme.background,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            offset: const Offset(0, 1),
+            blurRadius: 3,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // 返回按钮
+          InkWell(
+            onTap: () => Navigator.of(context).pop(),
+            borderRadius: BorderRadius.circular(20.r),
+            child: Container(
+              padding: EdgeInsets.all(8.w),
+              child: Icon(
+                Icons.arrow_back_ios,
+                color: AppTheme.textPrimary,
+                size: 20.sp,
+              ),
+            ),
+          ),
+
+          SizedBox(width: 16.w),
+
+          // 标题
+          Expanded(
+            child: Text(
+              '契约魔法师特权',
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+          ),
+
+          // 刷新按钮
+          if (widget.isVip)
+            InkWell(
+              onTap: _isRefreshing ? null : _refreshModelQuotas,
+              borderRadius: BorderRadius.circular(20.r),
+              child: Container(
+                padding: EdgeInsets.all(8.w),
+                child: _isRefreshing
+                    ? SizedBox(
+                        width: 20.sp,
+                        height: 20.sp,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.w,
+                          color: AppTheme.primaryColor,
+                        ),
+                      )
+                    : Icon(
+                        Icons.refresh_rounded,
+                        color: AppTheme.primaryColor,
+                        size: 20.sp,
+                      ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -296,7 +409,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
               ),
               SizedBox(width: 8.w),
               Text(
-                '高阶魔法师',
+                '契约魔法师',
                 style: TextStyle(
                   fontSize: 18.sp,
                   fontWeight: FontWeight.bold,
@@ -326,7 +439,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
             Row(
               children: [
                 Text(
-                  '有效期至:',
+                  '有效期:',
                   style: TextStyle(
                     fontSize: 14.sp,
                     color: Colors.white.withOpacity(0.8),
@@ -367,7 +480,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '高阶魔法师特权',
+            '契约魔法师特权',
             style: TextStyle(
               fontSize: 18.sp,
               fontWeight: FontWeight.bold,
@@ -375,10 +488,43 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
             ),
           ),
           SizedBox(height: 16.h),
-          _buildFeatureItem('包含时长卡全部功能，外加专属的模型调用权限'),
+          _buildFeatureItem('包含本源魔法师全部功能，外加专属的模型调用权限'),
           SizedBox(height: 12.h),
 
-          // 高阶魔法师特权详情
+          // 本源魔法师特权
+          Container(
+            padding: EdgeInsets.all(12.w),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(
+                color: Colors.blue.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '本源魔法师特权:',
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                _buildMagicFeature('使用小懿特有的回复增强功能'),
+                _buildMagicFeature('全新记忆模组'),
+                _buildMagicFeature('小懿特供模型'),
+                _buildMagicFeature('小说功能等更多最新功能'),
+              ],
+            ),
+          ),
+
+          SizedBox(height: 12.h),
+
+          // 高阶魔法师专属特权
           Container(
             padding: EdgeInsets.all(12.w),
             decoration: BoxDecoration(
@@ -393,7 +539,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '小懿高阶魔法师专属魔法特权:',
+                  '小懿契约魔法师专属魔法特权:',
                   style: TextStyle(
                     fontSize: 14.sp,
                     fontWeight: FontWeight.bold,
@@ -401,11 +547,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
                   ),
                 ),
                 SizedBox(height: 8.h),
-                _buildMagicFeature('使用小懿特有的回复增强功能'),
-                _buildMagicFeature('全新记忆模组'),
-                _buildMagicFeature('小懿特供模型'),
-                _buildMagicFeature('小说功能等更多最新功能'),
-                _buildMagicFeature('专属的模型调用权限'),
+                _buildMagicFeature('基础配额保障'),
               ],
             ),
           ),
@@ -444,13 +586,57 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '模型使用配额',
-          style: TextStyle(
-            fontSize: 18.sp,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimary,
-          ),
+        Row(
+          children: [
+            Text(
+              '基础配额保障',
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            SizedBox(width: 8.w),
+            // 添加信息按钮
+            InkWell(
+              onTap: _showQuotaInfoDialog,
+              borderRadius: BorderRadius.circular(12.r),
+              child: Container(
+                padding: EdgeInsets.all(4.w),
+                child: Icon(
+                  Icons.help_outline,
+                  color: Colors.blue,
+                  size: 18.sp,
+                ),
+              ),
+            ),
+            SizedBox(width: 4.w),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.access_time,
+                    size: 12.sp,
+                    color: Colors.blue,
+                  ),
+                  SizedBox(width: 4.w),
+                  Text(
+                    '每天早上8点刷新',
+                    style: TextStyle(
+                      fontSize: 10.sp,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         SizedBox(height: 16.h),
         ...List.generate(
@@ -589,7 +775,9 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
           SizedBox(height: 8.h),
           Text(
             isInactive
-                ? '激活后可使用'
+                ? isUnlimited
+                    ? '激活后每日可使用: 无限制'
+                    : '激活后每日可使用: ${quota.dailyLimit}次'
                 : (isUnlimited
                     ? '每日限额: 无限制 | 已使用: ${quota.usedQuota}'
                     : '每日限额: ${quota.dailyLimit} | 已使用: ${quota.usedQuota}'),
@@ -676,7 +864,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
               ),
               SizedBox(width: 8.w),
               Text(
-                '如何获得高阶魔法师特权',
+                '如何获得契约魔法师特权',
                 style: TextStyle(
                   fontSize: 16.sp,
                   fontWeight: FontWeight.bold,
@@ -687,7 +875,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
           ),
           SizedBox(height: 16.h),
           Text(
-            '您可以通过以下方式获得高阶魔法师特权:',
+            '您可以通过以下方式获得契约魔法师特权:',
             style: TextStyle(
               fontSize: 14.sp,
               color: AppTheme.textPrimary,

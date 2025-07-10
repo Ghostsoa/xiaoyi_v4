@@ -150,6 +150,42 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
     setState(() => _isSaving = true);
 
     try {
+      // 在提交前，确保所有字段的当前值都被添加到_editedData中
+      _editedData['setting'] = _settingController.text;
+      _editedData['temperature'] =
+          double.tryParse(_temperatureController.text) ?? 0.7;
+      _editedData['top_p'] = double.tryParse(_topPController.text) ?? 0.9;
+      _editedData['top_k'] = int.tryParse(_topKController.text) ?? 40;
+      _editedData['max_tokens'] =
+          int.tryParse(_maxTokensController.text) ?? 2000;
+      _editedData['memory_turns'] =
+          int.tryParse(_memoryTurnsController.text) ?? 10;
+      _editedData['search_depth'] =
+          int.tryParse(_searchDepthController.text) ?? 5;
+      _editedData['greeting'] = _greetingController.text;
+      _editedData['prefix'] = _prefixController.text;
+      _editedData['suffix'] = _suffixController.text;
+      _editedData['user_setting'] = _userSettingController.text;
+      _editedData['ui_settings'] = _uiSettings;
+
+      // 添加缺少的设定字段
+      _editedData['world_background'] = _sessionData['world_background'] ?? '';
+      _editedData['rules'] = _sessionData['rules'] ?? '';
+      _editedData['positive_dialog_examples'] =
+          _sessionData['positive_dialog_examples'] ?? '';
+      _editedData['negative_dialog_examples'] =
+          _sessionData['negative_dialog_examples'] ?? '';
+      _editedData['supplement_setting'] =
+          _sessionData['supplement_setting'] ?? '';
+
+      // 添加其他可能需要的字段
+      _editedData['enhance_mode'] = _enhanceMode;
+
+      // 如果没有选择新模型，才使用原有模型
+      if (!_editedData.containsKey('model_name')) {
+        _editedData['model_name'] = _sessionData['model_name'];
+      }
+
       await _characterService.updateCharacterSession(
         widget.characterData['id'],
         _editedData,

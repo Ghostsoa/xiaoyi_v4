@@ -72,7 +72,7 @@ class EarningCoinWidget extends StatelessWidget {
                   ),
                   SizedBox(height: 4.h),
                   Text(
-                    '畅玩时长、高阶魔法师、小懿币',
+                    '本源魔法师、契约魔法师、小懿币',
                     style: TextStyle(
                       fontSize: 12.sp,
                       color: AppTheme.textSecondary,

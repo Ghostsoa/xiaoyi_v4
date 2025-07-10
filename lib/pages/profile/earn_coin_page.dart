@@ -289,7 +289,7 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
       ));
     }
 
-    // 添加同步的畅玩时长信息
+    // 添加同步的本源魔法师信息
     if (syncResult.containsKey('play_time') &&
         syncResult['play_time'] != null) {
       String subtitle = '当前时长: ${currentAssets['play_time'] ?? 0}小时';
@@ -300,7 +300,7 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
       }
 
       resultItems.add(_buildSyncResultItem(
-        '畅玩时长',
+        '本源魔法师',
         '+${syncResult['play_time']}小时',
         subtitle,
       ));
@@ -666,7 +666,7 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
 
                   // 赞助好处列表
                   _buildSponsorItem(
-                    '解锁高阶魔法师特权，体验最新AI技术',
+                    '解锁契约魔法师特权，体验最新AI技术',
                     AppTheme.textSecondary,
                   ),
                   SizedBox(height: 8.h),
