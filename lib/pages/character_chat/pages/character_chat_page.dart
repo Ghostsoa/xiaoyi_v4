@@ -178,7 +178,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       vsync: this,
     );
 
-    _menuHeightAnimation = Tween<double>(begin: 0, end: 100).animate(
+    _menuHeightAnimation = Tween<double>(begin: 0, end: 80).animate(
       CurvedAnimation(
         parent: _menuAnimationController,
         curve: Curves.easeInOut,
@@ -603,8 +603,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         });
       }
 
-      // 消息发送完成后，刷新消息列表以获取完整的ID信息
-      await _refreshMessages();
+      // 消息发送完成后，不再需要刷新消息列表
+      // await _refreshMessages();
 
       // 添加调试信息，检查每条消息是否有msgId
       debugPrint('---- 消息列表信息 ----');
@@ -678,9 +678,12 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   Future<void> _refreshMessages() async {
     if (_isRefreshing) return;
 
+    debugPrint('开始执行刷新消息操作');
     setState(() => _isRefreshing = true);
 
     try {
+      debugPrint(
+          '调用API获取消息列表: sessionId=${widget.sessionData['id']}, page=1, pageSize=$_pageSize');
       final result = await _characterService.getSessionMessages(
         widget.sessionData['id'],
         page: 1,
@@ -689,8 +692,13 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
       if (!mounted) return;
 
+      debugPrint('API返回消息列表成功');
+
       final List<dynamic> messageList = result['list'] ?? [];
       final pagination = result['pagination'] ?? {};
+
+      debugPrint(
+          '获取到消息数量: ${messageList.length}, 总页数: ${pagination['total_pages'] ?? 1}');
 
       final newMessages = messageList
           .map(
@@ -710,6 +718,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           .toList();
 
       setState(() {
+        debugPrint('更新UI: 清空旧消息列表，添加${newMessages.length}条新消息');
         _messages.clear();
         _messages.addAll(newMessages);
         _totalPages = pagination['total_pages'] ?? 1;
@@ -718,6 +727,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
       // 滚动到底部
       _scrollToBottom();
+      debugPrint('刷新消息完成');
     } catch (e) {
       debugPrint('刷新消息失败: $e');
       if (mounted) {
@@ -729,7 +739,10 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       }
     } finally {
       if (mounted) {
-        setState(() => _isRefreshing = false);
+        setState(() {
+          _isRefreshing = false;
+          debugPrint('重置刷新状态');
+        });
       }
     }
   }
@@ -742,7 +755,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('确认重置'),
-          content: const Text('确定要清空所有对话记录吗？此操作不可恢复。'),
+          content: const Text('确定要清空存档所有对话记录吗？此操作不可恢复。'),
           actions: <Widget>[
             TextButton(
               child: const Text('取消'),
@@ -997,22 +1010,24 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 40.w,
-              height: 40.h,
+              width: 36.w,
+              height: 36.h,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8.r),
               ),
               alignment: Alignment.center,
-              child: Icon(icon, color: Colors.white, size: 24.sp),
+              child: Icon(icon, color: Colors.white, size: 22.sp),
             ),
-            SizedBox(height: 4.h),
+            SizedBox(height: 2.h), // 减小图标和文字间的间距
             Text(
               label,
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 12.sp,
+                fontSize: 11.sp, // 减小字体大小
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -1048,13 +1063,17 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
   // 添加更新版本的方法
   Future<void> _handleVersionUpdate() async {
-    if (!_hasNewVersion || _isUpdatingVersion) return;
+    debugPrint(
+        '版本更新按钮点击: hasNewVersion=$_hasNewVersion, isUpdating=$_isUpdatingVersion');
+
+    if (_isUpdatingVersion) return; // 只检查正在更新状态
 
     setState(() {
       _isUpdatingVersion = true;
     });
 
     try {
+      debugPrint('开始调用更新版本API');
       await _characterService.updateSessionVersion(
         widget.sessionData['id'],
       );
@@ -1510,6 +1529,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       MaterialPageRoute(
         builder: (context) => ChatArchivePage(
           sessionId: widget.sessionData['id'].toString(),
+          backgroundImage: _backgroundImage, // 传递背景图片
+          backgroundOpacity: _backgroundOpacity, // 传递背景透明度
         ),
       ),
     );
@@ -1630,70 +1651,154 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                     ),
                     // 版本更新按钮（仅在有新版本时显示）
                     if (_hasNewVersion)
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap:
-                              _isUpdatingVersion ? null : _handleVersionUpdate,
-                          borderRadius: BorderRadius.circular(18.r),
-                          child: Container(
-                            width: 36.w,
-                            height: 36.w,
-                            alignment: Alignment.center,
-                            child: _isUpdatingVersion
-                                ? SizedBox(
-                                    width: 20.w,
-                                    height: 20.w,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.w,
-                                      valueColor:
-                                          const AlwaysStoppedAnimation<Color>(
-                                        Colors.amber,
-                                      ),
+                      GestureDetector(
+                        onTap: () {
+                          debugPrint('版本更新按钮被点击');
+                          if (!_isUpdatingVersion) {
+                            _handleVersionUpdate();
+                          }
+                        },
+                        child: Container(
+                          width: 44.w,
+                          height: 44.w,
+                          color: Colors.transparent,
+                          alignment: Alignment.center,
+                          child: _isUpdatingVersion
+                              ? SizedBox(
+                                  width: 20.w,
+                                  height: 20.w,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.w,
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                      Colors.amber,
                                     ),
-                                  )
-                                : Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.upgrade,
-                                        color: Colors.amber,
-                                        size: 22.sp,
-                                      ),
-                                      Positioned(
-                                        top: 0,
-                                        right: 0,
-                                        child: Container(
-                                          width: 8.w,
-                                          height: 8.w,
-                                          decoration: const BoxDecoration(
-                                            color: Colors.red,
-                                            shape: BoxShape.circle,
-                                          ),
+                                  ),
+                                )
+                              : Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.upgrade,
+                                      color: Colors.amber,
+                                      size: 22.sp,
+                                    ),
+                                    Positioned(
+                                      top: 0,
+                                      right: 0,
+                                      child: Container(
+                                        width: 8.w,
+                                        height: 8.w,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                          ),
+                                    ),
+                                  ],
+                                ),
                         ),
                       ),
 
                     // 刷新按钮
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _refreshMessages,
-                        borderRadius: BorderRadius.circular(18.r),
-                        child: Container(
-                          width: 36.w,
-                          height: 36.w,
-                          alignment: Alignment.center,
-                          child: Icon(
-                            Icons.refresh,
-                            color: Colors.white,
-                            size: 22.sp,
-                          ),
-                        ),
+                    GestureDetector(
+                      onTap: () async {
+                        debugPrint('刷新按钮被点击');
+                        if (_isRefreshing) {
+                          debugPrint('已经在刷新中，忽略点击');
+                          return;
+                        }
+
+                        try {
+                          setState(() => _isRefreshing = true);
+                          debugPrint('设置刷新状态为true');
+
+                          // 直接调用API，而不是通过_refreshMessages方法
+                          debugPrint('直接调用API获取消息列表');
+                          final result =
+                              await _characterService.getSessionMessages(
+                            widget.sessionData['id'],
+                            page: 1,
+                            pageSize: _pageSize,
+                          );
+
+                          debugPrint('API返回结果成功');
+                          if (!mounted) return;
+
+                          final List<dynamic> messageList =
+                              result['list'] ?? [];
+                          final pagination = result['pagination'] ?? {};
+
+                          debugPrint('获取到消息数量: ${messageList.length}');
+
+                          final newMessages = messageList
+                              .map(
+                                (msg) => {
+                                  'content': msg['content'] ?? '',
+                                  'isUser': msg['role'] == 'user',
+                                  'timestamp':
+                                      DateTime.now().millisecondsSinceEpoch,
+                                  'tokenCount': msg['tokenCount'] ?? 0,
+                                  'msgId': msg['msgId'],
+                                  'status': 'done',
+                                  'statusBar': msg['statusBar'],
+                                  'enhanced': msg['enhanced'],
+                                  'createdAt': msg['createdAt'],
+                                  'keywords': msg['keywords'],
+                                },
+                              )
+                              .toList();
+
+                          if (mounted) {
+                            setState(() {
+                              debugPrint(
+                                  '更新UI: 清空旧消息，添加${newMessages.length}条新消息');
+                              _messages.clear();
+                              _messages.addAll(newMessages);
+                              _totalPages = pagination['total_pages'] ?? 1;
+                              _currentPage = 1;
+                            });
+
+                            // 滚动到底部
+                            _scrollToBottom();
+                            CustomToast.show(context,
+                                message: '刷新成功', type: ToastType.success);
+                          }
+                        } catch (e) {
+                          debugPrint('刷新消息失败: $e');
+                          if (mounted) {
+                            CustomToast.show(context,
+                                message: '刷新失败: $e', type: ToastType.error);
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() {
+                              _isRefreshing = false;
+                              debugPrint('重置刷新状态为false');
+                            });
+                          }
+                        }
+                      },
+                      child: Container(
+                        width: 44.w,
+                        height: 44.w,
+                        color: Colors.transparent,
+                        alignment: Alignment.center,
+                        child: _isRefreshing
+                            ? SizedBox(
+                                width: 20.w,
+                                height: 20.w,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.w,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              )
+                            : Icon(
+                                Icons.refresh,
+                                color: Colors.white,
+                                size: 22.sp,
+                              ),
                       ),
                     ),
                   ],
@@ -1798,62 +1903,58 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                           child: ClipRRect(
                             borderRadius: BorderRadius.vertical(
                                 top: Radius.circular(20.r)),
-                            child: RefreshIndicator(
-                              onRefresh: _refreshMessages,
-                              child: ListView.builder(
-                                reverse: true, // 反转列表,新消息在底部
-                                controller: _scrollController,
-                                padding: EdgeInsets.only(
-                                  top: 16.h,
-                                  bottom: 16.h,
-                                ),
-                                itemCount: _messages.length,
-                                itemBuilder: (context, index) {
-                                  final message = _messages[index];
-                                  return ChatBubble(
-                                    key: ValueKey(message['msgId'] ??
-                                        message['timestamp']),
-                                    message: message['content'],
-                                    isUser: message['isUser'],
-                                    isLoading: message['isLoading'] ?? false,
-                                    status: message['status'],
-                                    bubbleColor: message['isUser']
-                                        ? _userBubbleColor
-                                        : _bubbleColor,
-                                    bubbleOpacity: message['isUser']
-                                        ? _userBubbleOpacity
-                                        : _bubbleOpacity,
-                                    textColor: message['isUser']
-                                        ? _userTextColor
-                                        : _textColor,
-                                    msgId: message['msgId'],
-                                    onEdit: _handleMessageEdit,
-                                    formatMode: _formatMode,
-                                    statusBar: message['statusBar'],
-                                    enhance: message['enhanced'],
-                                    fontSize: _fontSize, // 传递字体大小设置
-                                    sessionId:
-                                        widget.sessionData['id'], // 添加会话ID
-                                    onMessageDeleted: () {
-                                      // 消息删除成功后刷新消息列表
-                                      _refreshMessages();
-                                    },
-                                    onMessageRevoked: () {
-                                      // 消息撤销成功后刷新消息列表
-                                      _refreshMessages();
-                                    },
-                                    onMessageRegenerate: !message['isUser']
-                                        ? _handleRegenerateMessage
-                                        : null, // 只对AI消息添加重新生成功能
-                                    createdAt: message['createdAt'], // 添加创建时间
-                                    keywords: message['keywords'], // 传递关键词数组
-                                  );
-                                },
-                                // 性能优化选项
-                                addAutomaticKeepAlives: false,
-                                addRepaintBoundaries: true,
-                                clipBehavior: Clip.hardEdge,
+                            child: ListView.builder(
+                              reverse: true, // 反转列表,新消息在底部
+                              controller: _scrollController,
+                              padding: EdgeInsets.only(
+                                top: 16.h,
+                                bottom: 16.h,
                               ),
+                              itemCount: _messages.length,
+                              itemBuilder: (context, index) {
+                                final message = _messages[index];
+                                return ChatBubble(
+                                  key: ValueKey(
+                                      message['msgId'] ?? message['timestamp']),
+                                  message: message['content'],
+                                  isUser: message['isUser'],
+                                  isLoading: message['isLoading'] ?? false,
+                                  status: message['status'],
+                                  bubbleColor: message['isUser']
+                                      ? _userBubbleColor
+                                      : _bubbleColor,
+                                  bubbleOpacity: message['isUser']
+                                      ? _userBubbleOpacity
+                                      : _bubbleOpacity,
+                                  textColor: message['isUser']
+                                      ? _userTextColor
+                                      : _textColor,
+                                  msgId: message['msgId'],
+                                  onEdit: _handleMessageEdit,
+                                  formatMode: _formatMode,
+                                  statusBar: message['statusBar'],
+                                  enhance: message['enhanced'],
+                                  fontSize: _fontSize, // 传递字体大小设置
+                                  sessionId: widget.sessionData['id'], // 添加会话ID
+                                  onMessageDeleted: () {
+                                    // 消息删除成功后刷新消息列表
+                                    _refreshMessages();
+                                  },
+                                  onMessageRevoked: () {
+                                    // 消息撤销成功后刷新消息列表
+                                    _refreshMessages();
+                                  },
+                                  onMessageRegenerate: !message['isUser']
+                                      ? _handleRegenerateMessage
+                                      : null, // 只对AI消息添加重新生成功能
+                                  createdAt: message['createdAt'], // 添加创建时间
+                                  keywords: message['keywords'], // 传递关键词数组
+                                );
+                              },
+                              // 性能优化选项
+                              addAutomaticKeepAlives: false,
+                              addRepaintBoundaries: true,
+                              clipBehavior: Clip.hardEdge,
                             ),
                           ),
                         ),
@@ -1863,9 +1964,21 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                 ),
               ),
 
-              // 底部输入框区域（固定部分）
+              // 底部交互区域（整体）- 包含输入框和功能区
               Container(
-                padding: EdgeInsets.only(bottom: viewInsets.bottom),
+                padding: EdgeInsets.only(
+                    bottom: viewInsets.bottom > 0
+                        ? viewInsets.bottom
+                        : padding.bottom),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.05),
+                  border: Border(
+                    top: BorderSide(
+                      color: Colors.white.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1929,20 +2042,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
                     // 输入框区域
                     Container(
-                      padding: EdgeInsets.only(
-                        left: 16.w,
-                        right: 16.w,
-                        top: 8.h,
-                        bottom: padding.bottom + 8.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.05),
-                        border: Border(
-                          top: BorderSide(
-                            color: Colors.white.withOpacity(0.1),
-                            width: 1,
-                          ),
-                        ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16.w,
+                        vertical: 8.h,
                       ),
                       child: Row(
                         children: [
@@ -2030,86 +2132,103 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                         ],
                       ),
                     ),
+
                     // 展开的功能区
                     if (_isMenuExpanded)
-                      Container(
-                        height: _menuHeightAnimation.value,
-                        padding: EdgeInsets.symmetric(horizontal: 16.w),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.05),
-                          border: Border(
-                            top: BorderSide(
-                              color: Colors.white.withOpacity(0.1),
-                              width: 1,
+                      AnimatedBuilder(
+                        animation: _menuAnimationController,
+                        builder: (context, child) {
+                          return SizedBox(
+                            height: _menuHeightAnimation.value,
+                            child: child,
+                          );
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(horizontal: 16.w),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.05),
+                            border: Border(
+                              top: BorderSide(
+                                color: Colors.white.withOpacity(0.1),
+                                width: 1,
+                              ),
                             ),
                           ),
-                        ),
-                        child: GridView.count(
-                          crossAxisCount: 4,
-                          padding: EdgeInsets.only(
-                            top: 8.h,
-                            bottom:
-                                viewInsets.bottom > 0 ? 8.h : padding.bottom,
+                          child: GridView.count(
+                            crossAxisCount: 5,
+                            padding: EdgeInsets.symmetric(vertical: 4.h),
+                            mainAxisSpacing: 2.h,
+                            crossAxisSpacing: 2.w,
+                            childAspectRatio: 0.9,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [
+                              _buildExpandedFunctionButton(
+                                icon: Icons.person,
+                                label: '角色',
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => CharacterPanelPage(
+                                        characterData: widget.sessionData,
+                                        backgroundImage: _backgroundImage,
+                                        backgroundOpacity: _backgroundOpacity,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              _buildExpandedFunctionButton(
+                                icon: Icons.palette,
+                                label: '界面',
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => ChatSettingsPage(
+                                        sessionData: widget.sessionData,
+                                        backgroundImage: _backgroundImage,
+                                        backgroundOpacity: _backgroundOpacity,
+                                        onSettingsChanged: () {
+                                          // 重新加载设置
+                                          _loadSettings();
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              _buildExpandedFunctionButton(
+                                icon: Icons.format_paint,
+                                label: '消息渲染',
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => UiSettingsPage(
+                                        backgroundImage: _backgroundImage,
+                                        backgroundOpacity: _backgroundOpacity,
+                                        onSettingsChanged: () {
+                                          // 重新加载格式化模式
+                                          _loadFormatMode();
+                                          // 强制刷新所有消息
+                                          setState(() {});
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              _buildExpandedFunctionButton(
+                                icon: Icons.restart_alt,
+                                label: '重置',
+                                onTap: _handleResetSession,
+                              ),
+                              _buildExpandedFunctionButton(
+                                icon: Icons.archive,
+                                label: '存档',
+                                onTap: _navigateToChatArchive,
+                              ),
+                            ],
                           ),
-                          mainAxisSpacing: 4.h,
-                          crossAxisSpacing: 4.w,
-                          childAspectRatio: 1.2,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: [
-                            _buildExpandedFunctionButton(
-                              icon: Icons.person,
-                              label: '角色',
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => CharacterPanelPage(
-                                      characterData: widget.sessionData,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            _buildExpandedFunctionButton(
-                              icon: Icons.palette,
-                              label: '界面',
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => ChatSettingsPage(
-                                      sessionData: widget.sessionData,
-                                      onSettingsChanged: () {
-                                        // 重新加载设置
-                                        _loadSettings();
-                                      },
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            _buildExpandedFunctionButton(
-                              icon: Icons.format_paint,
-                              label: '消息渲染',
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => UiSettingsPage(
-                                      onSettingsChanged: () {
-                                        // 重新加载格式化模式
-                                        _loadFormatMode();
-                                        // 强制刷新所有消息
-                                        setState(() {});
-                                      },
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            _buildExpandedFunctionButton(
-                              icon: Icons.archive,
-                              label: '存档',
-                              onTap: _navigateToChatArchive,
-                            ),
-                          ],
                         ),
                       ),
                   ],

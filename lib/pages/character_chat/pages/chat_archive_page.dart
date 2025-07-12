@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'dart:ui';
+import 'dart:typed_data';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/custom_toast.dart';
 import '../services/character_service.dart';
@@ -7,157 +9,68 @@ import 'package:shimmer/shimmer.dart';
 
 class ChatArchivePage extends StatefulWidget {
   final String sessionId;
+  final Uint8List? backgroundImage;
+  final double backgroundOpacity;
 
   const ChatArchivePage({
     super.key,
     required this.sessionId,
+    this.backgroundImage,
+    this.backgroundOpacity = 0.5,
   });
 
   @override
   State<ChatArchivePage> createState() => _ChatArchivePageState();
 }
 
-class _ChatArchivePageState extends State<ChatArchivePage> {
+class _ChatArchivePageState extends State<ChatArchivePage>
+    with SingleTickerProviderStateMixin {
   final CharacterService _characterService = CharacterService();
   bool _isLoading = true;
   bool _isRefreshing = false;
   List<Map<String, dynamic>> _saveSlots = [];
   bool _archiveActivated = false;
 
+  // 添加动画控制器
+  late AnimationController _refreshAnimationController;
+
   @override
   void initState() {
     super.initState();
+    // 初始化刷新按钮动画控制器
+    _refreshAnimationController = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
     _loadSaveSlots();
   }
 
-  // 构建骨架屏卡片
-  Widget _buildSkeletonCard() {
-    return Card(
-      margin: EdgeInsets.only(bottom: 12.h),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.r),
-      ),
-      color: AppTheme.cardBackground,
-      child: Padding(
-        padding: EdgeInsets.all(12.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // 标题骨架
-                Expanded(
-                  child: _ShimmerBox(
-                    height: 20.h,
-                    width: double.infinity,
-                    borderRadius: 4.r,
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                // 菜单骨架
-                _ShimmerBox(
-                  height: 24.w,
-                  width: 24.w,
-                  isCircle: true,
-                ),
-              ],
-            ),
-            SizedBox(height: 8.h),
-            Divider(
-              color: AppTheme.textPrimary.withOpacity(0.1),
-              height: 16.h,
-              thickness: 1,
-            ),
-            SizedBox(height: 4.h),
-            // 消息数和Token数骨架
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _ShimmerBox(
-                  width: 80.w,
-                  height: 16.h,
-                  borderRadius: 4.r,
-                ),
-                _ShimmerBox(
-                  width: 80.w,
-                  height: 16.h,
-                  borderRadius: 4.r,
-                ),
-              ],
-            ),
-            SizedBox(height: 12.h),
-            // 时间信息骨架
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    _ShimmerBox(
-                      width: 14.w,
-                      height: 14.h,
-                      isCircle: true,
-                    ),
-                    SizedBox(width: 4.w),
-                    _ShimmerBox(
-                      width: 150.w,
-                      height: 14.h,
-                      borderRadius: 4.r,
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8.h),
-                Row(
-                  children: [
-                    _ShimmerBox(
-                      width: 14.w,
-                      height: 14.h,
-                      isCircle: true,
-                    ),
-                    SizedBox(width: 4.w),
-                    _ShimmerBox(
-                      width: 150.w,
-                      height: 14.h,
-                      borderRadius: 4.r,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+  @override
+  void dispose() {
+    // 释放动画控制器
+    _refreshAnimationController.dispose();
+    super.dispose();
   }
 
-  // 单独的骨架元素组件，带有自己的流光效果
-  Widget _ShimmerBox({
-    required double width,
-    required double height,
-    double? borderRadius,
-    bool isCircle = false,
-  }) {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey[800]!,
-      highlightColor: Colors.grey[600]!,
-      child: Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: Colors.grey[700],
-          borderRadius:
-              !isCircle ? BorderRadius.circular(borderRadius ?? 0) : null,
-          shape: isCircle ? BoxShape.circle : BoxShape.rectangle,
-        ),
+  // 简单的加载指示器，使用纯文本+shimmer效果
+  Widget _buildLoadingIndicator() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Shimmer.fromColors(
+            baseColor: Colors.white.withOpacity(0.7),
+            highlightColor: Colors.white,
+            child: Text(
+              '正在加载存档...',
+              style: TextStyle(
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
-    );
-  }
-
-  // 构建骨架屏加载视图
-  Widget _buildSkeletonLoading() {
-    return ListView.builder(
-      itemCount: 5,
-      padding: EdgeInsets.all(16.w),
-      itemBuilder: (context, index) => _buildSkeletonCard(),
     );
   }
 
@@ -194,6 +107,9 @@ class _ChatArchivePageState extends State<ChatArchivePage> {
       _isRefreshing = true;
     });
 
+    // 启动刷新动画
+    _refreshAnimationController.repeat();
+
     try {
       final saveSlots = await _characterService.getSessionSaveSlots(
         int.parse(widget.sessionId),
@@ -204,12 +120,18 @@ class _ChatArchivePageState extends State<ChatArchivePage> {
           _saveSlots = saveSlots;
           _isRefreshing = false;
         });
+        // 成功刷新后停止动画
+        _refreshAnimationController.stop();
+        _refreshAnimationController.reset();
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isRefreshing = false;
         });
+        // 出错时也停止动画
+        _refreshAnimationController.stop();
+        _refreshAnimationController.reset();
         CustomToast.show(context, message: '刷新存档失败: $e', type: ToastType.error);
       }
     }
@@ -668,268 +590,537 @@ class _ChatArchivePageState extends State<ChatArchivePage> {
         return false;
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: Text('对话存档'),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.help_outline),
-              onPressed: () => _showHelpDialog(),
-              tooltip: '存档帮助',
+        extendBodyBehindAppBar: true,
+        backgroundColor: Colors.transparent,
+        body: Stack(
+          children: [
+            // Background
+            if (widget.backgroundImage != null)
+              Positioned.fill(
+                child: Image.memory(
+                  widget.backgroundImage!,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            // Darken overlay
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(widget.backgroundOpacity),
+              ),
             ),
-            IconButton(
-              icon: Icon(Icons.refresh),
-              onPressed: _refreshSaveSlots,
-              tooltip: '刷新存档列表',
-            ),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _showCreateSaveSlotDialog,
-          tooltip: '创建存档/快照',
-          child: Icon(Icons.add),
-        ),
-        body: _isLoading
-            ? _buildSkeletonLoading()
-            : _saveSlots.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+
+            // Main content
+            SafeArea(
+              child: Column(
+                children: [
+                  // Custom header with centered title
+                  Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                    child: Stack(
+                      alignment: Alignment.center,
                       children: [
-                        Icon(
-                          Icons.archive_outlined,
-                          size: 64.sp,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(height: 16.h),
-                        Text(
-                          '暂无存档',
-                          style: TextStyle(
-                            fontSize: 16.sp,
-                            color: Colors.grey,
+                        // Back button (left aligned)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () =>
+                                  Navigator.of(context).pop(_archiveActivated),
+                              borderRadius: BorderRadius.circular(8.r),
+                              child: Container(
+                                padding: EdgeInsets.all(8.w),
+                                child: Icon(
+                                  Icons.arrow_back_ios_new,
+                                  color: Colors.white,
+                                  size: 20.sp,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                        SizedBox(height: 24.h),
-                        ElevatedButton(
-                          onPressed: _showCreateSaveSlotDialog,
-                          child: Text('创建存档'),
+
+                        // Title (centered)
+                        Text(
+                          '对话存档',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        // Action buttons (right aligned)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Help button
+                              IconButton(
+                                icon: Icon(Icons.help_outline,
+                                    color: Colors.white),
+                                onPressed: () => _showHelpDialog(),
+                                tooltip: '存档帮助',
+                              ),
+                              // Refresh button
+                              IconButton(
+                                icon: RotationTransition(
+                                  turns: _refreshAnimationController,
+                                  child:
+                                      Icon(Icons.refresh, color: Colors.white),
+                                ),
+                                onPressed: _refreshSaveSlots,
+                                tooltip: '刷新存档列表',
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _refreshSaveSlots,
-                    child: ListView.builder(
-                      itemCount: _saveSlots.length,
-                      padding: EdgeInsets.all(16.w),
-                      physics: AlwaysScrollableScrollPhysics(),
-                      itemBuilder: (context, index) {
-                        final saveSlot = _saveSlots[index];
-                        final bool isActive = saveSlot['active'] ?? false;
-                        final bool isSnapshot = saveSlot['isSnapshot'] ?? false;
-
-                        return Card(
-                          margin: EdgeInsets.only(bottom: 12.h),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.r),
-                            side: isActive
-                                ? BorderSide(
-                                    color: AppTheme.primaryColor, width: 2)
-                                : BorderSide.none,
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.all(12.w),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    if (isActive)
-                                      Tooltip(
-                                        message: '当前激活的存档',
-                                        child: Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 8.w,
-                                            vertical: 2.h,
-                                          ),
-                                          margin: EdgeInsets.only(right: 8.w),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.primaryColor,
-                                            borderRadius:
-                                                BorderRadius.circular(4.r),
-                                          ),
-                                          child: Text(
-                                            '当前',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12.sp,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    // 显示存档类型图标
-                                    Tooltip(
-                                      message: isSnapshot ? '对话快照' : '完整存档',
-                                      child: Icon(
-                                        isSnapshot
-                                            ? Icons.photo_camera
-                                            : Icons.save,
-                                        size: 16.sp,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                    SizedBox(width: 8.w),
-                                    Expanded(
-                                      child: Text(
-                                        saveSlot['saveName'] ?? '未命名存档',
-                                        style: TextStyle(
-                                          fontSize: 16.sp,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                    PopupMenuButton(
-                                      icon: Icon(Icons.more_vert),
-                                      itemBuilder: (context) => [
-                                        if (!isActive)
-                                          PopupMenuItem(
-                                            value: 'activate',
-                                            child: Row(
-                                              children: [
-                                                Icon(Icons.check, size: 18.sp),
-                                                SizedBox(width: 8.w),
-                                                Text('激活'),
-                                              ],
-                                            ),
-                                          ),
-                                        PopupMenuItem(
-                                          value: 'rename',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.edit, size: 18.sp),
-                                              SizedBox(width: 8.w),
-                                              Text('重命名'),
-                                            ],
-                                          ),
-                                        ),
-                                        if (!isActive)
-                                          PopupMenuItem(
-                                            value: 'delete',
-                                            child: Row(
-                                              children: [
-                                                Icon(Icons.delete,
-                                                    size: 18.sp,
-                                                    color: Colors.red),
-                                                SizedBox(width: 8.w),
-                                                Text('删除',
-                                                    style: TextStyle(
-                                                        color: Colors.red)),
-                                              ],
-                                            ),
-                                          ),
-                                      ],
-                                      onSelected: (value) {
-                                        switch (value) {
-                                          case 'activate':
-                                            _activateSaveSlot(saveSlot['id']);
-                                            break;
-                                          case 'rename':
-                                            _showRenameSaveSlotDialog(
-                                              saveSlot['id'],
-                                              saveSlot['saveName'] ?? '',
-                                            );
-                                            break;
-                                          case 'delete':
-                                            _showDeleteConfirmDialog(
-                                              saveSlot['id'],
-                                              saveSlot['saveName'] ?? '未命名存档',
-                                            );
-                                            break;
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: 8.h),
-                                Divider(),
-                                SizedBox(height: 4.h),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      '消息数: ${saveSlot['totalCount'] ?? 0}',
-                                      style: TextStyle(
-                                        fontSize: 14.sp,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                    Text(
-                                      'Token: ${saveSlot['totalTokens'] ?? 0}',
-                                      style: TextStyle(
-                                        fontSize: 14.sp,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: 12.h),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(Icons.access_time,
-                                            size: 14.sp, color: Colors.grey),
-                                        SizedBox(width: 4.w),
-                                        Text(
-                                          '创建时间: ',
-                                          style: TextStyle(
-                                            fontSize: 12.sp,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                        Text(
-                                          _formatDateTime(
-                                              saveSlot['createdAt'] ?? ''),
-                                          style: TextStyle(
-                                            fontSize: 12.sp,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    SizedBox(height: 4.h),
-                                    Row(
-                                      children: [
-                                        Icon(Icons.update,
-                                            size: 14.sp, color: Colors.grey),
-                                        SizedBox(width: 4.w),
-                                        Text(
-                                          '更新时间: ',
-                                          style: TextStyle(
-                                            fontSize: 12.sp,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                        Text(
-                                          _formatDateTime(
-                                              saveSlot['lastUpdated'] ?? ''),
-                                          style: TextStyle(
-                                            fontSize: 12.sp,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
                   ),
+
+                  // Content area
+                  Expanded(
+                    child: _isLoading
+                        ? _buildLoadingIndicator() // 使用新的加载指示器
+                        : _saveSlots.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.archive_outlined,
+                                      size: 64.sp,
+                                      color: Colors.white,
+                                    ),
+                                    SizedBox(height: 16.h),
+                                    Text(
+                                      '暂无存档',
+                                      style: TextStyle(
+                                        fontSize: 16.sp,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    SizedBox(height: 24.h),
+                                    ElevatedButton(
+                                      onPressed: _showCreateSaveSlotDialog,
+                                      child: Text('创建存档'),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: _saveSlots.length,
+                                padding: EdgeInsets.all(16.w),
+                                physics: AlwaysScrollableScrollPhysics(),
+                                itemBuilder: (context, index) {
+                                  final saveSlot = _saveSlots[index];
+                                  final bool isActive =
+                                      saveSlot['active'] ?? false;
+                                  final bool isSnapshot =
+                                      saveSlot['isSnapshot'] ?? false;
+
+                                  return Padding(
+                                    padding: EdgeInsets.only(bottom: 12.h),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12.r),
+                                      child: Stack(
+                                        children: [
+                                          // 毛玻璃背景
+                                          Positioned.fill(
+                                            child: BackdropFilter(
+                                              filter: ImageFilter.blur(
+                                                  sigmaX: 10.0, sigmaY: 10.0),
+                                              child: Container(
+                                                  color: Colors.transparent),
+                                            ),
+                                          ),
+
+                                          // 卡片内容
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              color: isActive
+                                                  ? AppTheme.primaryColor
+                                                      .withOpacity(0.2)
+                                                  : Colors.white
+                                                      .withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(12.r),
+                                              boxShadow: isActive
+                                                  ? [
+                                                      BoxShadow(
+                                                        color: AppTheme
+                                                            .primaryColor
+                                                            .withOpacity(0.3),
+                                                        blurRadius: 8,
+                                                        spreadRadius: 1,
+                                                      ),
+                                                    ]
+                                                  : [],
+                                            ),
+                                            padding: EdgeInsets.all(16.w),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    // 档案状态标签
+                                                    if (isActive)
+                                                      Container(
+                                                        padding: EdgeInsets
+                                                            .symmetric(
+                                                          horizontal: 10.w,
+                                                          vertical: 3.h,
+                                                        ),
+                                                        margin: EdgeInsets.only(
+                                                            right: 8.w),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: AppTheme
+                                                              .primaryColor,
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      12.r),
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: AppTheme
+                                                                  .primaryColor
+                                                                  .withOpacity(
+                                                                      0.4),
+                                                              blurRadius: 4,
+                                                              spreadRadius: 0,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        child: Text(
+                                                          '当前',
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                            fontSize: 12.sp,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+
+                                                    // 存档类型图标
+                                                    Container(
+                                                      padding:
+                                                          EdgeInsets.all(6.w),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white
+                                                            .withOpacity(0.15),
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                      child: Icon(
+                                                        isSnapshot
+                                                            ? Icons.photo_camera
+                                                            : Icons.save,
+                                                        size: 14.sp,
+                                                        color: Colors.white
+                                                            .withOpacity(0.9),
+                                                      ),
+                                                    ),
+
+                                                    SizedBox(width: 8.w),
+
+                                                    // 存档名称
+                                                    Expanded(
+                                                      child: Text(
+                                                        saveSlot['saveName'] ??
+                                                            '未命名存档',
+                                                        style: TextStyle(
+                                                          fontSize: 16.sp,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
+                                                    ),
+
+                                                    // 操作菜单
+                                                    PopupMenuButton(
+                                                      icon: Icon(
+                                                          Icons.more_horiz,
+                                                          color: Colors.white),
+                                                      itemBuilder: (context) =>
+                                                          [
+                                                        if (!isActive)
+                                                          PopupMenuItem(
+                                                            value: 'activate',
+                                                            child: Row(
+                                                              children: [
+                                                                Icon(
+                                                                    Icons.check,
+                                                                    size:
+                                                                        18.sp),
+                                                                SizedBox(
+                                                                    width: 8.w),
+                                                                Text('激活'),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        PopupMenuItem(
+                                                          value: 'rename',
+                                                          child: Row(
+                                                            children: [
+                                                              Icon(Icons.edit,
+                                                                  size: 18.sp),
+                                                              SizedBox(
+                                                                  width: 8.w),
+                                                              Text('重命名'),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        if (!isActive)
+                                                          PopupMenuItem(
+                                                            value: 'delete',
+                                                            child: Row(
+                                                              children: [
+                                                                Icon(
+                                                                    Icons
+                                                                        .delete,
+                                                                    size: 18.sp,
+                                                                    color: Colors
+                                                                        .red),
+                                                                SizedBox(
+                                                                    width: 8.w),
+                                                                Text('删除',
+                                                                    style: TextStyle(
+                                                                        color: Colors
+                                                                            .red)),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                      ],
+                                                      onSelected: (value) {
+                                                        switch (value) {
+                                                          case 'activate':
+                                                            _activateSaveSlot(
+                                                                saveSlot['id']);
+                                                            break;
+                                                          case 'rename':
+                                                            _showRenameSaveSlotDialog(
+                                                              saveSlot['id'],
+                                                              saveSlot[
+                                                                      'saveName'] ??
+                                                                  '',
+                                                            );
+                                                            break;
+                                                          case 'delete':
+                                                            _showDeleteConfirmDialog(
+                                                              saveSlot['id'],
+                                                              saveSlot[
+                                                                      'saveName'] ??
+                                                                  '未命名存档',
+                                                            );
+                                                            break;
+                                                        }
+                                                      },
+                                                    ),
+                                                  ],
+                                                ),
+
+                                                SizedBox(height: 12.h),
+
+                                                // 信息栏 - 带有半透明背景的精致卡片
+                                                Container(
+                                                  padding: EdgeInsets.symmetric(
+                                                      vertical: 8.h,
+                                                      horizontal: 12.w),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.black
+                                                        .withOpacity(0.2),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8.r),
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      // 消息和Token统计
+                                                      Row(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .spaceBetween,
+                                                        children: [
+                                                          Row(
+                                                            children: [
+                                                              Icon(
+                                                                Icons
+                                                                    .chat_bubble_outline,
+                                                                size: 14.sp,
+                                                                color: Colors
+                                                                    .white
+                                                                    .withOpacity(
+                                                                        0.8),
+                                                              ),
+                                                              SizedBox(
+                                                                  width: 4.w),
+                                                              Text(
+                                                                '${saveSlot['totalCount'] ?? 0} 条消息',
+                                                                style:
+                                                                    TextStyle(
+                                                                  fontSize:
+                                                                      13.sp,
+                                                                  color: Colors
+                                                                      .white
+                                                                      .withOpacity(
+                                                                          0.8),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          Row(
+                                                            children: [
+                                                              Icon(
+                                                                Icons.token,
+                                                                size: 14.sp,
+                                                                color: Colors
+                                                                    .white
+                                                                    .withOpacity(
+                                                                        0.8),
+                                                              ),
+                                                              SizedBox(
+                                                                  width: 4.w),
+                                                              Text(
+                                                                '${saveSlot['totalTokens'] ?? 0} tokens',
+                                                                style:
+                                                                    TextStyle(
+                                                                  fontSize:
+                                                                      13.sp,
+                                                                  color: Colors
+                                                                      .white
+                                                                      .withOpacity(
+                                                                          0.8),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ],
+                                                      ),
+
+                                                      SizedBox(height: 8.h),
+                                                      Divider(
+                                                          height: 1,
+                                                          color: Colors.white
+                                                              .withOpacity(
+                                                                  0.1)),
+                                                      SizedBox(height: 8.h),
+
+                                                      // 创建和更新时间
+                                                      Row(
+                                                        children: [
+                                                          Icon(
+                                                              Icons.access_time,
+                                                              size: 14.sp,
+                                                              color: Colors
+                                                                  .white
+                                                                  .withOpacity(
+                                                                      0.6)),
+                                                          SizedBox(width: 4.w),
+                                                          Text(
+                                                            '创建: ',
+                                                            style: TextStyle(
+                                                              fontSize: 12.sp,
+                                                              color: Colors
+                                                                  .white
+                                                                  .withOpacity(
+                                                                      0.6),
+                                                            ),
+                                                          ),
+                                                          Text(
+                                                            _formatDateTime(
+                                                                saveSlot[
+                                                                        'createdAt'] ??
+                                                                    ''),
+                                                            style: TextStyle(
+                                                              fontSize: 12.sp,
+                                                              color: Colors
+                                                                  .white
+                                                                  .withOpacity(
+                                                                      0.7),
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      SizedBox(height: 4.h),
+                                                      Row(
+                                                        children: [
+                                                          Icon(Icons.update,
+                                                              size: 14.sp,
+                                                              color: Colors
+                                                                  .white
+                                                                  .withOpacity(
+                                                                      0.6)),
+                                                          SizedBox(width: 4.w),
+                                                          Text(
+                                                            '更新: ',
+                                                            style: TextStyle(
+                                                              fontSize: 12.sp,
+                                                              color: Colors
+                                                                  .white
+                                                                  .withOpacity(
+                                                                      0.6),
+                                                            ),
+                                                          ),
+                                                          Text(
+                                                            _formatDateTime(
+                                                                saveSlot[
+                                                                        'lastUpdated'] ??
+                                                                    ''),
+                                                            style: TextStyle(
+                                                              fontSize: 12.sp,
+                                                              color: Colors
+                                                                  .white
+                                                                  .withOpacity(
+                                                                      0.7),
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Floating Action Button
+            Positioned(
+              right: 16.w,
+              bottom: 16.h,
+              child: FloatingActionButton(
+                onPressed: _showCreateSaveSlotDialog,
+                backgroundColor: AppTheme.primaryColor,
+                child: Icon(Icons.add),
+                tooltip: '创建存档/快照',
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

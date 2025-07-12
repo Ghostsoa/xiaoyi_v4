@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'dart:ui';
 import '../../../services/file_service.dart';
 import '../services/character_service.dart';
 import '../../../theme/app_theme.dart';
@@ -13,10 +14,14 @@ import '../widgets/character_panel/interaction_card.dart';
 
 class CharacterPanelPage extends StatefulWidget {
   final Map<String, dynamic> characterData;
+  final Uint8List? backgroundImage; // 添加背景图像参数
+  final double backgroundOpacity; // 添加背景不透明度参数
 
   const CharacterPanelPage({
     super.key,
     required this.characterData,
+    this.backgroundImage, // 可选参数，允许不传递背景图
+    this.backgroundOpacity = 0.5, // 默认不透明度
   });
 
   @override
@@ -31,6 +36,7 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   bool _isLoadingCover = false;
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isRefreshing = false; // 添加刷新状态标志
   Map<String, dynamic> _sessionData = {};
   final Map<String, dynamic> _editedData = {};
   String? _error;
@@ -50,11 +56,26 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   final _userSettingController = TextEditingController();
   String _uiSettings = 'markdown';
 
+  // 为分类添加对应的颜色
+  final List<Color> _pageColors = [
+    Colors.blue.shade400,
+    Colors.purple.shade400,
+    Colors.green.shade400,
+    Colors.orange.shade400,
+  ];
+
   final List<String> _pageNames = [
     '基本信息',
     '设定',
     'AI模型',
     '交互设置',
+  ];
+
+  final List<IconData> _pageIcons = [
+    Icons.person_outline,
+    Icons.description_outlined,
+    Icons.smart_toy_outlined,
+    Icons.settings_outlined,
   ];
 
   @override
@@ -95,6 +116,7 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
       setState(() {
         _sessionData = data;
         _isLoading = false;
+        _isRefreshing = false; // 重置刷新状态
         _enhanceMode = data['enhance_mode'] ?? 'disabled';
       });
 
@@ -122,6 +144,7 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
       setState(() {
         _error = e.toString();
         _isLoading = false;
+        _isRefreshing = false; // 重置刷新状态
       });
     }
   }
@@ -199,6 +222,12 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
         type: ToastType.success,
       );
 
+      // 设置刷新状态标志
+      setState(() {
+        _isSaving = false;
+        _isRefreshing = true;
+      });
+
       // 重新加载数据
       await _loadSessionData();
 
@@ -211,10 +240,7 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
         message: e.toString(),
         type: ToastType.error,
       );
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      setState(() => _isSaving = false);
     }
   }
 
@@ -229,136 +255,170 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
     });
   }
 
-  Widget _buildShimmerCard({
-    required String title,
-    required int itemCount,
-  }) {
-    return Card(
-      color: AppTheme.cardBackground,
-      child: Padding(
-        padding: EdgeInsets.all(16.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
+  // 构建加载中的文本
+  Widget _buildLoadingText(String text) {
+    return Center(
+      child: Shimmer.fromColors(
+        baseColor: Colors.white,
+        highlightColor: Colors.white.withOpacity(0.3),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 18.sp,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.5),
+                blurRadius: 5,
+                offset: Offset(0, 1),
               ),
-            ),
-            SizedBox(height: 16.h),
-            ...List.generate(
-              itemCount,
-              (index) => Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(vertical: 12.h),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: AppTheme.textPrimary.withOpacity(0.1),
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: Shimmer.fromColors(
-                  baseColor: Colors.grey[800]!,
-                  highlightColor: Colors.grey[600]!,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 80.w,
-                        height: 14.h,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[700],
-                          borderRadius: BorderRadius.circular(4.r),
-                        ),
-                      ),
-                      SizedBox(height: 8.h),
-                      Container(
-                        width: double.infinity,
-                        height: 16.h,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[700],
-                          borderRadius: BorderRadius.circular(4.r),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildLoadingContent() {
-    return Column(
+  Widget _buildHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _buildPageSelector(),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: 16.w),
-            child: _buildShimmerCard(title: '基本信息', itemCount: 6),
+        // 返回按钮 - 改为纯图标按钮
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => Navigator.pop(context),
+            borderRadius: BorderRadius.circular(8.r),
+            child: Container(
+              padding: EdgeInsets.all(8.w),
+              child: Icon(
+                Icons.arrow_back_ios_new,
+                color: Colors.white,
+                size: 20.sp,
+              ),
+            ),
           ),
         ),
+        // 标题 - 修改颜色为白色渐变
+        Text(
+          '角色信息',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.5),
+                blurRadius: 5,
+                offset: Offset(0, 1),
+              )
+            ],
+          ),
+        ),
+        // 保存按钮 - 改为纯图标按钮
+        _isSaving
+            ? Container(
+                padding: EdgeInsets.all(8.w),
+                child: SizedBox(
+                  width: 20.w,
+                  height: 20.w,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.w,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+              )
+            : Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _saveChanges,
+                  borderRadius: BorderRadius.circular(8.r),
+                  child: Container(
+                    padding: EdgeInsets.all(8.w),
+                    child: Icon(
+                      Icons.save,
+                      color: Colors.white,
+                      size: 20.sp,
+                    ),
+                  ),
+                ),
+              ),
       ],
     );
   }
 
   Widget _buildPageSelector() {
-    return Container(
-      height: 40.h,
-      margin: EdgeInsets.only(bottom: 8.h),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(_pageNames.length, (index) {
+    return SizedBox(
+      height: 36.h, // 更小的高度
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _pageNames.length,
+        itemBuilder: (context, index) {
           final isSelected = _currentPageIndex == index;
-          return TextButton(
-            onPressed: () {
+          final color = _pageColors[index];
+
+          return GestureDetector(
+            onTap: () {
               setState(() {
                 _currentPageIndex = index;
               });
             },
-            style: ButtonStyle(
-              padding: WidgetStateProperty.all(
-                  EdgeInsets.symmetric(horizontal: 8.w)),
-              backgroundColor: WidgetStateProperty.all(Colors.transparent),
-              overlayColor: WidgetStateProperty.all(Colors.transparent),
-              shadowColor: WidgetStateProperty.all(Colors.transparent),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              textStyle: WidgetStateProperty.all(TextStyle(
-                decoration: TextDecoration.none,
-              )),
-            ),
             child: Container(
-              padding: EdgeInsets.symmetric(vertical: 5.h, horizontal: 8.w),
+              margin: EdgeInsets.only(right: 8.w),
+              padding: EdgeInsets.symmetric(horizontal: 10.w), // 更小的内边距
               decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color:
-                        isSelected ? AppTheme.primaryColor : Colors.transparent,
-                    width: 2.0,
-                  ),
+                gradient: isSelected
+                    ? LinearGradient(
+                        colors: [
+                          color.withOpacity(0.7),
+                          color.withOpacity(0.9),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: isSelected ? null : Colors.black.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12.r), // 更小的圆角
+                border: Border.all(
+                  color: isSelected ? color : Colors.white.withOpacity(0.3),
+                  width: 1,
                 ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: color.withOpacity(0.4),
+                          blurRadius: 10,
+                          offset: Offset(0, 2),
+                        ),
+                      ]
+                    : null,
               ),
-              child: Text(
-                _pageNames[index],
-                style: TextStyle(
-                  color: isSelected
-                      ? AppTheme.primaryColor
-                      : AppTheme.textSecondary,
-                  fontSize: 15.sp,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _pageIcons[index],
+                    color: isSelected ? Colors.white : color.withOpacity(0.8),
+                    size: 15.sp, // 更小的图标
+                  ),
+                  SizedBox(width: 4.w),
+                  Text(
+                    _pageNames[index],
+                    style: TextStyle(
+                      color: isSelected
+                          ? Colors.white
+                          : Colors.white.withOpacity(0.9),
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 12.sp, // 更小的字体
+                    ),
+                  ),
+                ],
               ),
             ),
           );
-        }),
+        },
       ),
     );
   }
@@ -406,96 +466,112 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_error != null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(
-            '角色信息',
-            style: TextStyle(color: AppTheme.textPrimary),
-          ),
-          centerTitle: true,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '加载失败',
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  color: Colors.red,
-                ),
-              ),
-              SizedBox(height: 8.h),
-              TextButton(
-                onPressed: _loadSessionData,
-                child: Text(
-                  '重试',
-                  style: TextStyle(color: AppTheme.primaryColor),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.background,
-        elevation: 0,
-        shadowColor: Colors.transparent,
-        title: Text(
-          '角色信息',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 18.sp,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        centerTitle: true,
-        iconTheme: IconThemeData(color: AppTheme.textPrimary),
-        actions: [
-          if (!_isLoading)
-            TextButton(
-              onPressed: _isSaving ? null : _saveChanges,
-              child: _isSaving
-                  ? SizedBox(
-                      width: 16.w,
-                      height: 16.w,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.w,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                            AppTheme.primaryColor),
-                      ),
-                    )
-                  : Text(
-                      '保存',
-                      style: TextStyle(
-                        color: AppTheme.primaryColor,
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+  Widget _buildErrorView() {
+    return Center(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20.r),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: EdgeInsets.all(20.w),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(20.r),
             ),
-        ],
-      ),
-      body: _isLoading
-          ? _buildLoadingContent()
-          : Column(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _buildPageSelector(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w),
-                    child: _buildCurrentPage(),
+                Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 60.sp,
+                ),
+                SizedBox(height: 16.h),
+                Text(
+                  '加载失败',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.bold,
                   ),
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  _error ?? '未知错误',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14.sp,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 16.h),
+                ElevatedButton(
+                  onPressed: _loadSessionData,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.withOpacity(0.7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30.r),
+                    ),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+                  ),
+                  child: Text('重试'),
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent, // 背景透明
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 背景层
+          if (widget.backgroundImage != null)
+            Image.memory(
+              widget.backgroundImage!,
+              fit: BoxFit.cover,
+            ),
+          // 背景叠加层
+          Container(color: Colors.black.withOpacity(widget.backgroundOpacity)),
+
+          // 状态栏空间
+          SafeArea(
+            child: _error != null
+                ? _buildErrorView()
+                : _isLoading || _isRefreshing
+                    ? _buildLoadingText(
+                        _isRefreshing ? "正在刷新数据..." : "正在加载角色信息...")
+                    : Padding(
+                        padding: EdgeInsets.all(12.w),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildHeader(),
+                            SizedBox(height: 12.h),
+                            _buildPageSelector(),
+                            SizedBox(height: 12.h),
+                            Expanded(
+                              child: SingleChildScrollView(
+                                padding: EdgeInsets.symmetric(horizontal: 2.w),
+                                physics: const BouncingScrollPhysics(),
+                                child: _buildCurrentPage(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+          ),
+        ],
+      ),
     );
   }
 }

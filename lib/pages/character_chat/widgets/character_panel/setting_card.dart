@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../../../../theme/app_theme.dart';
-import 'base_card.dart';
+import 'dart:ui';
 
 class SettingCard extends StatefulWidget {
   final Map<String, dynamic> sessionData;
@@ -136,9 +135,13 @@ class _SettingCardState extends State<SettingCard> {
 
   @override
   Widget build(BuildContext context) {
-    return BaseCard(
-      title: '设定',
+    final Color pageColor = Colors.purple.shade400; // 使用分页的紫色
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 移除标题部分
+
         // 不可编辑状态时，显示一条提示信息
         if (!_isEditable) _buildNonEditableNotice(),
 
@@ -149,36 +152,42 @@ class _SettingCardState extends State<SettingCard> {
             'setting',
             widget.settingController,
             icon: Icons.psychology,
+            accentColor: Colors.blue,
           ),
           _buildSettingField(
             '世界设定',
             'world_background',
             _worldBackgroundController,
             icon: Icons.public,
+            accentColor: Colors.teal,
           ),
           _buildSettingField(
             '规则约束',
             'rules',
             _rulesController,
             icon: Icons.rule,
+            accentColor: Colors.orange,
           ),
           _buildSettingField(
             '正对话示例',
             'positive_dialog_examples',
             _positiveDialogController,
             icon: Icons.thumb_up_alt_outlined,
+            accentColor: Colors.green,
           ),
           _buildSettingField(
             '反对话示例',
             'negative_dialog_examples',
             _negativeDialogController,
             icon: Icons.thumb_down_alt_outlined,
+            accentColor: Colors.red,
           ),
           _buildSettingField(
             '补充设定',
             'supplement_setting',
             _supplementSettingController,
             icon: Icons.add_circle_outline,
+            accentColor: Colors.amber,
           ),
         ],
 
@@ -193,33 +202,86 @@ class _SettingCardState extends State<SettingCard> {
     return Container(
       width: double.infinity,
       margin: EdgeInsets.only(bottom: 16.h),
-      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.lock_outline,
-            color: Colors.grey,
-            size: 18.sp,
-          ),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Text(
-              '相关设定不可查看',
-              style: TextStyle(
-                fontSize: 16.sp,
-                color: Colors.grey,
-              ),
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            spreadRadius: 0,
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12.r),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            padding: EdgeInsets.all(16.w),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.grey.shade700.withOpacity(0.2),
+                  Colors.black.withOpacity(0.2),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(
+                color: Colors.grey.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(8.w),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.grey.shade500.withOpacity(0.8),
+                        Colors.grey.shade700.withOpacity(0.6),
+                      ],
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 4,
+                        spreadRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.lock_outline,
+                    color: Colors.white,
+                    size: 18.sp,
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Text(
+                    '相关设定不可查看',
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 2,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -230,6 +292,7 @@ class _SettingCardState extends State<SettingCard> {
     String field,
     TextEditingController controller, {
     required IconData icon,
+    required Color accentColor,
   }) {
     final text = controller.text;
     final lineCount = _getLineCount(text);
@@ -240,92 +303,369 @@ class _SettingCardState extends State<SettingCard> {
       width: double.infinity,
       margin: EdgeInsets.only(bottom: 16.h),
       decoration: BoxDecoration(
-        color: AppTheme.cardBackground.withOpacity(0.6),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: AppTheme.textPrimary.withOpacity(0.05),
-          width: 1,
-        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            spreadRadius: 0,
+          ),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 标题栏
-          Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 8.h),
-            child: Row(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12.r),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  accentColor.withOpacity(0.2),
+                  Colors.black.withOpacity(0.2),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(
+                color: accentColor.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: EdgeInsets.all(6.w),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    color: AppTheme.primaryColor,
-                    size: 16.sp,
+                // 标题栏
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 8.h),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(6.w),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              accentColor.withOpacity(0.8),
+                              accentColor.withOpacity(0.5),
+                            ],
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: accentColor.withOpacity(0.3),
+                              blurRadius: 4,
+                              spreadRadius: 0,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          icon,
+                          color: Colors.white,
+                          size: 16.sp,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w500,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withOpacity(0.5),
+                                blurRadius: 2,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 6.w,
+                          vertical: 2.h,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              accentColor.withOpacity(0.8),
+                              accentColor.withOpacity(0.5),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(4.r),
+                        ),
+                        child: Text(
+                          '可编辑',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.sp,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
+
+                // 内容区
                 Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 6.w,
-                    vertical: 2.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(4.r),
-                  ),
-                  child: Text(
-                    '可编辑',
-                    style: TextStyle(
-                      color: AppTheme.primaryColor,
-                      fontSize: 10.sp,
+                  width: double.infinity,
+                  padding: EdgeInsets.fromLTRB(
+                      16.w, 4.h, 16.w, needsCollapse ? 8.h : 16.h),
+                  child: InkWell(
+                    onTap: needsCollapse ? () => _toggleExpand(field) : null,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 内容显示/编辑区
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 12.w, vertical: 8.h),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8.r),
+                            border: Border.all(
+                              color: accentColor.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: TextField(
+                            controller: controller,
+                            style: TextStyle(
+                              fontSize: 15.sp,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withOpacity(0.5),
+                                  blurRadius: 1,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              fillColor: Colors.transparent,
+                              hintText: text.isEmpty ? '点击这里编辑$label...' : null,
+                              hintStyle: TextStyle(
+                                fontSize: 14.sp,
+                                color: Colors.white.withOpacity(0.5),
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                            maxLines: needsCollapse && !isExpanded ? 4 : null,
+                          ),
+                        ),
+
+                        // 展开/折叠按钮
+                        if (needsCollapse)
+                          Align(
+                            alignment: Alignment.center,
+                            child: TextButton(
+                              onPressed: () => _toggleExpand(field),
+                              style: ButtonStyle(
+                                minimumSize:
+                                    WidgetStateProperty.all(Size(0, 24.h)),
+                                padding: WidgetStateProperty.all(
+                                    EdgeInsets.symmetric(horizontal: 8.w)),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                foregroundColor:
+                                    WidgetStateProperty.all(accentColor),
+                                overlayColor: WidgetStateProperty.all(
+                                    accentColor.withOpacity(0.1)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    isExpanded ? '收起' : '展开编辑',
+                                    style: TextStyle(
+                                      fontSize: 12.sp,
+                                      color: Colors.white,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black.withOpacity(0.5),
+                                          blurRadius: 1,
+                                          offset: Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(
+                                    isExpanded
+                                        ? Icons.keyboard_arrow_up
+                                        : Icons.keyboard_arrow_down,
+                                    color: Colors.white,
+                                    size: 14.sp,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
 
-          // 内容区
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.fromLTRB(
-                16.w, 4.h, 16.w, needsCollapse ? 8.h : 16.h),
-            child: InkWell(
-              onTap: needsCollapse ? () => _toggleExpand(field) : null,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 内容显示/编辑区
-                  Container(
+  // 构建用户设定字段（没有高度限制）
+  Widget _buildUserSettingField() {
+    final Color accentColor = Colors.deepPurple;
+
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: 16.h),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12.r),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  accentColor.withOpacity(0.2),
+                  Colors.black.withOpacity(0.2),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(
+                color: accentColor.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 标题栏
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 8.h),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(6.w),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              accentColor.withOpacity(0.8),
+                              accentColor.withOpacity(0.5),
+                            ],
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: accentColor.withOpacity(0.3),
+                              blurRadius: 4,
+                              spreadRadius: 0,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.person_outline,
+                          color: Colors.white,
+                          size: 16.sp,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: Text(
+                          '用户设定',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w500,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withOpacity(0.5),
+                                blurRadius: 2,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 6.w,
+                          vertical: 2.h,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              accentColor.withOpacity(0.8),
+                              accentColor.withOpacity(0.5),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(4.r),
+                        ),
+                        child: Text(
+                          '可编辑',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.sp,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 内容区 - 用户设定没有折叠限制
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 16.h),
+                  child: Container(
                     padding:
                         EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                     decoration: BoxDecoration(
-                      color: AppTheme.textPrimary.withOpacity(0.05),
+                      color: Colors.black.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8.r),
                       border: Border.all(
-                        color: AppTheme.primaryColor.withOpacity(0.2),
+                        color: accentColor.withOpacity(0.3),
                         width: 1,
                       ),
                     ),
                     child: TextField(
-                      controller: controller,
+                      controller: widget.userSettingController,
                       style: TextStyle(
                         fontSize: 15.sp,
-                        color: AppTheme.textPrimary,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.5),
+                            blurRadius: 1,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
                       ),
                       decoration: InputDecoration(
                         isDense: true,
@@ -334,165 +674,23 @@ class _SettingCardState extends State<SettingCard> {
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         fillColor: Colors.transparent,
-                        hintText: text.isEmpty ? '点击这里编辑$label...' : null,
+                        hintText: widget.userSettingController.text.isEmpty
+                            ? '点击这里编辑用户设定...'
+                            : null,
                         hintStyle: TextStyle(
                           fontSize: 14.sp,
-                          color: AppTheme.textSecondary.withOpacity(0.5),
+                          color: Colors.white.withOpacity(0.5),
                           fontStyle: FontStyle.italic,
                         ),
                       ),
-                      maxLines: needsCollapse && !isExpanded ? 4 : null,
-                    ),
-                  ),
-
-                  // 展开/折叠按钮
-                  if (needsCollapse)
-                    Align(
-                      alignment: Alignment.center,
-                      child: TextButton(
-                        onPressed: () => _toggleExpand(field),
-                        style: ButtonStyle(
-                          minimumSize: WidgetStateProperty.all(Size(0, 24.h)),
-                          padding: WidgetStateProperty.all(
-                              EdgeInsets.symmetric(horizontal: 8.w)),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              isExpanded ? '收起' : '展开编辑',
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                            Icon(
-                              isExpanded
-                                  ? Icons.keyboard_arrow_up
-                                  : Icons.keyboard_arrow_down,
-                              color: AppTheme.primaryColor,
-                              size: 14.sp,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 构建用户设定字段（没有高度限制）
-  Widget _buildUserSettingField() {
-    return Container(
-      width: double.infinity,
-      margin: EdgeInsets.only(bottom: 16.h),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBackground.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: AppTheme.textPrimary.withOpacity(0.05),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 标题栏
-          Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 8.h),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(6.w),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.person_outline,
-                    color: AppTheme.primaryColor,
-                    size: 16.sp,
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Text(
-                    '用户设定',
-                    style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 6.w,
-                    vertical: 2.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(4.r),
-                  ),
-                  child: Text(
-                    '可编辑',
-                    style: TextStyle(
-                      color: AppTheme.primaryColor,
-                      fontSize: 10.sp,
+                      maxLines: null, // 没有行数限制
                     ),
                   ),
                 ),
               ],
             ),
           ),
-
-          // 内容区 - 用户设定没有折叠限制
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 16.h),
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-              decoration: BoxDecoration(
-                color: AppTheme.textPrimary.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(8.r),
-                border: Border.all(
-                  color: AppTheme.primaryColor.withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-              child: TextField(
-                controller: widget.userSettingController,
-                style: TextStyle(
-                  fontSize: 15.sp,
-                  color: AppTheme.textPrimary,
-                ),
-                decoration: InputDecoration(
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  fillColor: Colors.transparent,
-                  hintText: widget.userSettingController.text.isEmpty
-                      ? '点击这里编辑用户设定...'
-                      : null,
-                  hintStyle: TextStyle(
-                    fontSize: 14.sp,
-                    color: AppTheme.textSecondary.withOpacity(0.5),
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-                maxLines: null, // 没有行数限制
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
