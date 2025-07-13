@@ -14,14 +14,10 @@ import '../widgets/character_panel/interaction_card.dart';
 
 class CharacterPanelPage extends StatefulWidget {
   final Map<String, dynamic> characterData;
-  final Uint8List? backgroundImage; // 添加背景图像参数
-  final double backgroundOpacity; // 添加背景不透明度参数
 
   const CharacterPanelPage({
     super.key,
     required this.characterData,
-    this.backgroundImage, // 可选参数，允许不传递背景图
-    this.backgroundOpacity = 0.5, // 默认不透明度
   });
 
   @override
@@ -54,14 +50,20 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   final _prefixController = TextEditingController();
   final _suffixController = TextEditingController();
   final _userSettingController = TextEditingController();
+  // 添加其他设定字段的控制器
+  final _worldBackgroundController = TextEditingController();
+  final _rulesController = TextEditingController();
+  final _positiveDialogController = TextEditingController();
+  final _negativeDialogController = TextEditingController();
+  final _supplementSettingController = TextEditingController();
   String _uiSettings = 'markdown';
 
   // 为分类添加对应的颜色
   final List<Color> _pageColors = [
-    Colors.blue.shade400,
-    Colors.purple.shade400,
-    Colors.green.shade400,
-    Colors.orange.shade400,
+    AppTheme.primaryColor,
+    AppTheme.primaryColor,
+    AppTheme.primaryColor,
+    AppTheme.primaryColor,
   ];
 
   final List<String> _pageNames = [
@@ -97,6 +99,12 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
     _prefixController.dispose();
     _suffixController.dispose();
     _userSettingController.dispose();
+    // 释放新添加的控制器
+    _worldBackgroundController.dispose();
+    _rulesController.dispose();
+    _positiveDialogController.dispose();
+    _negativeDialogController.dispose();
+    _supplementSettingController.dispose();
     super.dispose();
   }
 
@@ -137,6 +145,12 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
       _prefixController.text = data['prefix'] ?? '';
       _suffixController.text = data['suffix'] ?? '';
       _userSettingController.text = data['user_setting'] ?? '';
+      // 初始化其他设定字段的控制器
+      _worldBackgroundController.text = data['world_background'] ?? '';
+      _rulesController.text = data['rules'] ?? '';
+      _positiveDialogController.text = data['positive_dialog_examples'] ?? '';
+      _negativeDialogController.text = data['negative_dialog_examples'] ?? '';
+      _supplementSettingController.text = data['supplement_setting'] ?? '';
 
       _uiSettings = data['ui_settings'] ?? 'markdown';
     } catch (e) {
@@ -191,15 +205,12 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
       _editedData['user_setting'] = _userSettingController.text;
       _editedData['ui_settings'] = _uiSettings;
 
-      // 添加缺少的设定字段
-      _editedData['world_background'] = _sessionData['world_background'] ?? '';
-      _editedData['rules'] = _sessionData['rules'] ?? '';
-      _editedData['positive_dialog_examples'] =
-          _sessionData['positive_dialog_examples'] ?? '';
-      _editedData['negative_dialog_examples'] =
-          _sessionData['negative_dialog_examples'] ?? '';
-      _editedData['supplement_setting'] =
-          _sessionData['supplement_setting'] ?? '';
+      // 添加设定字段 - 使用控制器的当前值
+      _editedData['world_background'] = _worldBackgroundController.text;
+      _editedData['rules'] = _rulesController.text;
+      _editedData['positive_dialog_examples'] = _positiveDialogController.text;
+      _editedData['negative_dialog_examples'] = _negativeDialogController.text;
+      _editedData['supplement_setting'] = _supplementSettingController.text;
 
       // 添加其他可能需要的字段
       _editedData['enhance_mode'] = _enhanceMode;
@@ -259,21 +270,14 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   Widget _buildLoadingText(String text) {
     return Center(
       child: Shimmer.fromColors(
-        baseColor: Colors.white,
-        highlightColor: Colors.white.withOpacity(0.3),
+        baseColor: AppTheme.textPrimary,
+        highlightColor: AppTheme.textSecondary.withOpacity(0.3),
         child: Text(
           text,
           style: TextStyle(
             fontSize: 18.sp,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
-            shadows: [
-              Shadow(
-                color: Colors.black.withOpacity(0.5),
-                blurRadius: 5,
-                offset: Offset(0, 1),
-              ),
-            ],
+            color: AppTheme.textPrimary,
           ),
         ),
       ),
@@ -294,26 +298,19 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
               padding: EdgeInsets.all(8.w),
               child: Icon(
                 Icons.arrow_back_ios_new,
-                color: Colors.white,
+                color: AppTheme.textPrimary,
                 size: 20.sp,
               ),
             ),
           ),
         ),
-        // 标题 - 修改颜色为白色渐变
+        // 标题
         Text(
           '角色信息',
           style: TextStyle(
-            color: Colors.white,
+            color: AppTheme.textPrimary,
             fontSize: 18.sp,
             fontWeight: FontWeight.bold,
-            shadows: [
-              Shadow(
-                color: Colors.black.withOpacity(0.5),
-                blurRadius: 5,
-                offset: Offset(0, 1),
-              )
-            ],
           ),
         ),
         // 保存按钮 - 改为纯图标按钮
@@ -325,7 +322,8 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
                   height: 20.w,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.w,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
                   ),
                 ),
               )
@@ -338,7 +336,7 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
                     padding: EdgeInsets.all(8.w),
                     child: Icon(
                       Icons.save,
-                      color: Colors.white,
+                      color: AppTheme.primaryColor,
                       size: 20.sp,
                     ),
                   ),
@@ -350,13 +348,13 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
 
   Widget _buildPageSelector() {
     return SizedBox(
-      height: 36.h, // 更小的高度
+      height: 36.h,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _pageNames.length,
         itemBuilder: (context, index) {
           final isSelected = _currentPageIndex == index;
-          final color = _pageColors[index];
+          final color = AppTheme.primaryColor;
 
           return GestureDetector(
             onTap: () {
@@ -366,52 +364,39 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
             },
             child: Container(
               margin: EdgeInsets.only(right: 8.w),
-              padding: EdgeInsets.symmetric(horizontal: 10.w), // 更小的内边距
+              padding: EdgeInsets.symmetric(horizontal: 10.w),
               decoration: BoxDecoration(
-                gradient: isSelected
-                    ? LinearGradient(
-                        colors: [
-                          color.withOpacity(0.7),
-                          color.withOpacity(0.9),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                color: isSelected ? null : Colors.black.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12.r), // 更小的圆角
+                color: isSelected
+                    ? AppTheme.primaryColor.withOpacity(0.2)
+                    : AppTheme.cardBackground.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8.r),
                 border: Border.all(
-                  color: isSelected ? color : Colors.white.withOpacity(0.3),
+                  color: isSelected
+                      ? AppTheme.primaryColor
+                      : AppTheme.cardBackground,
                   width: 1,
                 ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: color.withOpacity(0.4),
-                          blurRadius: 10,
-                          offset: Offset(0, 2),
-                        ),
-                      ]
-                    : null,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     _pageIcons[index],
-                    color: isSelected ? Colors.white : color.withOpacity(0.8),
-                    size: 15.sp, // 更小的图标
+                    color: isSelected
+                        ? AppTheme.primaryColor
+                        : AppTheme.textSecondary,
+                    size: 15.sp,
                   ),
                   SizedBox(width: 4.w),
                   Text(
                     _pageNames[index],
                     style: TextStyle(
                       color: isSelected
-                          ? Colors.white
-                          : Colors.white.withOpacity(0.9),
+                          ? AppTheme.primaryColor
+                          : AppTheme.textSecondary,
                       fontWeight:
                           isSelected ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 12.sp, // 更小的字体
+                      fontSize: 12.sp,
                     ),
                   ),
                 ],
@@ -433,6 +418,11 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
           onUpdateField: _updateField,
           settingController: _settingController,
           userSettingController: _userSettingController,
+          worldBackgroundController: _worldBackgroundController,
+          rulesController: _rulesController,
+          positiveDialogController: _positiveDialogController,
+          negativeDialogController: _negativeDialogController,
+          supplementSettingController: _supplementSettingController,
         );
       case 2:
         return ModelConfigCard(
@@ -468,59 +458,56 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
 
   Widget _buildErrorView() {
     return Center(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20.r),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            padding: EdgeInsets.all(20.w),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.4),
-              borderRadius: BorderRadius.circular(20.r),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  color: Colors.red,
-                  size: 60.sp,
-                ),
-                SizedBox(height: 16.h),
-                Text(
-                  '加载失败',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 8.h),
-                Text(
-                  _error ?? '未知错误',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14.sp,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 16.h),
-                ElevatedButton(
-                  onPressed: _loadSessionData,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.withOpacity(0.7),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30.r),
-                    ),
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
-                  ),
-                  child: Text('重试'),
-                ),
-              ],
-            ),
+      child: Container(
+        padding: EdgeInsets.all(20.w),
+        decoration: BoxDecoration(
+          color: AppTheme.cardBackground,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(
+            color: AppTheme.error.withOpacity(0.3),
+            width: 1,
           ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: AppTheme.error,
+              size: 60.sp,
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              '加载失败',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              _error ?? '未知错误',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 14.sp,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 16.h),
+            ElevatedButton(
+              onPressed: _loadSessionData,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.error.withOpacity(0.7),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30.r),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+              ),
+              child: Text('重试'),
+            ),
+          ],
         ),
       ),
     );
@@ -529,48 +516,31 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent, // 背景透明
-      extendBodyBehindAppBar: true,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // 背景层
-          if (widget.backgroundImage != null)
-            Image.memory(
-              widget.backgroundImage!,
-              fit: BoxFit.cover,
-            ),
-          // 背景叠加层
-          Container(color: Colors.black.withOpacity(widget.backgroundOpacity)),
-
-          // 状态栏空间
-          SafeArea(
-            child: _error != null
-                ? _buildErrorView()
-                : _isLoading || _isRefreshing
-                    ? _buildLoadingText(
-                        _isRefreshing ? "正在刷新数据..." : "正在加载角色信息...")
-                    : Padding(
-                        padding: EdgeInsets.all(12.w),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildHeader(),
-                            SizedBox(height: 12.h),
-                            _buildPageSelector(),
-                            SizedBox(height: 12.h),
-                            Expanded(
-                              child: SingleChildScrollView(
-                                padding: EdgeInsets.symmetric(horizontal: 2.w),
-                                physics: const BouncingScrollPhysics(),
-                                child: _buildCurrentPage(),
-                              ),
-                            ),
-                          ],
+      backgroundColor: AppTheme.background,
+      body: SafeArea(
+        child: _error != null
+            ? _buildErrorView()
+            : _isLoading || _isRefreshing
+                ? _buildLoadingText(_isRefreshing ? "正在刷新数据..." : "正在加载角色信息...")
+                : Padding(
+                    padding: EdgeInsets.all(12.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeader(),
+                        SizedBox(height: 12.h),
+                        _buildPageSelector(),
+                        SizedBox(height: 12.h),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: EdgeInsets.symmetric(horizontal: 2.w),
+                            physics: const BouncingScrollPhysics(),
+                            child: _buildCurrentPage(),
+                          ),
                         ),
-                      ),
-          ),
-        ],
+                      ],
+                    ),
+                  ),
       ),
     );
   }

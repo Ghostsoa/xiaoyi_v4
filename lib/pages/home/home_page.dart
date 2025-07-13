@@ -13,6 +13,7 @@ import 'pages/all_items_page.dart';
 import 'pages/search_result_page.dart';
 import 'pages/tag_items_page.dart';
 import 'pages/favorites_page.dart';
+import 'pages/preferences_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -315,141 +316,221 @@ class HomePageState extends State<HomePage> {
                 child: CustomScrollView(
                   physics: const BouncingScrollPhysics(),
                   slivers: [
-                    // 欢迎标语和收藏按钮（同一行）
-                    SliverToBoxAdapter(
-                      child: Row(
-                        children: [
-                          // 发现更多AI角色
-                          Expanded(
-                            flex: 3, // 占据四分之三的空间
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const AllItemsPage(),
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                margin:
-                                    EdgeInsets.fromLTRB(16.w, 4.h, 8.w, 16.h),
-                                padding: EdgeInsets.all(16.w),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: AppTheme.primaryGradient,
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    transform: GradientRotation(0.4),
-                                  ),
-                                  borderRadius: BorderRadius.circular(12.r),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppTheme.primaryGradient.first
-                                          .withOpacity(0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
+                    // 顶部按钮区域（三个按钮并排）
+                    SliverPadding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                      sliver: SliverToBoxAdapter(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 发现更多AI角色
+                            Expanded(
+                              flex: 2, // 占据四分之二(即二分之一)的空间
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const AllItemsPage(),
                                     ),
-                                  ],
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.auto_awesome,
-                                              color: AppTheme.primaryColor,
-                                              size: 24.sp,
-                                            ),
-                                            SizedBox(width: 8.w),
-                                            Text(
-                                              '发现更多',
-                                              style: AppTheme
-                                                  .gradientMediumHeadingStyle,
-                                            ),
-                                          ],
-                                        ),
-                                        Icon(
-                                          Icons.chevron_right_rounded,
-                                          color: Colors.white,
-                                          size: 24.sp,
-                                        ),
-                                      ],
+                                  );
+                                },
+                                child: Container(
+                                  height: 120.h,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: AppTheme.primaryGradient,
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      transform: GradientRotation(0.4),
                                     ),
-                                    SizedBox(height: 4.h),
-                                    Text(
-                                      '点击查看全部角色',
-                                      style: AppTheme.gradientSubtitleStyle,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // 我的收藏按钮
-                          Expanded(
-                            flex: 1, // 占据四分之一的空间
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const FavoritesPage(),
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                margin:
-                                    EdgeInsets.fromLTRB(8.w, 4.h, 16.w, 16.h),
-                                padding: EdgeInsets.all(16.w),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.amber.shade700,
-                                      Colors.amber.shade500
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius: BorderRadius.circular(12.r),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.amber.withOpacity(0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.star_rounded,
-                                      color: Colors.white,
-                                      size: 24.sp,
-                                    ),
-                                    SizedBox(height: 6.h),
-                                    Text(
-                                      '收藏',
-                                      style: TextStyle(
-                                        fontSize: 14.sp,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16.r),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppTheme.primaryGradient.first
+                                            .withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 4),
                                       ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
+                                    ],
+                                  ),
+                                  padding: EdgeInsets.all(20.w),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.auto_awesome,
+                                            color: Colors.white,
+                                            size: 28.sp,
+                                          ),
+                                          SizedBox(width: 10.w),
+                                          Text(
+                                            '发现更多',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 20.sp,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            '浏览全部AI角色',
+                                            style: TextStyle(
+                                              color:
+                                                  Colors.white.withOpacity(0.9),
+                                              fontSize: 14.sp,
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.chevron_right_rounded,
+                                            color: Colors.white,
+                                            size: 24.sp,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 12.w),
+                            // 右侧两个按钮的容器
+                            Expanded(
+                              flex: 1, // 占据四分之一的空间
+                              child: Column(
+                                children: [
+                                  // 收藏按钮
+                                  GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const FavoritesPage(),
+                                        ),
+                                      );
+                                    },
+                                    child: Container(
+                                      height: 54.h,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.amber.shade700,
+                                            Colors.amber.shade500
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                        borderRadius:
+                                            BorderRadius.circular(16.r),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                Colors.amber.withOpacity(0.3),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 16.w),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.star_rounded,
+                                            color: Colors.white,
+                                            size: 22.sp,
+                                          ),
+                                          SizedBox(width: 8.w),
+                                          Text(
+                                            '收藏',
+                                            style: TextStyle(
+                                              fontSize: 16.sp,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(height: 12.h),
+                                  // 偏好按钮
+                                  GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const PreferencesPage(),
+                                        ),
+                                      );
+                                    },
+                                    child: Container(
+                                      height: 54.h,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.blueAccent.shade700,
+                                            Colors.blueAccent.shade400
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                        borderRadius:
+                                            BorderRadius.circular(16.r),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.blueAccent
+                                                .withOpacity(0.3),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 16.w),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.tune_rounded,
+                                            color: Colors.white,
+                                            size: 22.sp,
+                                          ),
+                                          SizedBox(width: 8.w),
+                                          Text(
+                                            '偏好',
+                                            style: TextStyle(
+                                              fontSize: 16.sp,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
 

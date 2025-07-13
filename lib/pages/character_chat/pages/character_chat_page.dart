@@ -603,8 +603,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         });
       }
 
-      // 消息发送完成后，不再需要刷新消息列表
-      // await _refreshMessages();
+      // 消息发送完成后，刷新消息列表以获取服务器分配的正确消息ID
+      await _refreshMessages();
 
       // 添加调试信息，检查每条消息是否有msgId
       debugPrint('---- 消息列表信息 ----');
@@ -1529,8 +1529,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       MaterialPageRoute(
         builder: (context) => ChatArchivePage(
           sessionId: widget.sessionData['id'].toString(),
-          backgroundImage: _backgroundImage, // 传递背景图片
-          backgroundOpacity: _backgroundOpacity, // 传递背景透明度
+          backgroundOpacity: _backgroundOpacity,
         ),
       ),
     );
@@ -2147,7 +2146,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                           width: double.infinity,
                           padding: EdgeInsets.symmetric(horizontal: 16.w),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.transparent, // 改为透明，避免双重透明度叠加
                             border: Border(
                               top: BorderSide(
                                 color: Colors.white.withOpacity(0.1),
@@ -2171,8 +2170,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                     MaterialPageRoute(
                                       builder: (context) => CharacterPanelPage(
                                         characterData: widget.sessionData,
-                                        backgroundImage: _backgroundImage,
-                                        backgroundOpacity: _backgroundOpacity,
                                       ),
                                     ),
                                   );
@@ -2186,7 +2183,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                     MaterialPageRoute(
                                       builder: (context) => ChatSettingsPage(
                                         sessionData: widget.sessionData,
-                                        backgroundImage: _backgroundImage,
                                         backgroundOpacity: _backgroundOpacity,
                                         onSettingsChanged: () {
                                           // 重新加载设置
@@ -2204,7 +2200,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (context) => UiSettingsPage(
-                                        backgroundImage: _backgroundImage,
                                         backgroundOpacity: _backgroundOpacity,
                                         onSettingsChanged: () {
                                           // 重新加载格式化模式

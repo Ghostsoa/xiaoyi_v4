@@ -111,9 +111,11 @@ class ProfilePageState extends State<ProfilePage> {
           _exp = (assets['assets']['exp'] ?? 0).toDouble();
           _playTime = (assets['assets']['play_time'] ?? 0).toDouble();
           _playTimeExpireAt = assets['assets']['play_time_expire_at'];
-          // 判断时长是否激活 - 如果有剩余时长或者有过期时间，就视为激活
-          _isPlayTimeActive = _playTime > 0 ||
-              (_playTimeExpireAt != null && _playTimeExpireAt!.isNotEmpty);
+
+          // 修改判断时长是否激活的逻辑 - 需要检查是否已经过期，并考虑时差
+          _isPlayTimeActive =
+              _playTime > 0 || (_isPlayTimeNotExpired(_playTimeExpireAt));
+
           _isVip = assets['assets']['vip'] ?? false;
           _vipExpireAt = assets['assets']['vip_expire_at'];
         } else {
@@ -135,6 +137,26 @@ class ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // 添加检查时间是否过期的方法，考虑8小时时差
+  bool _isPlayTimeNotExpired(String? expireTimeStr) {
+    if (expireTimeStr == null || expireTimeStr.isEmpty) {
+      return false;
+    }
+
+    try {
+      // 解析时间并添加8小时时差
+      final expireDate =
+          DateTime.parse(expireTimeStr).add(const Duration(hours: 8));
+      final now = DateTime.now();
+
+      // 比较日期，如果过期时间晚于当前时间，则未过期
+      return expireDate.isAfter(now);
+    } catch (e) {
+      debugPrint('解析过期时间出错: $e');
+      return false;
+    }
+  }
+
   Future<void> _refreshAssets() async {
     setState(() {
       _isAssetLoading = true;
@@ -153,9 +175,11 @@ class ProfilePageState extends State<ProfilePage> {
           _exp = (assets['assets']['exp'] ?? 0).toDouble();
           _playTime = (assets['assets']['play_time'] ?? 0).toDouble();
           _playTimeExpireAt = assets['assets']['play_time_expire_at'];
-          // 判断时长是否激活 - 如果有剩余时长或者有过期时间，就视为激活
-          _isPlayTimeActive = _playTime > 0 ||
-              (_playTimeExpireAt != null && _playTimeExpireAt!.isNotEmpty);
+
+          // 使用相同的逻辑判断是否激活
+          _isPlayTimeActive =
+              _playTime > 0 || (_isPlayTimeNotExpired(_playTimeExpireAt));
+
           _isVip = assets['assets']['vip'] ?? false;
           _vipExpireAt = assets['assets']['vip_expire_at'];
           _refreshSuccess = true;

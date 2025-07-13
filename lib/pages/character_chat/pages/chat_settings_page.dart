@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:typed_data';
-import 'dart:ui';
 import '../../../theme/app_theme.dart';
 import '../../../dao/chat_settings_dao.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -122,15 +121,14 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: Colors.black.withOpacity(0.8),
+          backgroundColor: AppTheme.cardBackground,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.r),
-            side: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+            borderRadius: BorderRadius.circular(12.r),
           ),
           title: Text(
             '选择颜色',
             style: TextStyle(
-              color: Colors.white,
+              color: AppTheme.textPrimary,
               fontSize: 18.sp,
               fontWeight: FontWeight.w500,
             ),
@@ -165,218 +163,158 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final statusBarHeight = MediaQuery.of(context).padding.top;
     final screenWidth = MediaQuery.of(context).size.width;
     final maxWidth = screenWidth > 600 ? 600.0 : screenWidth;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: true,
-      body: Stack(
-        children: [
-          // 背景层
-          if (widget.backgroundImage != null)
-            Image.memory(
-              widget.backgroundImage!,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-            ),
-          Container(color: Colors.black.withOpacity(widget.backgroundOpacity)),
-
-          // 内容层
-          SafeArea(
-            child: Center(
-              child: Container(
-                width: maxWidth,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 顶部操作区域
-                    Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // 返回按钮
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => Navigator.of(context).pop(),
-                              borderRadius: BorderRadius.circular(8.r),
-                              child: Container(
-                                padding: EdgeInsets.all(8.w),
-                                child: Icon(
-                                  Icons.arrow_back_ios_new,
-                                  color: Colors.white,
-                                  size: 20.sp,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // 页面标题
-                          Text(
-                            '聊天界面设置',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18.sp,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-
-                          // 保存按钮
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: _isSaving ? null : _saveSettings,
-                              borderRadius: BorderRadius.circular(8.r),
-                              child: Container(
-                                padding: EdgeInsets.all(8.w),
-                                child: _isSaving
-                                    ? SizedBox(
-                                        width: 20.w,
-                                        height: 20.w,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.w,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                  Colors.white),
-                                        ),
-                                      )
-                                    : Icon(
-                                        Icons.save,
-                                        color: Colors.white,
-                                        size: 20.sp,
-                                      ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+      backgroundColor: AppTheme.background,
+      appBar: AppBar(
+        backgroundColor: AppTheme.background,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new,
+            color: AppTheme.textPrimary,
+            size: 20.sp,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          '聊天界面设置',
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        actions: [
+          IconButton(
+            onPressed: _isSaving ? null : _saveSettings,
+            icon: _isSaving
+                ? SizedBox(
+                    width: 20.w,
+                    height: 20.w,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.w,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
                     ),
-
-                    // 设置列表
-                    Expanded(
-                      child: ListView(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 16.w, vertical: 8.h),
-                        children: [
-                          _buildSection(
-                            title: '背景设置',
-                            icon: Icons.image,
-                            color: Colors.teal,
-                            children: [
-                              _buildSliderItem(
-                                title: '背景透明度',
-                                subtitle: '调整背景图片的暗度',
-                                value: _backgroundOpacity,
-                                min: 0.0,
-                                max: 1.0,
-                                onChanged: (value) {
-                                  setState(() => _backgroundOpacity = value);
-                                },
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 20.h),
-                          _buildSection(
-                            title: '对话气泡设置',
-                            icon: Icons.chat_bubble_outline,
-                            color: Colors.deepPurple,
-                            children: [
-                              _buildColorPickerItem(
-                                title: '接收气泡颜色',
-                                subtitle: '设置角色消息气泡的颜色',
-                                color: _bubbleColor,
-                                onTap: () {
-                                  _showColorPicker(_bubbleColor, (color) {
-                                    setState(() => _bubbleColor = color);
-                                  });
-                                },
-                              ),
-                              _buildSliderItem(
-                                title: '接收气泡透明度',
-                                subtitle: '调整角色消息气泡的透明度',
-                                value: _bubbleOpacity,
-                                min: 0.0,
-                                max: 1.0,
-                                onChanged: (value) {
-                                  setState(() => _bubbleOpacity = value);
-                                },
-                              ),
-                              _buildColorPickerItem(
-                                title: '接收文字颜色',
-                                subtitle: '设置角色消息文字的颜色',
-                                color: _textColor,
-                                onTap: () {
-                                  _showColorPicker(_textColor, (color) {
-                                    setState(() => _textColor = color);
-                                  });
-                                },
-                              ),
-                              Divider(
-                                color: Colors.white.withOpacity(0.2),
-                                height: 1,
-                              ),
-                              _buildColorPickerItem(
-                                title: '发送气泡颜色',
-                                subtitle: '设置自己消息气泡的颜色',
-                                color: _userBubbleColor,
-                                onTap: () {
-                                  _showColorPicker(_userBubbleColor, (color) {
-                                    setState(() => _userBubbleColor = color);
-                                  });
-                                },
-                              ),
-                              _buildSliderItem(
-                                title: '发送气泡透明度',
-                                subtitle: '调整自己消息气泡的透明度',
-                                value: _userBubbleOpacity,
-                                min: 0.0,
-                                max: 1.0,
-                                onChanged: (value) {
-                                  setState(() => _userBubbleOpacity = value);
-                                },
-                              ),
-                              _buildColorPickerItem(
-                                title: '发送文字颜色',
-                                subtitle: '设置自己消息文字的颜色',
-                                color: _userTextColor,
-                                onTap: () {
-                                  _showColorPicker(_userTextColor, (color) {
-                                    setState(() => _userTextColor = color);
-                                  });
-                                },
-                              ),
-                              Divider(
-                                color: Colors.white.withOpacity(0.2),
-                                height: 1,
-                              ),
-                              _buildSliderItem(
-                                title: '字体大小',
-                                subtitle: '调整聊天消息的字体大小',
-                                value: _fontSize,
-                                min: 8.0,
-                                max: 24.0,
-                                onChanged: (value) {
-                                  setState(() => _fontSize = value);
-                                },
-                                valueDisplay:
-                                    '${_fontSize.toStringAsFixed(1)}px',
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                  )
+                : Icon(
+                    Icons.save,
+                    color: AppTheme.textPrimary,
+                    size: 20.sp,
+                  ),
           ),
         ],
+      ),
+      body: Center(
+        child: Container(
+          width: maxWidth,
+          child: ListView(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+            children: [
+              _buildSection(
+                title: '背景设置',
+                icon: Icons.image,
+                color: Colors.teal,
+                children: [
+                  _buildSliderItem(
+                    title: '背景透明度',
+                    subtitle: '调整背景图片的暗度',
+                    value: _backgroundOpacity,
+                    min: 0.0,
+                    max: 1.0,
+                    onChanged: (value) {
+                      setState(() => _backgroundOpacity = value);
+                    },
+                  ),
+                ],
+              ),
+              SizedBox(height: 16.h),
+              _buildSection(
+                title: '对话气泡设置',
+                icon: Icons.chat_bubble_outline,
+                color: Colors.deepPurple,
+                children: [
+                  _buildColorPickerItem(
+                    title: '接收气泡颜色',
+                    subtitle: '设置角色消息气泡的颜色',
+                    color: _bubbleColor,
+                    onTap: () {
+                      _showColorPicker(_bubbleColor, (color) {
+                        setState(() => _bubbleColor = color);
+                      });
+                    },
+                  ),
+                  _buildSliderItem(
+                    title: '接收气泡透明度',
+                    subtitle: '调整角色消息气泡的透明度',
+                    value: _bubbleOpacity,
+                    min: 0.0,
+                    max: 1.0,
+                    onChanged: (value) {
+                      setState(() => _bubbleOpacity = value);
+                    },
+                  ),
+                  _buildColorPickerItem(
+                    title: '接收文字颜色',
+                    subtitle: '设置角色消息文字的颜色',
+                    color: _textColor,
+                    onTap: () {
+                      _showColorPicker(_textColor, (color) {
+                        setState(() => _textColor = color);
+                      });
+                    },
+                  ),
+                  Divider(height: 1),
+                  _buildColorPickerItem(
+                    title: '发送气泡颜色',
+                    subtitle: '设置自己消息气泡的颜色',
+                    color: _userBubbleColor,
+                    onTap: () {
+                      _showColorPicker(_userBubbleColor, (color) {
+                        setState(() => _userBubbleColor = color);
+                      });
+                    },
+                  ),
+                  _buildSliderItem(
+                    title: '发送气泡透明度',
+                    subtitle: '调整自己消息气泡的透明度',
+                    value: _userBubbleOpacity,
+                    min: 0.0,
+                    max: 1.0,
+                    onChanged: (value) {
+                      setState(() => _userBubbleOpacity = value);
+                    },
+                  ),
+                  _buildColorPickerItem(
+                    title: '发送文字颜色',
+                    subtitle: '设置自己消息文字的颜色',
+                    color: _userTextColor,
+                    onTap: () {
+                      _showColorPicker(_userTextColor, (color) {
+                        setState(() => _userTextColor = color);
+                      });
+                    },
+                  ),
+                  Divider(height: 1),
+                  _buildSliderItem(
+                    title: '字体大小',
+                    subtitle: '调整聊天消息的字体大小',
+                    value: _fontSize,
+                    min: 8.0,
+                    max: 24.0,
+                    onChanged: (value) {
+                      setState(() => _fontSize = value);
+                    },
+                    valueDisplay: '${_fontSize.toStringAsFixed(1)}px',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -403,7 +341,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
               Text(
                 title,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.w500,
                 ),
@@ -411,30 +349,14 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
             ],
           ),
         ),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16.r),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    color.withOpacity(0.15),
-                    color.withOpacity(0.05),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16.r),
-                border: Border.all(
-                  color: color.withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: Column(
-                children: children,
-              ),
-            ),
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.cardBackground,
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border(left: BorderSide(color: color, width: 4)),
+          ),
+          child: Column(
+            children: children,
           ),
         ),
       ],
@@ -466,7 +388,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
               Text(
                 title,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                   fontSize: 15.sp,
                   fontWeight: FontWeight.w500,
                 ),
@@ -474,7 +396,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
               Text(
                 valueDisplay ?? '${(value * 100).toStringAsFixed(0)}%',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
+                  color: AppTheme.textSecondary,
                   fontSize: 14.sp,
                 ),
               ),
@@ -490,7 +412,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
           child: Text(
             subtitle,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: AppTheme.textSecondary,
               fontSize: 12.sp,
             ),
           ),
@@ -514,7 +436,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
             label: valueDisplay ?? '${(value * 100).toStringAsFixed(0)}%',
             onChanged: onChanged,
             activeColor: AppTheme.primaryColor,
-            inactiveColor: Colors.white24,
+            inactiveColor: AppTheme.textSecondary.withOpacity(0.3),
           ),
         ),
         SizedBox(height: 8.h),
@@ -532,8 +454,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        splashColor: Colors.white.withOpacity(0.1),
-        highlightColor: Colors.white.withOpacity(0.05),
         child: Padding(
           padding: EdgeInsets.all(16.w),
           child: Row(
@@ -545,7 +465,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                     Text(
                       title,
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textPrimary,
                         fontSize: 15.sp,
                         fontWeight: FontWeight.w500,
                       ),
@@ -554,7 +474,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                     Text(
                       subtitle,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: AppTheme.textSecondary,
                         fontSize: 12.sp,
                       ),
                     ),
@@ -568,16 +488,9 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                   color: color,
                   borderRadius: BorderRadius.circular(16.r),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.5),
-                    width: 2,
+                    color: AppTheme.textSecondary.withOpacity(0.3),
+                    width: 1,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
                 ),
               ),
             ],

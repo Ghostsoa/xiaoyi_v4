@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'dart:ui';
+import '../../../../theme/app_theme.dart';
 
 class InteractionCard extends StatelessWidget {
   final Map<String, dynamic> sessionData;
@@ -24,39 +24,33 @@ class InteractionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color pageColor = Colors.orange.shade400; // 使用分页的橙色
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 移除标题部分
         _buildEditableInfoItem(
           '开场白',
           'greeting',
           greetingController,
-          suffix: '可编辑',
           isMultiLine: true,
-          accentColor: Colors.teal,
+          accentColor: AppTheme.primaryColor,
         ),
         _buildEditableInfoItem(
           '前缀',
           'prefix',
           prefixController,
-          suffix: '可编辑',
-          accentColor: Colors.indigo,
+          accentColor: AppTheme.primaryLight,
         ),
         _buildEditableInfoItem(
           '后缀',
           'suffix',
           suffixController,
-          suffix: '可编辑',
-          accentColor: Colors.purple,
+          accentColor: AppTheme.accentPink,
         ),
         _buildUiSettingsItem(),
         _buildInfoItem(
           '设定可编辑',
           sessionData['setting_editable'] == true ? '是' : '否',
-          accentColor: Colors.amber,
+          accentColor: AppTheme.primaryColor.withBlue(180),
         ),
       ],
     );
@@ -66,172 +60,97 @@ class InteractionCard extends StatelessWidget {
     String label,
     String field,
     TextEditingController controller, {
-    String? suffix,
     bool isMultiLine = false,
     required Color accentColor,
   }) {
     return Container(
-      width: double.infinity,
       margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            spreadRadius: 0,
+        color: AppTheme.cardBackground.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border(left: BorderSide(color: accentColor, width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(6.w),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(6.r),
+                ),
+                child: Icon(
+                  _getIconForField(field),
+                  color: accentColor,
+                  size: 16.sp,
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Text(
+                label,
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              SizedBox(width: 4.w),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 6.w,
+                  vertical: 2.h,
+                ),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+                child: Text(
+                  '可编辑',
+                  style: TextStyle(
+                    color: accentColor,
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 10.h),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            decoration: BoxDecoration(
+              color: AppTheme.background.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(color: accentColor.withOpacity(0.3), width: 1),
+            ),
+            child: TextFormField(
+              controller: controller,
+              style: TextStyle(
+                fontSize: 15.sp,
+                color: AppTheme.textPrimary,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                fillColor: Colors.transparent,
+                hintText: _getHintForField(field),
+                hintStyle: TextStyle(
+                  fontSize: 14.sp,
+                  color: AppTheme.textHint,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+              onChanged: (value) => onUpdateField(field, value),
+              maxLines: isMultiLine ? null : 1,
+            ),
           ),
         ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12.r),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  accentColor.withOpacity(0.2),
-                  Colors.black.withOpacity(0.2),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12.r),
-              border: Border.all(
-                color: accentColor.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 8.h),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(6.w),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              accentColor.withOpacity(0.8),
-                              accentColor.withOpacity(0.5),
-                            ],
-                          ),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: accentColor.withOpacity(0.3),
-                              blurRadius: 4,
-                              spreadRadius: 0,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          _getIconForField(field),
-                          color: Colors.white,
-                          size: 16.sp,
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w500,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.5),
-                              blurRadius: 2,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (suffix != null) ...[
-                        SizedBox(width: 4.w),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 6.w,
-                            vertical: 2.h,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                accentColor.withOpacity(0.8),
-                                accentColor.withOpacity(0.5),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(4.r),
-                          ),
-                          child: Text(
-                            suffix,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10.sp,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 12.h),
-                  child: Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8.r),
-                      border: Border.all(
-                        color: accentColor.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: TextFormField(
-                      controller: controller,
-                      style: TextStyle(
-                        fontSize: 15.sp,
-                        color: Colors.white,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withOpacity(0.5),
-                            blurRadius: 1,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        fillColor: Colors.transparent,
-                        hintText: _getHintForField(field),
-                        hintStyle: TextStyle(
-                          fontSize: 14.sp,
-                          color: Colors.white.withOpacity(0.5),
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                      onChanged: (value) => onUpdateField(field, value),
-                      maxLines: isMultiLine ? null : 1,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -265,110 +184,54 @@ class InteractionCard extends StatelessWidget {
   Widget _buildInfoItem(String label, String value,
       {required Color accentColor}) {
     return Container(
-      width: double.infinity,
       margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            spreadRadius: 0,
-          ),
-        ],
+        color: AppTheme.cardBackground.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border(left: BorderSide(color: accentColor, width: 3)),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12.r),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: Container(
-            padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(6.w),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  accentColor.withOpacity(0.2),
-                  Colors.black.withOpacity(0.2),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12.r),
-              border: Border.all(
-                color: accentColor.withOpacity(0.3),
-                width: 1,
-              ),
+              color: accentColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(6.r),
             ),
-            child: Row(
+            child: Icon(
+              _getIconForInfoItem(label),
+              color: accentColor,
+              size: 16.sp,
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: EdgeInsets.all(6.w),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        accentColor.withOpacity(0.8),
-                        accentColor.withOpacity(0.5),
-                      ],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: accentColor.withOpacity(0.3),
-                        blurRadius: 4,
-                        spreadRadius: 0,
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    _getIconForInfoItem(label),
-                    color: Colors.white,
-                    size: 16.sp,
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          color: accentColor.withOpacity(0.9),
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w500,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.5),
-                              blurRadius: 2,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 4.h),
-                      Text(
-                        value,
-                        style: TextStyle(
-                          fontSize: 16.sp,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.5),
-                              blurRadius: 2,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                SizedBox(height: 4.h),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -387,188 +250,113 @@ class InteractionCard extends StatelessWidget {
   }
 
   Widget _buildUiSettingsItem() {
-    final accentColor = Colors.cyan;
+    final accentColor = AppTheme.primaryColor;
 
     return Container(
-      width: double.infinity,
       margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            spreadRadius: 0,
-          ),
-        ],
+        color: AppTheme.cardBackground.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border(left: BorderSide(color: accentColor, width: 3)),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12.r),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: Container(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(6.w),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(6.r),
+                ),
+                child: Icon(
+                  Icons.format_paint,
+                  color: accentColor,
+                  size: 16.sp,
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Text(
+                'UI格式化类型',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              SizedBox(width: 4.w),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 6.w,
+                  vertical: 2.h,
+                ),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+                child: Text(
+                  '可编辑',
+                  style: TextStyle(
+                    color: accentColor,
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 10.h),
+          Container(
+            padding: EdgeInsets.all(12.w),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  accentColor.withOpacity(0.2),
-                  Colors.black.withOpacity(0.2),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12.r),
-              border: Border.all(
-                color: accentColor.withOpacity(0.3),
-                width: 1,
-              ),
+              color: AppTheme.background.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(8.r),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 8.h),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(6.w),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              accentColor.withOpacity(0.8),
-                              accentColor.withOpacity(0.5),
-                            ],
-                          ),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: accentColor.withOpacity(0.3),
-                              blurRadius: 4,
-                              spreadRadius: 0,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.format_paint,
-                          color: Colors.white,
-                          size: 16.sp,
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Text(
-                        'UI格式化类型',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w500,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.5),
-                              blurRadius: 2,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 4.w),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 6.w,
-                          vertical: 2.h,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              accentColor.withOpacity(0.8),
-                              accentColor.withOpacity(0.5),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(4.r),
-                        ),
-                        child: Text(
-                          '可编辑',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10.sp,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                _buildUiSettingOption(
+                    'markdown', 'Markdown模式', AppTheme.success),
+                SizedBox(height: 8.h),
+                _buildUiSettingOption('disabled', '不启用状态栏', AppTheme.error),
+                SizedBox(height: 8.h),
+                _buildUiSettingOption(
+                    'legacy_bar', '新版UI样式', AppTheme.primaryLight),
+              ],
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            decoration: BoxDecoration(
+              color: AppTheme.background.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(6.r),
+              border: Border.all(color: accentColor.withOpacity(0.2), width: 1),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 14.sp,
+                  color: accentColor,
                 ),
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 12.h),
-                  child: Container(
-                    padding: EdgeInsets.all(16.w),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildUiSettingOption(
-                            'markdown', 'Markdown模式', Colors.green),
-                        SizedBox(height: 12.h),
-                        _buildUiSettingOption('disabled', '不启用状态栏', Colors.red),
-                        SizedBox(height: 12.h),
-                        _buildUiSettingOption(
-                            'legacy_bar', '新版UI样式', Colors.blue),
-                      ],
-                    ),
-                  ),
-                ),
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
-                  child: Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8.r),
-                      border: Border.all(
-                        color: accentColor.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: 14.sp,
-                          color: accentColor.withOpacity(0.9),
-                        ),
-                        SizedBox(width: 8.w),
-                        Expanded(
-                          child: Text(
-                            _getUiSettingsDescription(),
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontSize: 12.sp,
-                              fontStyle: FontStyle.italic,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black.withOpacity(0.5),
-                                  blurRadius: 1,
-                                  offset: Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Text(
+                    _getUiSettingsDescription(),
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12.sp,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
                 ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -580,57 +368,30 @@ class InteractionCard extends StatelessWidget {
       onTap: () => onUiSettingsChanged(value),
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
         decoration: BoxDecoration(
-          gradient: isSelected
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    optionColor.withOpacity(0.6),
-                    optionColor.withOpacity(0.3),
-                  ],
-                )
-              : null,
-          color: isSelected ? null : Colors.black.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(8.r),
+          color:
+              isSelected ? optionColor.withOpacity(0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6.r),
           border: Border.all(
-            color: isSelected
-                ? optionColor.withOpacity(0.8)
-                : optionColor.withOpacity(0.3),
+            color: isSelected ? optionColor : Colors.transparent,
             width: 1,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: optionColor.withOpacity(0.3),
-                    blurRadius: 4,
-                    spreadRadius: 0,
-                  ),
-                ]
-              : null,
         ),
         child: Row(
           children: [
             Icon(
               _getIconForOption(value),
-              color: isSelected ? Colors.white : optionColor.withOpacity(0.8),
+              color: optionColor,
               size: 18.sp,
             ),
             SizedBox(width: 12.w),
             Text(
               label,
               style: TextStyle(
-                color: Colors.white,
+                color: AppTheme.textPrimary,
                 fontSize: 15.sp,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                shadows: [
-                  Shadow(
-                    color: Colors.black.withOpacity(0.5),
-                    blurRadius: isSelected ? 2 : 1,
-                    offset: Offset(0, 1),
-                  ),
-                ],
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
             const Spacer(),
@@ -638,12 +399,12 @@ class InteractionCard extends StatelessWidget {
               Container(
                 padding: EdgeInsets.all(2.w),
                 decoration: BoxDecoration(
-                  color: optionColor.withOpacity(0.8),
+                  color: optionColor.withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.check,
-                  color: Colors.white,
+                  color: optionColor,
                   size: 14.sp,
                 ),
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:ui';
+import '../../../../theme/app_theme.dart';
 
 class BaseCard extends StatelessWidget {
   final String title;
@@ -22,8 +23,8 @@ class BaseCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 10,
             spreadRadius: 0,
           ),
         ],
@@ -35,10 +36,17 @@ class BaseCard extends StatelessWidget {
           child: Container(
             padding: EdgeInsets.all(20.w),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppTheme.cardBackground.withOpacity(0.15),
+                  AppTheme.cardBackground.withOpacity(0.05),
+                ],
+              ),
               borderRadius: BorderRadius.circular(16.r),
               border: Border.all(
-                color: Colors.white.withOpacity(0.2),
+                color: AppTheme.primaryLight.withOpacity(0.2),
                 width: 1,
               ),
             ),
@@ -51,7 +59,11 @@ class BaseCard extends StatelessWidget {
                       width: 4.w,
                       height: 20.h,
                       decoration: BoxDecoration(
-                        color: titleColor,
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: AppTheme.primaryGradient,
+                        ),
                         borderRadius: BorderRadius.circular(2.r),
                       ),
                     ),
@@ -61,13 +73,20 @@ class BaseCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 18.sp,
                         fontWeight: FontWeight.bold,
-                        color: titleColor,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 2,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
                 Divider(
-                  color: Colors.white.withOpacity(0.2),
+                  color: AppTheme.primaryLight.withOpacity(0.2),
                   height: 32.h,
                   thickness: 1,
                 ),

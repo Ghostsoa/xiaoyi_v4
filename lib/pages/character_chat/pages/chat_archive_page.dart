@@ -59,8 +59,8 @@ class _ChatArchivePageState extends State<ChatArchivePage>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Shimmer.fromColors(
-            baseColor: Colors.white.withOpacity(0.7),
-            highlightColor: Colors.white,
+            baseColor: AppTheme.textSecondary.withOpacity(0.7),
+            highlightColor: AppTheme.textPrimary,
             child: Text(
               '正在加载存档...',
               style: TextStyle(
@@ -266,7 +266,15 @@ class _ChatArchivePageState extends State<ChatArchivePage>
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text(isSnapshot ? '创建存档快照' : '创建对话存档'),
+          backgroundColor: AppTheme.cardBackground,
+          title: Text(
+            isSnapshot ? '创建存档快照' : '创建对话存档',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,7 +290,12 @@ class _ChatArchivePageState extends State<ChatArchivePage>
                         decoration: BoxDecoration(
                           color: !isSnapshot
                               ? AppTheme.primaryColor
-                              : Colors.grey[200],
+                              : AppTheme.cardBackground,
+                          border: Border.all(
+                            color: !isSnapshot
+                                ? AppTheme.primaryColor
+                                : AppTheme.textSecondary.withOpacity(0.3),
+                          ),
                           borderRadius: BorderRadius.circular(8.r),
                         ),
                         child: Center(
@@ -290,8 +303,9 @@ class _ChatArchivePageState extends State<ChatArchivePage>
                             '新建存档',
                             style: TextStyle(
                               fontSize: 14.sp,
-                              color:
-                                  !isSnapshot ? Colors.white : Colors.black87,
+                              color: !isSnapshot
+                                  ? Colors.white
+                                  : AppTheme.textPrimary,
                               fontWeight: !isSnapshot
                                   ? FontWeight.bold
                                   : FontWeight.normal,
@@ -310,7 +324,12 @@ class _ChatArchivePageState extends State<ChatArchivePage>
                         decoration: BoxDecoration(
                           color: isSnapshot
                               ? AppTheme.primaryColor
-                              : Colors.grey[200],
+                              : AppTheme.cardBackground,
+                          border: Border.all(
+                            color: isSnapshot
+                                ? AppTheme.primaryColor
+                                : AppTheme.textSecondary.withOpacity(0.3),
+                          ),
                           borderRadius: BorderRadius.circular(8.r),
                         ),
                         child: Center(
@@ -318,7 +337,9 @@ class _ChatArchivePageState extends State<ChatArchivePage>
                             '创建快照',
                             style: TextStyle(
                               fontSize: 14.sp,
-                              color: isSnapshot ? Colors.white : Colors.black87,
+                              color: isSnapshot
+                                  ? Colors.white
+                                  : AppTheme.textPrimary,
                               fontWeight: isSnapshot
                                   ? FontWeight.bold
                                   : FontWeight.normal,
@@ -338,7 +359,7 @@ class _ChatArchivePageState extends State<ChatArchivePage>
                   isSnapshot ? '快照会保存当前对话状态，可以随时回到这一时刻。' : '新建存档会创建一个全新的对话记录。',
                   style: TextStyle(
                     fontSize: 12.sp,
-                    color: Colors.grey[600],
+                    color: AppTheme.textSecondary,
                   ),
                 ),
               ),
@@ -350,6 +371,11 @@ class _ChatArchivePageState extends State<ChatArchivePage>
                 decoration: InputDecoration(
                   labelText: '存档名称',
                   hintText: '输入存档名称',
+                  labelStyle: TextStyle(color: AppTheme.textSecondary),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppTheme.primaryColor),
+                  ),
+                  border: OutlineInputBorder(),
                 ),
               ),
             ],
@@ -357,7 +383,10 @@ class _ChatArchivePageState extends State<ChatArchivePage>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('取消'),
+              child: Text(
+                '取消',
+                style: TextStyle(color: AppTheme.textSecondary),
+              ),
             ),
             TextButton(
               onPressed: () {
@@ -375,7 +404,10 @@ class _ChatArchivePageState extends State<ChatArchivePage>
 
                 Navigator.pop(context);
               },
-              child: Text('创建'),
+              child: Text(
+                '创建',
+                style: TextStyle(color: AppTheme.primaryColor),
+              ),
             ),
           ],
         ),
@@ -389,7 +421,15 @@ class _ChatArchivePageState extends State<ChatArchivePage>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('重命名存档'),
+        backgroundColor: AppTheme.cardBackground,
+        title: Text(
+          '重命名存档',
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -398,6 +438,11 @@ class _ChatArchivePageState extends State<ChatArchivePage>
               decoration: InputDecoration(
                 labelText: '存档名称',
                 hintText: '输入新的存档名称',
+                labelStyle: TextStyle(color: AppTheme.textSecondary),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: AppTheme.primaryColor),
+                ),
+                border: OutlineInputBorder(),
               ),
             ),
           ],
@@ -405,7 +450,10 @@ class _ChatArchivePageState extends State<ChatArchivePage>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('取消'),
+            child: Text(
+              '取消',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -417,7 +465,10 @@ class _ChatArchivePageState extends State<ChatArchivePage>
               _renameSaveSlot(saveSlotId, nameController.text.trim());
               Navigator.pop(context);
             },
-            child: Text('确定'),
+            child: Text(
+              '确定',
+              style: TextStyle(color: AppTheme.primaryColor),
+            ),
           ),
         ],
       ),
@@ -428,19 +479,36 @@ class _ChatArchivePageState extends State<ChatArchivePage>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('删除存档'),
-        content: Text('确定要删除存档"$saveName"吗？此操作不可恢复。'),
+        backgroundColor: AppTheme.cardBackground,
+        title: Text(
+          '删除存档',
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        content: Text(
+          '确定要删除存档"$saveName"吗？此操作不可恢复。',
+          style: TextStyle(color: AppTheme.textPrimary),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('取消'),
+            child: Text(
+              '取消',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () {
               _deleteSaveSlot(saveSlotId);
               Navigator.pop(context);
             },
-            child: Text('删除', style: TextStyle(color: Colors.red)),
+            child: Text(
+              '删除',
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -469,7 +537,15 @@ class _ChatArchivePageState extends State<ChatArchivePage>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('存档系统说明'),
+        backgroundColor: AppTheme.cardBackground,
+        title: Text(
+          '存档系统说明',
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -520,7 +596,10 @@ class _ChatArchivePageState extends State<ChatArchivePage>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('了解了'),
+            child: Text(
+              '了解了',
+              style: TextStyle(color: AppTheme.primaryColor),
+            ),
           ),
         ],
       ),
@@ -536,6 +615,7 @@ class _ChatArchivePageState extends State<ChatArchivePage>
           style: TextStyle(
             fontSize: 16.sp,
             fontWeight: FontWeight.bold,
+            color: AppTheme.textPrimary,
           ),
         ),
         SizedBox(height: 4.h),
@@ -543,7 +623,7 @@ class _ChatArchivePageState extends State<ChatArchivePage>
           description,
           style: TextStyle(
             fontSize: 14.sp,
-            color: Colors.grey[700],
+            color: AppTheme.textSecondary,
           ),
         ),
       ],
@@ -565,6 +645,7 @@ class _ChatArchivePageState extends State<ChatArchivePage>
                 style: TextStyle(
                   fontSize: 14.sp,
                   fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
                 ),
               ),
               SizedBox(height: 2.h),
@@ -572,7 +653,7 @@ class _ChatArchivePageState extends State<ChatArchivePage>
                 description,
                 style: TextStyle(
                   fontSize: 13.sp,
-                  color: Colors.grey[600],
+                  color: AppTheme.textSecondary,
                 ),
               ),
             ],
@@ -590,536 +671,348 @@ class _ChatArchivePageState extends State<ChatArchivePage>
         return false;
       },
       child: Scaffold(
-        extendBodyBehindAppBar: true,
-        backgroundColor: Colors.transparent,
-        body: Stack(
-          children: [
-            // Background
-            if (widget.backgroundImage != null)
-              Positioned.fill(
-                child: Image.memory(
-                  widget.backgroundImage!,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            // Darken overlay
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withOpacity(widget.backgroundOpacity),
-              ),
+        backgroundColor: AppTheme.background,
+        appBar: AppBar(
+          backgroundColor: AppTheme.background,
+          elevation: 0,
+          title: Text(
+            '对话存档',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w500,
             ),
-
-            // Main content
-            SafeArea(
-              child: Column(
-                children: [
-                  // Custom header with centered title
-                  Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                    child: Stack(
-                      alignment: Alignment.center,
+          ),
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new,
+              color: AppTheme.textPrimary,
+              size: 20.sp,
+            ),
+            onPressed: () => Navigator.of(context).pop(_archiveActivated),
+          ),
+          actions: [
+            // 帮助按钮
+            IconButton(
+              icon: Icon(Icons.help_outline, color: AppTheme.textPrimary),
+              onPressed: () => _showHelpDialog(),
+              tooltip: '存档帮助',
+            ),
+            // 刷新按钮
+            IconButton(
+              icon: RotationTransition(
+                turns: _refreshAnimationController,
+                child: Icon(Icons.refresh, color: AppTheme.textPrimary),
+              ),
+              onPressed: _refreshSaveSlots,
+              tooltip: '刷新存档列表',
+            ),
+          ],
+        ),
+        body: _isLoading
+            ? _buildLoadingIndicator()
+            : _saveSlots.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Back button (left aligned)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () =>
-                                  Navigator.of(context).pop(_archiveActivated),
-                              borderRadius: BorderRadius.circular(8.r),
-                              child: Container(
-                                padding: EdgeInsets.all(8.w),
-                                child: Icon(
-                                  Icons.arrow_back_ios_new,
-                                  color: Colors.white,
-                                  size: 20.sp,
-                                ),
-                              ),
-                            ),
-                          ),
+                        Icon(
+                          Icons.archive_outlined,
+                          size: 64.sp,
+                          color: AppTheme.textSecondary,
                         ),
-
-                        // Title (centered)
+                        SizedBox(height: 16.h),
                         Text(
-                          '对话存档',
+                          '暂无存档',
                           style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 16.sp,
+                            color: AppTheme.textPrimary,
                           ),
                         ),
-
-                        // Action buttons (right aligned)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Help button
-                              IconButton(
-                                icon: Icon(Icons.help_outline,
-                                    color: Colors.white),
-                                onPressed: () => _showHelpDialog(),
-                                tooltip: '存档帮助',
-                              ),
-                              // Refresh button
-                              IconButton(
-                                icon: RotationTransition(
-                                  turns: _refreshAnimationController,
-                                  child:
-                                      Icon(Icons.refresh, color: Colors.white),
-                                ),
-                                onPressed: _refreshSaveSlots,
-                                tooltip: '刷新存档列表',
-                              ),
-                            ],
+                        SizedBox(height: 24.h),
+                        ElevatedButton(
+                          onPressed: _showCreateSaveSlotDialog,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
                           ),
+                          child: Text('创建存档'),
                         ),
                       ],
                     ),
-                  ),
+                  )
+                : ListView.builder(
+                    itemCount: _saveSlots.length,
+                    padding: EdgeInsets.all(16.w),
+                    physics: AlwaysScrollableScrollPhysics(),
+                    itemBuilder: (context, index) {
+                      final saveSlot = _saveSlots[index];
+                      final bool isActive = saveSlot['active'] ?? false;
+                      final bool isSnapshot = saveSlot['isSnapshot'] ?? false;
 
-                  // Content area
-                  Expanded(
-                    child: _isLoading
-                        ? _buildLoadingIndicator() // 使用新的加载指示器
-                        : _saveSlots.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: 12.h),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.cardBackground,
+                            borderRadius: BorderRadius.circular(12.r),
+                            border: Border(
+                              left: BorderSide(
+                                color: isActive
+                                    ? AppTheme.primaryColor
+                                    : Colors.transparent,
+                                width: 4,
+                              ),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.all(16.w),
+                                child: Row(
                                   children: [
-                                    Icon(
-                                      Icons.archive_outlined,
-                                      size: 64.sp,
-                                      color: Colors.white,
-                                    ),
-                                    SizedBox(height: 16.h),
-                                    Text(
-                                      '暂无存档',
-                                      style: TextStyle(
-                                        fontSize: 16.sp,
-                                        color: Colors.white,
+                                    // 存档类型图标
+                                    Container(
+                                      padding: EdgeInsets.all(6.w),
+                                      decoration: BoxDecoration(
+                                        color: (isSnapshot
+                                                ? Colors.amber
+                                                : AppTheme.primaryColor)
+                                            .withOpacity(0.2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        isSnapshot
+                                            ? Icons.photo_camera
+                                            : Icons.save,
+                                        size: 16.sp,
+                                        color: isSnapshot
+                                            ? Colors.amber
+                                            : AppTheme.primaryColor,
                                       ),
                                     ),
-                                    SizedBox(height: 24.h),
-                                    ElevatedButton(
-                                      onPressed: _showCreateSaveSlotDialog,
-                                      child: Text('创建存档'),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : ListView.builder(
-                                itemCount: _saveSlots.length,
-                                padding: EdgeInsets.all(16.w),
-                                physics: AlwaysScrollableScrollPhysics(),
-                                itemBuilder: (context, index) {
-                                  final saveSlot = _saveSlots[index];
-                                  final bool isActive =
-                                      saveSlot['active'] ?? false;
-                                  final bool isSnapshot =
-                                      saveSlot['isSnapshot'] ?? false;
+                                    SizedBox(width: 12.w),
 
-                                  return Padding(
-                                    padding: EdgeInsets.only(bottom: 12.h),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12.r),
-                                      child: Stack(
+                                    // 存档名称和标签
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          // 毛玻璃背景
-                                          Positioned.fill(
-                                            child: BackdropFilter(
-                                              filter: ImageFilter.blur(
-                                                  sigmaX: 10.0, sigmaY: 10.0),
-                                              child: Container(
-                                                  color: Colors.transparent),
-                                            ),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  saveSlot['saveName'] ??
+                                                      '未命名存档',
+                                                  style: TextStyle(
+                                                    fontSize: 16.sp,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: AppTheme.textPrimary,
+                                                  ),
+                                                ),
+                                              ),
+                                              // 移除"当前"标记
+                                            ],
                                           ),
-
-                                          // 卡片内容
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: isActive
-                                                  ? AppTheme.primaryColor
-                                                      .withOpacity(0.2)
-                                                  : Colors.white
-                                                      .withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(12.r),
-                                              boxShadow: isActive
-                                                  ? [
-                                                      BoxShadow(
-                                                        color: AppTheme
-                                                            .primaryColor
-                                                            .withOpacity(0.3),
-                                                        blurRadius: 8,
-                                                        spreadRadius: 1,
-                                                      ),
-                                                    ]
-                                                  : [],
-                                            ),
-                                            padding: EdgeInsets.all(16.w),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    // 档案状态标签
-                                                    if (isActive)
-                                                      Container(
-                                                        padding: EdgeInsets
-                                                            .symmetric(
-                                                          horizontal: 10.w,
-                                                          vertical: 3.h,
-                                                        ),
-                                                        margin: EdgeInsets.only(
-                                                            right: 8.w),
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: AppTheme
-                                                              .primaryColor,
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      12.r),
-                                                          boxShadow: [
-                                                            BoxShadow(
-                                                              color: AppTheme
-                                                                  .primaryColor
-                                                                  .withOpacity(
-                                                                      0.4),
-                                                              blurRadius: 4,
-                                                              spreadRadius: 0,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        child: Text(
-                                                          '当前',
-                                                          style: TextStyle(
-                                                            color: Colors.white,
-                                                            fontSize: 12.sp,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ),
-
-                                                    // 存档类型图标
-                                                    Container(
-                                                      padding:
-                                                          EdgeInsets.all(6.w),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.white
-                                                            .withOpacity(0.15),
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                      child: Icon(
-                                                        isSnapshot
-                                                            ? Icons.photo_camera
-                                                            : Icons.save,
-                                                        size: 14.sp,
-                                                        color: Colors.white
-                                                            .withOpacity(0.9),
-                                                      ),
-                                                    ),
-
-                                                    SizedBox(width: 8.w),
-
-                                                    // 存档名称
-                                                    Expanded(
-                                                      child: Text(
-                                                        saveSlot['saveName'] ??
-                                                            '未命名存档',
-                                                        style: TextStyle(
-                                                          fontSize: 16.sp,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: Colors.white,
-                                                        ),
-                                                      ),
-                                                    ),
-
-                                                    // 操作菜单
-                                                    PopupMenuButton(
-                                                      icon: Icon(
-                                                          Icons.more_horiz,
-                                                          color: Colors.white),
-                                                      itemBuilder: (context) =>
-                                                          [
-                                                        if (!isActive)
-                                                          PopupMenuItem(
-                                                            value: 'activate',
-                                                            child: Row(
-                                                              children: [
-                                                                Icon(
-                                                                    Icons.check,
-                                                                    size:
-                                                                        18.sp),
-                                                                SizedBox(
-                                                                    width: 8.w),
-                                                                Text('激活'),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                        PopupMenuItem(
-                                                          value: 'rename',
-                                                          child: Row(
-                                                            children: [
-                                                              Icon(Icons.edit,
-                                                                  size: 18.sp),
-                                                              SizedBox(
-                                                                  width: 8.w),
-                                                              Text('重命名'),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                        if (!isActive)
-                                                          PopupMenuItem(
-                                                            value: 'delete',
-                                                            child: Row(
-                                                              children: [
-                                                                Icon(
-                                                                    Icons
-                                                                        .delete,
-                                                                    size: 18.sp,
-                                                                    color: Colors
-                                                                        .red),
-                                                                SizedBox(
-                                                                    width: 8.w),
-                                                                Text('删除',
-                                                                    style: TextStyle(
-                                                                        color: Colors
-                                                                            .red)),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                      ],
-                                                      onSelected: (value) {
-                                                        switch (value) {
-                                                          case 'activate':
-                                                            _activateSaveSlot(
-                                                                saveSlot['id']);
-                                                            break;
-                                                          case 'rename':
-                                                            _showRenameSaveSlotDialog(
-                                                              saveSlot['id'],
-                                                              saveSlot[
-                                                                      'saveName'] ??
-                                                                  '',
-                                                            );
-                                                            break;
-                                                          case 'delete':
-                                                            _showDeleteConfirmDialog(
-                                                              saveSlot['id'],
-                                                              saveSlot[
-                                                                      'saveName'] ??
-                                                                  '未命名存档',
-                                                            );
-                                                            break;
-                                                        }
-                                                      },
-                                                    ),
-                                                  ],
-                                                ),
-
-                                                SizedBox(height: 12.h),
-
-                                                // 信息栏 - 带有半透明背景的精致卡片
-                                                Container(
-                                                  padding: EdgeInsets.symmetric(
-                                                      vertical: 8.h,
-                                                      horizontal: 12.w),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.black
-                                                        .withOpacity(0.2),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8.r),
-                                                  ),
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      // 消息和Token统计
-                                                      Row(
-                                                        mainAxisAlignment:
-                                                            MainAxisAlignment
-                                                                .spaceBetween,
-                                                        children: [
-                                                          Row(
-                                                            children: [
-                                                              Icon(
-                                                                Icons
-                                                                    .chat_bubble_outline,
-                                                                size: 14.sp,
-                                                                color: Colors
-                                                                    .white
-                                                                    .withOpacity(
-                                                                        0.8),
-                                                              ),
-                                                              SizedBox(
-                                                                  width: 4.w),
-                                                              Text(
-                                                                '${saveSlot['totalCount'] ?? 0} 条消息',
-                                                                style:
-                                                                    TextStyle(
-                                                                  fontSize:
-                                                                      13.sp,
-                                                                  color: Colors
-                                                                      .white
-                                                                      .withOpacity(
-                                                                          0.8),
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                          Row(
-                                                            children: [
-                                                              Icon(
-                                                                Icons.token,
-                                                                size: 14.sp,
-                                                                color: Colors
-                                                                    .white
-                                                                    .withOpacity(
-                                                                        0.8),
-                                                              ),
-                                                              SizedBox(
-                                                                  width: 4.w),
-                                                              Text(
-                                                                '${saveSlot['totalTokens'] ?? 0} tokens',
-                                                                style:
-                                                                    TextStyle(
-                                                                  fontSize:
-                                                                      13.sp,
-                                                                  color: Colors
-                                                                      .white
-                                                                      .withOpacity(
-                                                                          0.8),
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ],
-                                                      ),
-
-                                                      SizedBox(height: 8.h),
-                                                      Divider(
-                                                          height: 1,
-                                                          color: Colors.white
-                                                              .withOpacity(
-                                                                  0.1)),
-                                                      SizedBox(height: 8.h),
-
-                                                      // 创建和更新时间
-                                                      Row(
-                                                        children: [
-                                                          Icon(
-                                                              Icons.access_time,
-                                                              size: 14.sp,
-                                                              color: Colors
-                                                                  .white
-                                                                  .withOpacity(
-                                                                      0.6)),
-                                                          SizedBox(width: 4.w),
-                                                          Text(
-                                                            '创建: ',
-                                                            style: TextStyle(
-                                                              fontSize: 12.sp,
-                                                              color: Colors
-                                                                  .white
-                                                                  .withOpacity(
-                                                                      0.6),
-                                                            ),
-                                                          ),
-                                                          Text(
-                                                            _formatDateTime(
-                                                                saveSlot[
-                                                                        'createdAt'] ??
-                                                                    ''),
-                                                            style: TextStyle(
-                                                              fontSize: 12.sp,
-                                                              color: Colors
-                                                                  .white
-                                                                  .withOpacity(
-                                                                      0.7),
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      SizedBox(height: 4.h),
-                                                      Row(
-                                                        children: [
-                                                          Icon(Icons.update,
-                                                              size: 14.sp,
-                                                              color: Colors
-                                                                  .white
-                                                                  .withOpacity(
-                                                                      0.6)),
-                                                          SizedBox(width: 4.w),
-                                                          Text(
-                                                            '更新: ',
-                                                            style: TextStyle(
-                                                              fontSize: 12.sp,
-                                                              color: Colors
-                                                                  .white
-                                                                  .withOpacity(
-                                                                      0.6),
-                                                            ),
-                                                          ),
-                                                          Text(
-                                                            _formatDateTime(
-                                                                saveSlot[
-                                                                        'lastUpdated'] ??
-                                                                    ''),
-                                                            style: TextStyle(
-                                                              fontSize: 12.sp,
-                                                              color: Colors
-                                                                  .white
-                                                                  .withOpacity(
-                                                                      0.7),
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
+                                          SizedBox(height: 4.h),
+                                          Text(
+                                            isSnapshot ? '对话快照' : '对话存档',
+                                            style: TextStyle(
+                                              fontSize: 12.sp,
+                                              color: AppTheme.textSecondary,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
-                  ),
-                ],
-              ),
-            ),
 
-            // Floating Action Button
-            Positioned(
-              right: 16.w,
-              bottom: 16.h,
-              child: FloatingActionButton(
-                onPressed: _showCreateSaveSlotDialog,
-                backgroundColor: AppTheme.primaryColor,
-                child: Icon(Icons.add),
-                tooltip: '创建存档/快照',
-              ),
-            ),
-          ],
+                                    // 操作菜单
+                                    PopupMenuButton(
+                                      icon: Icon(Icons.more_horiz,
+                                          color: AppTheme.textSecondary),
+                                      itemBuilder: (context) => [
+                                        if (!isActive)
+                                          PopupMenuItem(
+                                            value: 'activate',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.check, size: 18.sp),
+                                                SizedBox(width: 8.w),
+                                                Text('激活'),
+                                              ],
+                                            ),
+                                          ),
+                                        PopupMenuItem(
+                                          value: 'rename',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.edit, size: 18.sp),
+                                              SizedBox(width: 8.w),
+                                              Text('重命名'),
+                                            ],
+                                          ),
+                                        ),
+                                        if (!isActive)
+                                          PopupMenuItem(
+                                            value: 'delete',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.delete,
+                                                    size: 18.sp,
+                                                    color: Colors.red),
+                                                SizedBox(width: 8.w),
+                                                Text('删除',
+                                                    style: TextStyle(
+                                                        color: Colors.red)),
+                                              ],
+                                            ),
+                                          ),
+                                      ],
+                                      onSelected: (value) {
+                                        switch (value) {
+                                          case 'activate':
+                                            _activateSaveSlot(saveSlot['id']);
+                                            break;
+                                          case 'rename':
+                                            _showRenameSaveSlotDialog(
+                                              saveSlot['id'],
+                                              saveSlot['saveName'] ?? '',
+                                            );
+                                            break;
+                                          case 'delete':
+                                            _showDeleteConfirmDialog(
+                                              saveSlot['id'],
+                                              saveSlot['saveName'] ?? '未命名存档',
+                                            );
+                                            break;
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              Divider(height: 1),
+
+                              // 信息栏
+                              Padding(
+                                padding: EdgeInsets.all(16.w),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // 消息和Token统计
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.chat_bubble_outline,
+                                              size: 14.sp,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                            SizedBox(width: 4.w),
+                                            Text(
+                                              '${saveSlot['totalCount'] ?? 0} 条消息',
+                                              style: TextStyle(
+                                                fontSize: 13.sp,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.token,
+                                              size: 14.sp,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                            SizedBox(width: 4.w),
+                                            Text(
+                                              '${saveSlot['totalTokens'] ?? 0} tokens',
+                                              style: TextStyle(
+                                                fontSize: 13.sp,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+
+                                    SizedBox(height: 8.h),
+
+                                    // 创建和更新时间
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.access_time,
+                                          size: 14.sp,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                        SizedBox(width: 4.w),
+                                        Text(
+                                          '创建: ',
+                                          style: TextStyle(
+                                            fontSize: 12.sp,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                        Text(
+                                          _formatDateTime(
+                                              saveSlot['createdAt'] ?? ''),
+                                          style: TextStyle(
+                                            fontSize: 12.sp,
+                                            color: AppTheme.textPrimary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 4.h),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.update,
+                                          size: 14.sp,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                        SizedBox(width: 4.w),
+                                        Text(
+                                          '更新: ',
+                                          style: TextStyle(
+                                            fontSize: 12.sp,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                        Text(
+                                          _formatDateTime(
+                                              saveSlot['lastUpdated'] ?? ''),
+                                          style: TextStyle(
+                                            fontSize: 12.sp,
+                                            color: AppTheme.textPrimary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: _showCreateSaveSlotDialog,
+          backgroundColor: AppTheme.primaryColor,
+          child: Icon(Icons.add),
+          tooltip: '创建存档/快照',
         ),
       ),
     );

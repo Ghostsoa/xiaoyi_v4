@@ -164,15 +164,14 @@ class _UiSettingsPageState extends State<UiSettingsPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: Colors.black.withOpacity(0.8),
+          backgroundColor: AppTheme.cardBackground,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.r),
-            side: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+            borderRadius: BorderRadius.circular(12.r),
           ),
           title: Text(
             '选择颜色',
             style: TextStyle(
-              color: Colors.white,
+              color: AppTheme.textPrimary,
               fontSize: 18.sp,
               fontWeight: FontWeight.w500,
             ),
@@ -233,7 +232,7 @@ class _UiSettingsPageState extends State<UiSettingsPage> {
               child: Text(
                 '$title $example',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                   fontSize: 14.sp,
                 ),
               ),
@@ -285,9 +284,7 @@ class _UiSettingsPageState extends State<UiSettingsPage> {
             child: Text(
               option.isEnabled ? '$formatSymbol示例文本' : formatSymbol,
               style: TextStyle(
-                color: option.isEnabled
-                    ? option.color
-                    : Colors.white.withOpacity(0.7),
+                color: option.isEnabled ? option.color : AppTheme.textSecondary,
                 fontSize: 14.sp,
                 fontWeight: option.isBold ? FontWeight.bold : FontWeight.normal,
                 fontStyle:
@@ -308,7 +305,7 @@ class _UiSettingsPageState extends State<UiSettingsPage> {
                 Icons.format_bold,
                 color: option.isBold
                     ? AppTheme.primaryColor
-                    : Colors.white.withOpacity(0.7),
+                    : AppTheme.textSecondary,
                 size: 20.sp,
               ),
               padding: EdgeInsets.zero,
@@ -329,7 +326,7 @@ class _UiSettingsPageState extends State<UiSettingsPage> {
                 Icons.format_italic,
                 color: option.isItalic
                     ? AppTheme.primaryColor
-                    : Colors.white.withOpacity(0.7),
+                    : AppTheme.textSecondary,
                 size: 20.sp,
               ),
               padding: EdgeInsets.zero,
@@ -352,16 +349,9 @@ class _UiSettingsPageState extends State<UiSettingsPage> {
                   color: option.color,
                   borderRadius: BorderRadius.circular(14.r),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.3),
+                    color: AppTheme.textSecondary.withOpacity(0.3),
                     width: 2,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
                 ),
               ),
             ),
@@ -376,83 +366,64 @@ class _UiSettingsPageState extends State<UiSettingsPage> {
 
     return Container(
       margin: EdgeInsets.only(top: 16.h),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16.r),
-        child: Stack(
-          children: [
-            // 背景模糊层
-            Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-            // 内容层
-            Container(
-              padding: EdgeInsets.all(16.w),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.purple.withOpacity(0.15),
-                    Colors.purple.withOpacity(0.05),
-                  ],
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBackground.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(8.r),
+        border:
+            Border(left: BorderSide(color: AppTheme.primaryColor, width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(6.w),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(6.r),
                 ),
-                borderRadius: BorderRadius.circular(16.r),
-                border: Border.all(
-                  color: Colors.purple.withOpacity(0.3),
-                  width: 1,
+                child: Icon(
+                  Icons.format_paint,
+                  color: AppTheme.primaryColor,
+                  size: 16.sp,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.format_paint,
-                        color: Colors.purple,
-                        size: 20.sp,
-                      ),
-                      SizedBox(width: 8.w),
-                      Text(
-                        '格式化选项',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 16.h),
-                  _buildFormatOptionItem(
-                    title: '小括号格式化',
-                    key: 'parentheses',
-                    example: '(示例文本)',
-                  ),
-                  _buildFormatOptionItem(
-                    title: '中括号格式化',
-                    key: 'brackets',
-                    example: '[示例文本]',
-                  ),
-                  _buildFormatOptionItem(
-                    title: '引号格式化',
-                    key: 'quotes',
-                    example: '"示例文本"',
-                  ),
-                  _buildFormatOptionItem(
-                    title: '代码块格式化',
-                    key: 'codeBlock',
-                    example: '```示例文本```',
-                    isCodeBlock: true,
-                  ),
-                ],
+              SizedBox(width: 12.w),
+              Text(
+                '格式化选项',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+          SizedBox(height: 16.h),
+          _buildFormatOptionItem(
+            title: '小括号格式化',
+            key: 'parentheses',
+            example: '(示例文本)',
+          ),
+          _buildFormatOptionItem(
+            title: '中括号格式化',
+            key: 'brackets',
+            example: '[示例文本]',
+          ),
+          _buildFormatOptionItem(
+            title: '引号格式化',
+            key: 'quotes',
+            example: '"示例文本"',
+          ),
+          _buildFormatOptionItem(
+            title: '代码块格式化',
+            key: 'codeBlock',
+            example: '```示例文本```',
+            isCodeBlock: true,
+          ),
+        ],
       ),
     );
   }
@@ -468,349 +439,238 @@ class _UiSettingsPageState extends State<UiSettingsPage> {
     final bool isSelected = _selectedMode == mode;
 
     return Container(
-      margin: EdgeInsets.only(bottom: 16.h),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16.r),
-        child: Stack(
-          children: [
-            // 背景模糊层
-            Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
-                child: Container(color: Colors.transparent),
-              ),
+      margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBackground.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border(left: BorderSide(color: color, width: 3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(6.w),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(6.r),
             ),
-            // 内容层
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _saveSettings(mode),
-                splashColor: color.withOpacity(0.1),
-                highlightColor: color.withOpacity(0.05),
-                child: Container(
-                  padding: EdgeInsets.all(16.w),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        isSelected
-                            ? color.withOpacity(0.2)
-                            : Colors.white.withOpacity(0.1),
-                        isSelected
-                            ? color.withOpacity(0.1)
-                            : Colors.white.withOpacity(0.05),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16.r),
-                    border: Border.all(
-                      color: isSelected
-                          ? color.withOpacity(0.5)
-                          : Colors.white.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 48.w,
-                        height: 48.w,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? color.withOpacity(0.8)
-                              : Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(24.r),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: color.withOpacity(0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: Icon(
-                          icon,
-                          color: isSelected
-                              ? Colors.white
-                              : Colors.white.withOpacity(0.7),
-                          size: 24.sp,
-                        ),
-                      ),
-                      SizedBox(width: 16.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            SizedBox(height: 4.h),
-                            Text(
-                              description,
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
-                                fontSize: 12.sp,
-                              ),
-                            ),
-                            if (characterCardValue != null) ...[
-                              SizedBox(height: 4.h),
-                              Text(
-                                '角色卡设置: $characterCardValue',
-                                style: TextStyle(
-                                  color: color,
-                                  fontSize: 11.sp,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      Radio(
-                        value: mode,
-                        groupValue: _selectedMode,
-                        onChanged: (value) => _saveSettings(value as String),
-                        activeColor: color,
-                        fillColor:
-                            MaterialStateProperty.resolveWith<Color>((states) {
-                          if (states.contains(MaterialState.selected)) {
-                            return color;
-                          }
-                          return Colors.white.withOpacity(0.7);
-                        }),
-                      ),
-                    ],
+            child: Icon(
+              icon,
+              color: color,
+              size: 18.sp,
+            ),
+          ),
+          SizedBox(width: 16.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
+                SizedBox(height: 4.h),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12.sp,
+                  ),
+                ),
+                if (characterCardValue != null) ...[
+                  SizedBox(height: 4.h),
+                  Text(
+                    '角色卡设置: $characterCardValue',
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ),
+          ),
+          Radio(
+            value: mode,
+            groupValue: _selectedMode,
+            onChanged: (value) => _saveSettings(value as String),
+            activeColor: color,
+            fillColor: MaterialStateProperty.resolveWith<Color>((states) {
+              if (states.contains(MaterialState.selected)) {
+                return color;
+              }
+              return AppTheme.textSecondary;
+            }),
+          ),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final statusBarHeight = MediaQuery.of(context).padding.top;
     final screenWidth = MediaQuery.of(context).size.width;
     final maxWidth = screenWidth > 600 ? 600.0 : screenWidth;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: true,
-      body: Stack(
-        children: [
-          // 背景层
-          if (widget.backgroundImage != null)
-            Image.memory(
-              widget.backgroundImage!,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-            ),
-          Container(color: Colors.black.withOpacity(widget.backgroundOpacity)),
-
-          // 内容层
-          SafeArea(
-            child: Center(
-              child: Container(
-                width: maxWidth,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 顶部操作区域
-                    Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // 返回按钮
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => Navigator.of(context).pop(),
-                              borderRadius: BorderRadius.circular(8.r),
-                              child: Container(
-                                padding: EdgeInsets.all(8.w),
-                                child: Icon(
-                                  Icons.arrow_back_ios_new,
-                                  color: Colors.white,
-                                  size: 20.sp,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // 页面标题
-                          Text(
-                            '消息渲染设置',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18.sp,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-
-                          // 占位，保持对称
-                          SizedBox(width: 36.w),
-                        ],
-                      ),
-                    ),
-
-                    // 设置列表
-                    Expanded(
-                      child: ListView(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 16.w, vertical: 8.h),
-                        children: [
-                          // 提示信息
-                          Container(
-                            margin: EdgeInsets.only(bottom: 24.h),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12.r),
-                              child: Stack(
-                                children: [
-                                  // 背景模糊层
-                                  Positioned.fill(
-                                    child: BackdropFilter(
-                                      filter: ImageFilter.blur(
-                                          sigmaX: 8.0, sigmaY: 8.0),
-                                      child:
-                                          Container(color: Colors.transparent),
-                                    ),
-                                  ),
-                                  // 内容层
-                                  Container(
-                                    padding: EdgeInsets.all(16.w),
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          Colors.amber.withOpacity(0.15),
-                                          Colors.amber.withOpacity(0.05),
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(12.r),
-                                      border: Border.all(
-                                        color: Colors.amber.withOpacity(0.3),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.info_outline,
-                                          color: Colors.amber,
-                                          size: 20.sp,
-                                        ),
-                                        SizedBox(width: 12.w),
-                                        Expanded(
-                                          child: Text(
-                                            '注意：当角色卡指定UI类型时，指定的UI类型将优先于此处设置',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 13.sp,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // 模式选择卡片
-                          _buildModeCard(
-                            mode: 'none',
-                            title: '不启用',
-                            description: '不使用任何格式化，纯文本显示',
-                            icon: Icons.format_clear,
-                            color: Colors.grey,
-                            characterCardValue: 'disabled',
-                          ),
-                          _buildModeCard(
-                            mode: 'old',
-                            title: '新版UI样式',
-                            description: '使用新版的UI样式，支持状态栏显示',
-                            icon: Icons.restore,
-                            color: Colors.blue,
-                            characterCardValue: 'legacy_bar',
-                          ),
-                          _buildModeCard(
-                            mode: 'markdown',
-                            title: 'Markdown格式',
-                            description: '支持Markdown格式的消息显示，适合复杂内容',
-                            icon: Icons.text_format,
-                            color: Colors.green,
-                            characterCardValue: 'markdown',
-                          ),
-                          _buildModeCard(
-                            mode: 'custom',
-                            title: '自定义',
-                            description: '自定义UI显示样式，可设置特殊文本格式',
-                            icon: Icons.palette,
-                            color: Colors.purple,
-                          ),
-
-                          // 自定义选项
-                          _buildCustomOptions(),
-
-                          // 底部间距
-                          SizedBox(height: 24.h),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // 加载指示器
-          if (_isSaving)
-            Container(
-              color: Colors.black.withOpacity(0.3),
-              child: Center(
-                child: Container(
+      backgroundColor: AppTheme.background,
+      body: SafeArea(
+        child: Center(
+          child: SizedBox(
+            width: maxWidth,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 顶部操作区域
+                Padding(
                   padding:
-                      EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                      SizedBox(height: 16.h),
-                      Text(
-                        '保存中...',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14.sp,
+                      // 返回按钮
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => Navigator.of(context).pop(),
+                          borderRadius: BorderRadius.circular(8.r),
+                          child: Container(
+                            padding: EdgeInsets.all(8.w),
+                            child: Icon(
+                              Icons.arrow_back_ios_new,
+                              color: AppTheme.textPrimary,
+                              size: 20.sp,
+                            ),
+                          ),
                         ),
                       ),
+
+                      // 页面标题
+                      Text(
+                        '消息渲染设置',
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+
+                      // 占位，保持对称
+                      SizedBox(width: 36.w),
                     ],
                   ),
                 ),
-              ),
+
+                // 设置列表
+                Expanded(
+                  child: ListView(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                    children: [
+                      // 提示信息
+                      Container(
+                        margin: EdgeInsets.only(bottom: 24.h),
+                        padding: EdgeInsets.all(16.w),
+                        decoration: BoxDecoration(
+                          color: AppTheme.warning.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8.r),
+                          border: Border(
+                              left: BorderSide(
+                                  color: AppTheme.warning, width: 3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: AppTheme.warning,
+                              size: 20.sp,
+                            ),
+                            SizedBox(width: 12.w),
+                            Expanded(
+                              child: Text(
+                                '注意：当角色卡指定UI类型时，指定的UI类型将优先于此处设置',
+                                style: TextStyle(
+                                  color: AppTheme.textPrimary,
+                                  fontSize: 13.sp,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // 模式选择卡片
+                      _buildModeCard(
+                        mode: 'none',
+                        title: '不启用',
+                        description: '不使用任何格式化，纯文本显示',
+                        icon: Icons.format_clear,
+                        color: Colors.grey,
+                        characterCardValue: 'disabled',
+                      ),
+                      _buildModeCard(
+                        mode: 'old',
+                        title: '新版UI样式',
+                        description: '使用新版的UI样式，支持状态栏显示',
+                        icon: Icons.restore,
+                        color: AppTheme.primaryColor,
+                        characterCardValue: 'legacy_bar',
+                      ),
+                      _buildModeCard(
+                        mode: 'markdown',
+                        title: 'Markdown格式',
+                        description: '支持Markdown格式的消息显示，适合复杂内容',
+                        icon: Icons.text_format,
+                        color: AppTheme.success,
+                        characterCardValue: 'markdown',
+                      ),
+                      _buildModeCard(
+                        mode: 'custom',
+                        title: '自定义',
+                        description: '自定义UI显示样式，可设置特殊文本格式',
+                        icon: Icons.palette,
+                        color: AppTheme.accentPink,
+                      ),
+
+                      // 自定义选项
+                      _buildCustomOptions(),
+
+                      // 底部间距
+                      SizedBox(height: 24.h),
+                    ],
+                  ),
+                ),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
+      // 加载指示器
+      floatingActionButton: _isSaving
+          ? Container(
+              width: 56.w,
+              height: 56.w,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: SizedBox(
+                  width: 24.w,
+                  height: 24.w,
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    strokeWidth: 2.w,
+                  ),
+                ),
+              ),
+            )
+          : null,
     );
   }
 }

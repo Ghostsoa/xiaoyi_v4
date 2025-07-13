@@ -218,4 +218,72 @@ class HomeService {
       throw Exception('获取收藏列表失败: $e');
     }
   }
+
+  /// 获取用户偏好设置
+  Future<Map<String, dynamic>> getUserPreferences() async {
+    try {
+      final response = await _httpClient.get('/hall/preferences');
+      return response.data;
+    } catch (e) {
+      throw Exception('获取偏好设置失败: $e');
+    }
+  }
+
+  /// 更新用户偏好设置
+  Future<Map<String, dynamic>> updateUserPreferences({
+    required List<String> likedTags,
+    required List<String> dislikedTags,
+    required List<String> likedAuthors,
+    required List<String> dislikedAuthors,
+    required List<String> likedKeywords,
+    required List<String> dislikedKeywords,
+    required int preferenceStrength,
+    required int applyToHall,
+  }) async {
+    try {
+      final response = await _httpClient.put(
+        '/hall/preferences',
+        data: {
+          'liked_tags': likedTags,
+          'disliked_tags': dislikedTags,
+          'liked_authors': likedAuthors,
+          'disliked_authors': dislikedAuthors,
+          'liked_keywords': likedKeywords,
+          'disliked_keywords': dislikedKeywords,
+          'preference_strength': preferenceStrength,
+          'apply_to_hall': applyToHall,
+        },
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception('更新偏好设置失败: $e');
+    }
+  }
+
+  /// 重置用户偏好设置
+  Future<Map<String, dynamic>> resetUserPreferences() async {
+    try {
+      final response = await _httpClient.delete('/hall/preferences');
+      return response.data;
+    } catch (e) {
+      throw Exception('重置偏好设置失败: $e');
+    }
+  }
+
+  /// 搜索用户名
+  Future<Map<String, dynamic>> searchUsernames(String keyword,
+      {int limit = 10}) async {
+    try {
+      final response = await _httpClient.get(
+        '/usernames/search',
+        queryParameters: {
+          'keyword': keyword,
+          'limit': limit,
+        },
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception('搜索用户名失败: $e');
+    }
+  }
 }
