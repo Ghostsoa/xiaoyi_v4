@@ -12,6 +12,7 @@ import 'character/create_character_page.dart';
 import 'my_creation/my_creation_page.dart';
 import 'draft/draft_page.dart';
 import 'novel/create_novel_page.dart';
+import '../../widgets/custom_toast.dart';
 
 class CreateCenterPage extends StatefulWidget {
   const CreateCenterPage({super.key});
@@ -26,7 +27,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
   final AuthorService _authorService = AuthorService();
 
   // 创作数据统计
-  Map<String, int> _statistics = {};
+  Map<String, num> _statistics = {};
   bool _isLoading = true;
   bool _isRefreshing = false;
   bool _showRefreshSuccess = false;
@@ -193,7 +194,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                       spacing: 24.w,
                       runSpacing: 16.h,
                       children: (_statistics.isEmpty
-                              ? List.filled(7, 0).asMap().map(
+                              ? List.filled(8, 0).asMap().map(
                                     (i, _) => MapEntry(
                                         [
                                           '角色',
@@ -202,7 +203,8 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                                           '模板',
                                           '词条',
                                           '获赞',
-                                          '对话'
+                                          '对话',
+                                          '待领时长'
                                         ][i],
                                         0),
                                   )
@@ -786,30 +788,254 @@ class _CreateCenterPageState extends State<CreateCenterPage>
 
   Widget _buildStatItem(
     String title,
-    int count,
+    num count,
     Color textPrimary,
     Color textSecondary,
   ) {
-    return Column(
-      children: [
-        Text(
-          count.toString(),
-          style: TextStyle(
-            fontSize: 20.sp,
-            fontWeight: FontWeight.w600,
-            color: textPrimary,
+    // 格式化数字显示：保留2位小数，>=100时显示整数
+    String formattedCount;
+    if (title == '待领时长') {
+      if (count >= 100) {
+        formattedCount = count.round().toString();
+      } else {
+        // 强制显示2位小数，确保即使是13.62这样的数值也能正确显示
+        formattedCount = count.toStringAsFixed(2);
+      }
+    } else {
+      formattedCount = count.toString();
+    }
+
+    return GestureDetector(
+      onTap: title == '待领时长' && count > 0
+          ? () => _showClaimDurationDialog(count)
+          : null,
+      child: Column(
+        children: [
+          Text(
+            formattedCount,
+            style: TextStyle(
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w600,
+              color: textPrimary,
+            ),
           ),
-        ),
-        SizedBox(height: 4.h),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: AppTheme.smallSize,
-            color: textSecondary,
+          SizedBox(height: 4.h),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: AppTheme.smallSize,
+              color: textSecondary,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
+  }
+
+  // 显示领取时长弹窗
+  void _showClaimDurationDialog(num hours) {
+    if (hours <= 0) return; // 如果没有可领取时长，不显示弹窗
+
+    final double maxHours = hours.toDouble();
+
+    // 显示一个固定选项的弹窗
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.schedule, color: AppTheme.primaryColor),
+              SizedBox(width: 8.w),
+              Expanded(child: Text('领取可用时长')),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: EdgeInsets.all(12.sp),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8.sp),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.timer, color: AppTheme.primaryColor),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Text(
+                        '您当前有 ${hours.toStringAsFixed(2)} 小时待领时长',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                '请选择要领取的时长：',
+                style: TextStyle(
+                  fontSize: AppTheme.captionSize,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              SizedBox(height: 12.h),
+            ],
+          ),
+          actions: [
+            Padding(
+              padding: EdgeInsets.only(bottom: 8.h, left: 8.w, right: 8.w),
+              child: Column(
+                children: [
+                  // 领取10小时
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: maxHours >= 10.0
+                          ? () => _claimAndCloseDialog(10.0)
+                          : null,
+                      icon: Icon(Icons.access_time, size: 18.sp),
+                      label: Text('领取 10.00 小时'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[600],
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.sp),
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: 10.h),
+                        disabledBackgroundColor: Colors.blue.withOpacity(0.3),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+
+                  // 领取24小时 (1天)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: maxHours >= 24.0
+                          ? () => _claimAndCloseDialog(24.0)
+                          : null,
+                      icon: Icon(Icons.av_timer, size: 18.sp),
+                      label: Text('领取 24.00 小时 (1天)'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[700],
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.sp),
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: 10.h),
+                        disabledBackgroundColor: Colors.blue.withOpacity(0.3),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+
+                  // 领取168小时 (7天)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: maxHours >= 168.0
+                          ? () => _claimAndCloseDialog(168.0)
+                          : null,
+                      icon: Icon(Icons.date_range, size: 18.sp),
+                      label: Text('领取 168.00 小时 (7天)'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[800],
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.sp),
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: 10.h),
+                        disabledBackgroundColor: Colors.blue.withOpacity(0.3),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+
+                  // 领取全部 (仅当时长>10小时时可用)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: maxHours > 10.0
+                          ? () => _claimAndCloseDialog(null)
+                          : null,
+                      icon: Icon(Icons.done_all, size: 18.sp),
+                      label: Text('领取全部 (${hours.toStringAsFixed(2)}小时)'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.sp),
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: 10.h),
+                        disabledBackgroundColor:
+                            AppTheme.primaryColor.withOpacity(0.3),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+
+                  // 取消按钮
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(Icons.cancel_outlined,
+                          color: AppTheme.textSecondary, size: 18.sp),
+                      label: Text('取消',
+                          style: TextStyle(color: AppTheme.textSecondary)),
+                      style: TextButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.sp),
+          ),
+          contentPadding:
+              EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
+        );
+      },
+    );
+  }
+
+  // 领取并关闭弹窗
+  Future<void> _claimAndCloseDialog(double? hours) async {
+    // 先关闭弹窗
+    Navigator.of(context).pop();
+
+    try {
+      // 请求API
+      await _authorService.claimDuration(hours: hours);
+
+      // 刷新统计信息
+      await _loadStatistics();
+
+      // 显示成功消息
+      CustomToast.show(
+        context,
+        message: '领取成功',
+        type: ToastType.success,
+      );
+    } catch (e) {
+      // 显示错误消息
+      CustomToast.show(
+        context,
+        message: e.toString().replaceAll('Exception: ', ''),
+        type: ToastType.error,
+      );
+    }
   }
 }
 

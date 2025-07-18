@@ -8,6 +8,7 @@ import '../../../pages/character_chat/pages/character_init_page.dart';
 import '../../../pages/novel/pages/novel_init_page.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/custom_toast.dart';
+import '../../../widgets/markdown_renderer.dart';
 import 'author_items_page.dart';
 
 class ItemDetailPage extends StatefulWidget {
@@ -338,8 +339,19 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // 背景色
-          Container(color: AppTheme.background),
+          // 背景色 - 使用渐变背景
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppTheme.background.withOpacity(0.9),
+                  AppTheme.background,
+                ],
+              ),
+            ),
+          ),
 
           // 封面图片 - 占满全屏
           Positioned.fill(
@@ -355,7 +367,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                   ),
           ),
 
-          // 返回按钮 - 放在左上角
+          // 返回按钮 - 放在左上角，美化按钮样式
           Positioned(
             top: MediaQuery.of(context).padding.top + 10.h,
             left: 16.w,
@@ -366,6 +378,13 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.3),
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Icon(
                   Icons.arrow_back_ios_new_rounded,
@@ -495,8 +514,16 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                                   vertical: 2.h,
                                                 ),
                                                 decoration: BoxDecoration(
-                                                  color: AppTheme.primaryColor
-                                                      .withOpacity(0.1),
+                                                  gradient: LinearGradient(
+                                                    colors: [
+                                                      AppTheme.primaryColor
+                                                          .withOpacity(0.2),
+                                                      AppTheme.primaryColor
+                                                          .withOpacity(0.1),
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  ),
                                                   borderRadius:
                                                       BorderRadius.circular(
                                                           12.r),
@@ -535,56 +562,65 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                     ),
                                   ),
                                   // 互动数据
-                                  Column(
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.local_fire_department_rounded,
-                                            size: 16.sp,
-                                            color: Colors.redAccent,
-                                          ),
-                                          SizedBox(width: 4.w),
-                                          Text(
-                                            '${widget.item["hot_score"]}',
-                                            style: TextStyle(
-                                              fontSize: 14.sp,
+                                  Container(
+                                    padding: EdgeInsets.all(10.w),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.cardBackground
+                                          .withOpacity(0.5),
+                                      borderRadius: BorderRadius.circular(12.r),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons
+                                                  .local_fire_department_rounded,
+                                              size: 16.sp,
                                               color: Colors.redAccent,
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: 4.h),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.favorite_rounded,
-                                            size: 16.sp,
-                                            color: AppTheme.textSecondary,
-                                          ),
-                                          SizedBox(width: 4.w),
-                                          Text(
-                                            '${widget.item["like_count"]}',
-                                            style: AppTheme.secondaryStyle,
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: 4.h),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.chat_rounded,
-                                            size: 16.sp,
-                                            color: AppTheme.textSecondary,
-                                          ),
-                                          SizedBox(width: 4.w),
-                                          Text(
-                                            '${widget.item["dialog_count"]}',
-                                            style: AppTheme.secondaryStyle,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                                            SizedBox(width: 4.w),
+                                            Text(
+                                              '${widget.item["hot_score"]}',
+                                              style: TextStyle(
+                                                fontSize: 14.sp,
+                                                color: Colors.redAccent,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        SizedBox(height: 4.h),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.favorite_rounded,
+                                              size: 16.sp,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                            SizedBox(width: 4.w),
+                                            Text(
+                                              '${widget.item["like_count"]}',
+                                              style: AppTheme.secondaryStyle,
+                                            ),
+                                          ],
+                                        ),
+                                        SizedBox(height: 4.h),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.chat_rounded,
+                                              size: 16.sp,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                            SizedBox(width: 4.w),
+                                            Text(
+                                              '${widget.item["dialog_count"]}',
+                                              style: AppTheme.secondaryStyle,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
@@ -600,10 +636,28 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                       vertical: 6.h,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: _getItemTypeColor(
-                                          widget.item["item_type"]),
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          _getItemTypeColor(
+                                              widget.item["item_type"]),
+                                          _getItemTypeColor(
+                                                  widget.item["item_type"])
+                                              .withOpacity(0.7),
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
                                       borderRadius: BorderRadius.circular(
                                           AppTheme.radiusSmall),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: _getItemTypeColor(
+                                                  widget.item["item_type"])
+                                              .withOpacity(0.2),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -631,82 +685,100 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                               ),
                               SizedBox(height: 24.h),
 
-                              // 操作按钮区域
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
-                                children: [
-                                  // 点赞按钮
-                                  _buildActionButton(
-                                    icon: _isLiked
-                                        ? Icons.favorite
-                                        : Icons.favorite_border,
-                                    label: _isLiked ? '已点赞' : '点赞',
-                                    color: Colors.pink,
-                                    onPressed: _isLiking ? null : _toggleLike,
+                              // 操作按钮区域 - 美化按钮
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                    vertical: 16.h, horizontal: 12.w),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      AppTheme.cardBackground.withOpacity(0.6),
+                                      AppTheme.cardBackground.withOpacity(0.3),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                   ),
+                                  borderRadius: BorderRadius.circular(16.r),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceAround,
+                                  children: [
+                                    // 点赞按钮
+                                    _buildActionButton(
+                                      icon: _isLiked
+                                          ? Icons.favorite
+                                          : Icons.favorite_border,
+                                      label: _isLiked ? '已点赞' : '点赞',
+                                      colors: [Colors.pink, Colors.pinkAccent],
+                                      onPressed: _isLiking ? null : _toggleLike,
+                                    ),
 
-                                  // 收藏按钮
-                                  _buildActionButton(
-                                    icon: _isFavorite
-                                        ? Icons.star
-                                        : Icons.star_border,
-                                    label: _isFavorite ? '已收藏' : '收藏',
-                                    color: Colors.blue,
-                                    onPressed:
-                                        _isFavoriting ? null : _toggleFavorite,
-                                  ),
+                                    // 收藏按钮
+                                    _buildActionButton(
+                                      icon: _isFavorite
+                                          ? Icons.star
+                                          : Icons.star_border,
+                                      label: _isFavorite ? '已收藏' : '收藏',
+                                      colors: [Colors.blue, Colors.blueAccent],
+                                      onPressed: _isFavoriting
+                                          ? null
+                                          : _toggleFavorite,
+                                    ),
 
-                                  // 激励按钮
-                                  _buildActionButton(
-                                    icon: Icons.workspace_premium,
-                                    label: _isRewarding ? '激励中' : '激励',
-                                    color: Colors.amber[700] ?? Colors.amber,
-                                    onPressed:
-                                        _isRewarding ? null : _showRewardDialog,
-                                  ),
+                                    // 激励按钮
+                                    _buildActionButton(
+                                      icon: Icons.workspace_premium,
+                                      label: _isRewarding ? '激励中' : '激励',
+                                      colors: [
+                                        Colors.amber[700] ?? Colors.amber,
+                                        Colors.amber
+                                      ],
+                                      onPressed: _isRewarding
+                                          ? null
+                                          : _showRewardDialog,
+                                    ),
 
-                                  // 开始阅读/对话按钮
-                                  _buildActionButton(
-                                    icon: Icons.chat,
-                                    label:
-                                        widget.item["item_type"] == "novel_card"
-                                            ? '阅读'
-                                            : '对话',
-                                    color: AppTheme.primaryColor,
-                                    onPressed: _navigateToContent,
-                                  ),
-                                ],
+                                    // 开始阅读/对话按钮
+                                    _buildActionButton(
+                                      icon: Icons.chat,
+                                      label: widget.item["item_type"] ==
+                                              "novel_card"
+                                          ? '阅读'
+                                          : '对话',
+                                      colors: AppTheme.primaryGradient,
+                                      onPressed: _navigateToContent,
+                                      isHighlighted: true,
+                                    ),
+                                  ],
+                                ),
                               ),
 
-                              Divider(
-                                  height: 40.h,
-                                  thickness: 1,
-                                  color: Colors.grey.withOpacity(0.2)),
+                              SizedBox(height: 24.h),
 
-                              // 描述
+                              // 描述 - 改为Markdown渲染器直接显示
                               if (widget.item['description'] != null) ...[
-                                Text(
-                                  '简介',
-                                  style: AppTheme.titleStyle,
-                                ),
-                                SizedBox(height: 8.h),
-                                Text(
-                                  widget.item['description'],
-                                  style:
+                                _buildSectionTitle('简介'),
+                                MarkdownRenderer(
+                                  markdownText: widget.item['description'],
+                                  defaultStyle:
                                       AppTheme.bodyStyle.copyWith(height: 1.5),
+                                  textAlign: TextAlign.left,
                                 ),
                                 SizedBox(height: 16.h),
                               ],
 
-                              // 标签
+                              // 标签 - 更美观的标签样式
                               if ((widget.item['tags'] as List?)?.isNotEmpty ??
                                   false) ...[
-                                Text(
-                                  '标签',
-                                  style: AppTheme.titleStyle,
-                                ),
-                                SizedBox(height: 8.h),
+                                _buildSectionTitle('标签'),
                                 Wrap(
                                   spacing: 8.w,
                                   runSpacing: 8.h,
@@ -717,10 +789,26 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                               vertical: 6.h,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: AppTheme.primaryColor,
+                                              gradient: LinearGradient(
+                                                colors: [
+                                                  AppTheme.primaryColor,
+                                                  AppTheme.primaryColor
+                                                      .withOpacity(0.7),
+                                                ],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              ),
                                               borderRadius:
                                                   BorderRadius.circular(
                                                       AppTheme.radiusSmall),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: AppTheme.primaryColor
+                                                      .withOpacity(0.2),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
                                             ),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
@@ -748,20 +836,32 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                 SizedBox(height: 16.h),
                               ],
 
-                              // 时间信息
-                              Text(
-                                '其他信息',
-                                style: AppTheme.titleStyle,
+                              // 时间信息 - 改为卡片式设计
+                              _buildSectionTitle('其他信息'),
+                              Container(
+                                width: double.infinity,
+                                padding: EdgeInsets.all(16.w),
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppTheme.cardBackground.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                  border: Border.all(
+                                    color: Colors.grey.withOpacity(0.1),
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    _buildInfoItem(
+                                        '创建时间',
+                                        _formatDateTime(createdAt
+                                            .add(const Duration(hours: 8)))),
+                                    _buildInfoItem(
+                                        '更新时间',
+                                        _formatDateTime(updatedAt
+                                            .add(const Duration(hours: 8)))),
+                                  ],
+                                ),
                               ),
-                              SizedBox(height: 8.h),
-                              _buildInfoItem(
-                                  '创建时间',
-                                  _formatDateTime(
-                                      createdAt.add(const Duration(hours: 8)))),
-                              _buildInfoItem(
-                                  '更新时间',
-                                  _formatDateTime(
-                                      updatedAt.add(const Duration(hours: 8)))),
 
                               // 底部空白
                               SizedBox(height: 24.h),
@@ -774,6 +874,34 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                 );
               },
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 新增函数：构建带有精美样式的节标题
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12.h),
+      child: Row(
+        children: [
+          Container(
+            width: 4.w,
+            height: 18.h,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: AppTheme.primaryGradient,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(2.r),
+            ),
+          ),
+          SizedBox(width: 8.w),
+          Text(
+            title,
+            style: AppTheme.titleStyle,
           ),
         ],
       ),
@@ -842,7 +970,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             width: 80.w,
             child: Text(
               label,
-              style: AppTheme.secondaryStyle,
+              style: AppTheme.secondaryStyle.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           Expanded(
@@ -862,11 +992,13 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
   double min(double a, double b) => a < b ? a : b;
 
+  // 更新美化后的按钮
   Widget _buildActionButton({
     required IconData icon,
     required String label,
-    required Color color,
+    required List<Color> colors,
     required void Function()? onPressed,
+    bool isHighlighted = false,
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -877,13 +1009,28 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           child: Container(
             padding: EdgeInsets.all(12.w),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              gradient: LinearGradient(
+                colors: colors
+                    .map((e) => e.withOpacity(isHighlighted ? 1.0 : 0.2))
+                    .toList(),
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               shape: BoxShape.circle,
+              boxShadow: isHighlighted
+                  ? [
+                      BoxShadow(
+                        color: colors.first.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
             ),
             child: Icon(
               icon,
               size: 24.sp,
-              color: color,
+              color: isHighlighted ? Colors.white : colors.first,
             ),
           ),
         ),
@@ -891,7 +1038,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         Text(
           label,
           style: TextStyle(
-            color: color,
+            color: colors.first,
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
           ),
@@ -918,8 +1065,22 @@ class _RewardBottomSheetState extends State<_RewardBottomSheet> {
     return Container(
       padding: EdgeInsets.all(24.w),
       decoration: BoxDecoration(
-        color: AppTheme.cardBackground,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.cardBackground,
+            AppTheme.cardBackground.withOpacity(0.95),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -928,23 +1089,47 @@ class _RewardBottomSheetState extends State<_RewardBottomSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '激励创作者',
-                style: TextStyle(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
-                ),
+              Row(
+                children: [
+                  ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: [Colors.amber, Colors.amber.shade300],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ).createShader(bounds),
+                    child: Icon(
+                      Icons.workspace_premium_rounded,
+                      color: Colors.white,
+                      size: 24.sp,
+                    ),
+                  ),
+                  SizedBox(width: 10.w),
+                  Text(
+                    '激励创作者',
+                    style: TextStyle(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ],
               ),
               IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: Icon(Icons.close, color: AppTheme.textSecondary),
+                icon: Container(
+                  padding: EdgeInsets.all(4.w),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.close, color: AppTheme.textSecondary),
+                ),
               ),
             ],
           ),
           SizedBox(height: 16.h),
           Text(
-            '选择激励',
+            '选择激励金额',
             style: TextStyle(
               fontSize: 16.sp,
               color: AppTheme.textSecondary,
@@ -960,26 +1145,52 @@ class _RewardBottomSheetState extends State<_RewardBottomSheet> {
             ],
           ),
           SizedBox(height: 24.h),
-          SizedBox(
+          Container(
             width: double.infinity,
+            height: 50.h,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.amber.shade700, Colors.amber.shade500],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.amber.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: ElevatedButton(
               onPressed: () {
                 widget.onReward(_selectedAmount);
               },
               style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(vertical: 12.h),
-                backgroundColor: Colors.amber[700],
+                backgroundColor: Colors.transparent,
                 foregroundColor: Colors.white,
+                shadowColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                 ),
               ),
-              child: Text(
-                '确认激励 $_selectedAmount 小懿币',
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.workspace_premium_rounded,
+                    size: 20.sp,
+                  ),
+                  SizedBox(width: 10.w),
+                  Text(
+                    '确认激励 $_selectedAmount 小懿币',
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -998,25 +1209,38 @@ class _RewardBottomSheetState extends State<_RewardBottomSheet> {
           _selectedAmount = amount;
         });
       },
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         width: 80.w,
         padding: EdgeInsets.symmetric(vertical: 16.h),
         decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.amber.withOpacity(0.3)
-              : Colors.amber.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(
-            color: isSelected ? Colors.amber : Colors.amber.withOpacity(0.3),
-            width: isSelected ? 2 : 1,
+          gradient: LinearGradient(
+            colors: isSelected
+                ? [Colors.amber.shade700, Colors.amber.shade500]
+                : [
+                    Colors.amber.withOpacity(0.1),
+                    Colors.amber.withOpacity(0.05)
+                  ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.amber.withOpacity(0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
         ),
         child: Column(
           children: [
             Icon(
               Icons.workspace_premium_rounded,
               size: 24.sp,
-              color: isSelected ? Colors.amber[700] : Colors.amber[300],
+              color: isSelected ? Colors.white : Colors.amber[300],
             ),
             SizedBox(height: 8.h),
             Text(
@@ -1024,7 +1248,7 @@ class _RewardBottomSheetState extends State<_RewardBottomSheet> {
               style: TextStyle(
                 fontSize: 18.sp,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? Colors.amber[700] : Colors.amber[300],
+                color: isSelected ? Colors.white : Colors.amber[300],
               ),
             ),
             SizedBox(height: 4.h),
@@ -1032,8 +1256,7 @@ class _RewardBottomSheetState extends State<_RewardBottomSheet> {
               '小懿币',
               style: TextStyle(
                 fontSize: 12.sp,
-                color:
-                    isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                color: isSelected ? Colors.white : AppTheme.textSecondary,
               ),
             ),
           ],

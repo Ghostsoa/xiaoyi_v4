@@ -5,6 +5,10 @@ import '../../../../theme/app_theme.dart';
 import '../../../../services/file_service.dart';
 import '../../material/select_image_page.dart';
 import '../../../../widgets/custom_toast.dart';
+import '../../services/characte_service.dart';
+import 'markdown_preview_dialog.dart';
+import '../../../../widgets/markdown_renderer.dart';
+import 'package:shimmer/shimmer.dart';
 
 class BasicInfoModule extends StatefulWidget {
   final TextEditingController nameController;
@@ -40,7 +44,10 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
 
   // 当前角色简介字数
   int _descriptionCount = 0;
-  final int _maxDescriptionCount = 500;
+  final int _maxDescriptionCount = 1500;
+
+  // 格式化按钮状态
+  bool _isFormatting = false;
 
   @override
   void initState() {
@@ -281,6 +288,64 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
     );
   }
 
+  // 构建Markdown美化按钮
+  Widget _buildMarkdownButton() {
+    return GestureDetector(
+      onTap: _isFormatting ? null : () => _formatMarkdown(context),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: AppTheme.buttonGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(8.r),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryColor.withOpacity(0.2),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _isFormatting ? Icons.sync : Icons.format_paint,
+              size: 16.sp,
+              color: Colors.white,
+            ),
+            SizedBox(width: 4.w),
+            if (_isFormatting)
+              Shimmer.fromColors(
+                baseColor: Colors.white.withOpacity(0.5),
+                highlightColor: Colors.white,
+                child: Text(
+                  '美化中...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              )
+            else
+              Text(
+                'Markdown美化',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -326,61 +391,77 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
           },
         ),
         SizedBox(height: 16.h),
-        TextFormField(
-          controller: widget.descriptionController,
-          decoration: InputDecoration(
-            labelText: '角色简介',
-            hintText: '请输入角色简介',
-            filled: true,
-            fillColor: AppTheme.cardBackground,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide.none,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text('角色简介',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 14.sp,
+                    )),
+                const Spacer(),
+                _buildMarkdownButton(),
+              ],
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide.none,
+            SizedBox(height: 8.h),
+            TextFormField(
+              controller: widget.descriptionController,
+              decoration: InputDecoration(
+                hintText: '请输入角色简介',
+                filled: true,
+                fillColor: AppTheme.cardBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  borderSide:
+                      BorderSide(color: AppTheme.primaryColor, width: 1),
+                ),
+                // 添加后缀计数器
+                suffixText: '$_descriptionCount/$_maxDescriptionCount',
+                suffixStyle: TextStyle(
+                  color: _descriptionCount > _maxDescriptionCount
+                      ? Colors.red
+                      : AppTheme.textSecondary,
+                  fontSize: 12.sp,
+                ),
+                // 添加错误提示
+                errorText: _descriptionCount > _maxDescriptionCount
+                    ? '超出最大字数限制'
+                    : null,
+                hintStyle: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 14.sp,
+                ),
+              ),
+              style: AppTheme.bodyStyle,
+              minLines: 3,
+              maxLines: null,
+              // 添加输入限制
+              maxLength: _maxDescriptionCount,
+              // 隐藏内置计数器
+              buildCounter: (context,
+                      {required currentLength,
+                      required isFocused,
+                      maxLength}) =>
+                  null,
+              // 添加验证
+              validator: (value) {
+                if (value != null && value.length > _maxDescriptionCount) {
+                  return '角色简介不能超过$_maxDescriptionCount字';
+                }
+                return null;
+              },
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide(color: AppTheme.primaryColor, width: 1),
-            ),
-            // 添加后缀计数器
-            suffixText: '$_descriptionCount/$_maxDescriptionCount',
-            suffixStyle: TextStyle(
-              color: _descriptionCount > _maxDescriptionCount
-                  ? Colors.red
-                  : AppTheme.textSecondary,
-              fontSize: 12.sp,
-            ),
-            // 添加错误提示
-            errorText:
-                _descriptionCount > _maxDescriptionCount ? '超出最大字数限制' : null,
-            labelStyle: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 14.sp,
-            ),
-            hintStyle: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 14.sp,
-            ),
-          ),
-          style: AppTheme.bodyStyle,
-          minLines: 3,
-          maxLines: null,
-          // 添加输入限制
-          maxLength: _maxDescriptionCount,
-          // 隐藏内置计数器
-          buildCounter: (context,
-                  {required currentLength, required isFocused, maxLength}) =>
-              null,
-          // 添加验证
-          validator: (value) {
-            if (value != null && value.length > _maxDescriptionCount) {
-              return '角色简介不能超过$_maxDescriptionCount字';
-            }
-            return null;
-          },
+          ],
         ),
         SizedBox(height: 16.h),
         _buildTagInput(),
@@ -670,5 +751,61 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
         ),
       ),
     );
+  }
+
+  void _formatMarkdown(BuildContext context) async {
+    final text = widget.descriptionController.text.trim();
+    if (text.isEmpty) {
+      _showToast('请先输入角色简介', type: ToastType.warning);
+      return;
+    }
+
+    // 设置加载状态
+    setState(() {
+      _isFormatting = true;
+    });
+
+    try {
+      final characterService = CharacterService();
+      final response = await characterService.formatMarkdown(text);
+
+      // 重置加载状态
+      setState(() {
+        _isFormatting = false;
+      });
+
+      if (response['code'] == 0) {
+        final formattedMarkdown = response['data']['markdown'];
+
+        // 显示预览对话框
+        if (mounted && context.mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => MarkdownPreviewDialog(
+              markdown: formattedMarkdown,
+              onConfirm: (markdown) {
+                widget.descriptionController.text = markdown;
+                _showToast('已应用格式化内容', type: ToastType.success);
+              },
+            ),
+          );
+        }
+      } else {
+        // 显示用户友好的错误信息
+        _showToast('格式化出现错误，请重新尝试', type: ToastType.error);
+        // 记录详细错误信息，但不显示给用户
+        debugPrint('Markdown格式化错误: ${response['msg']}');
+      }
+    } catch (e) {
+      // 重置加载状态
+      setState(() {
+        _isFormatting = false;
+      });
+
+      // 显示用户友好的错误信息
+      _showToast('格式化出现错误，请重新尝试', type: ToastType.error);
+      // 记录详细错误信息，但不显示给用户
+      debugPrint('Markdown格式化异常: $e');
+    }
   }
 }

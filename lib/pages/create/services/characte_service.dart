@@ -89,4 +89,19 @@ class CharacterService {
       };
     }
   }
+
+  Future<Map<String, dynamic>> formatMarkdown(String text) async {
+    try {
+      final response = await _httpClient.post('/format-markdown', data: {
+        'text': text,
+      });
+      return response.data;
+    } catch (e) {
+      return {
+        'code': -1,
+        'msg': e.toString(),
+        'data': null,
+      };
+    }
+  }
 }

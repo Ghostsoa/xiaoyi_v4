@@ -6,6 +6,7 @@ import '../../../dao/chat_settings_dao.dart';
 import '../../../dao/user_dao.dart';
 import 'dart:typed_data';
 import 'dart:convert';
+import 'dart:async'; // 添加Timer导入
 import '../services/character_chat_stream_service.dart';
 import '../services/character_service.dart';
 import '../models/sse_response.dart';
@@ -68,6 +69,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
+
+  // 添加行为日志上报定时器
+  Timer? _durationReportTimer;
 
   // 添加常用记录相关变量
   List<CommonPhrase> _commonPhrases = [];
@@ -138,6 +142,30 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   late AnimationController _drawerAnimationController;
   late Animation<double> _drawerAnimation;
 
+  // 初始化行为日志上报定时器
+  void _startDurationReporting() {
+    // 每10秒上报一次行为日志
+    _durationReportTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      _reportDialogDuration();
+    });
+  }
+
+  // 上报对话持续时间
+  void _reportDialogDuration() {
+    try {
+      // 获取角色ID和作者ID
+      final int characterId =
+          widget.characterData['character_id'] ?? widget.characterData['id'];
+      final int authorId = widget.characterData['author_id'] ?? 0;
+
+      // 调用服务上报
+      _characterService.reportDialogDuration(characterId, authorId);
+    } catch (e) {
+      // 静默处理错误，不影响用户体验
+      debugPrint('上报对话持续时间出错: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -152,6 +180,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
     // 静默检查版本
     _checkSessionVersion();
+
+    // 初始化行为日志上报定时器
+    _startDurationReporting();
 
     // 初始化抽屉动画控制器
     _drawerAnimationController = AnimationController(
@@ -247,6 +278,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     _bubbleAnimationController.dispose();
     _phraseNameController.dispose();
     _phraseContentController.dispose();
+
+    // 销毁行为日志上报定时器
+    _durationReportTimer?.cancel();
 
     // 直接移除overlay，而不是调用_hidePhrasesList
     if (_phrasesOverlay != null) {

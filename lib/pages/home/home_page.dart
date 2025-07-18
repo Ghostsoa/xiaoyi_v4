@@ -10,7 +10,6 @@ import 'pages/hot_items_page.dart';
 import 'pages/item_detail_page.dart';
 import 'pages/recommend_items_page.dart';
 import 'pages/all_items_page.dart';
-import 'pages/search_result_page.dart';
 import 'pages/tag_items_page.dart';
 import 'pages/favorites_page.dart';
 import 'pages/preferences_page.dart';
@@ -39,10 +38,18 @@ class HomePageState extends State<HomePage> {
   final Map<String, bool> _loadingImages = {};
   bool _forceReload = false; // 是否强制重新加载图片
 
+  // 新增最新发布相关变量
+  List<dynamic> _latestItems = [];
+  bool _isLoadingLatest = true;
+  int _latestPage = 1;
+  final int _latestPageSize = 10;
+  bool _hasMoreLatest = true;
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    _loadLatestItems(); // 加载最新发布
   }
 
   @override
@@ -187,622 +194,724 @@ class HomePageState extends State<HomePage> {
     }
   }
 
+  // 加载最新发布内容
+  Future<void> _loadLatestItems({bool refresh = false}) async {
+    if (!mounted) return;
+
+    if (refresh) {
+      setState(() {
+        _latestPage = 1;
+        _hasMoreLatest = true;
+      });
+    }
+
+    if (_latestPage == 1) {
+      setState(() => _isLoadingLatest = true);
+    }
+
+    try {
+      final result = await _homeService.getAllItems(
+        page: _latestPage,
+        pageSize: _latestPageSize,
+        sortBy: 'new', // 按最新排序
+      );
+
+      if (mounted) {
+        final newItems = result['data']['items'] ?? [];
+        setState(() {
+          if (_latestPage == 1) {
+            _latestItems = newItems;
+          } else {
+            _latestItems.addAll(newItems);
+          }
+          _isLoadingLatest = false;
+          _hasMoreLatest = newItems.length >= _latestPageSize;
+        });
+
+        // 预加载图片
+        for (final item in newItems) {
+          if (item['cover_uri'] != null) {
+            _loadItemImage(item['cover_uri'], forceReload: _forceReload);
+          }
+        }
+
+        // 打印调试信息
+        debugPrint('最新内容加载完成，共${_latestItems.length}项');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingLatest = false);
+        // 显示错误提示
+        debugPrint('加载最新内容失败: $e');
+      }
+    }
+  }
+
+  // 加载更多最新内容
+  Future<void> _loadMoreLatestItems() async {
+    if (!_hasMoreLatest || _isLoadingLatest) return;
+
+    _latestPage++;
+    await _loadLatestItems();
+
+    if (mounted) {
+      if (_hasMoreLatest) {
+        _refreshController.loadComplete();
+      } else {
+        _refreshController.loadNoData();
+      }
+    }
+  }
+
+  // 刷新最新内容
+  Future<void> _refreshLatestItems() async {
+    setState(() {
+      _forceReload = true;
+    });
+    await _loadLatestItems(refresh: true);
+    if (mounted) {
+      _refreshController.refreshCompleted();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
-        child: Column(
-          children: [
-            // 固定在顶部的搜索栏
-            Container(
-              padding: EdgeInsets.all(16.w),
-              color: AppTheme.background,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 14.sp,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: '搜索',
-                        hintStyle: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 14.sp,
-                        ),
-                        prefixIcon: Icon(
-                          Icons.search,
-                          color: AppTheme.textSecondary,
-                          size: 20.sp,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.r),
-                          borderSide: BorderSide(
-                            color: AppTheme.primaryColor.withOpacity(0.2),
-                            width: 1,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.r),
-                          borderSide: BorderSide(
-                            color: AppTheme.primaryColor.withOpacity(0.2),
-                            width: 1,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.r),
-                          borderSide: BorderSide(
-                            color: AppTheme.primaryColor,
-                            width: 1.5,
-                          ),
-                        ),
-                        filled: true,
-                        fillColor: Colors.black.withOpacity(0.2),
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12.w,
-                          vertical: 12.h,
-                        ),
-                      ),
-                      textInputAction: TextInputAction.search,
-                      onTap: () {
-                        FocusScope.of(context).requestFocus();
-                      },
-                      onTapOutside: (event) {
-                        FocusScope.of(context).unfocus();
-                      },
-                      onFieldSubmitted: (value) {
-                        FocusScope.of(context).unfocus();
-                        if (value.trim().isNotEmpty) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => SearchResultPage(
-                                keyword: value.trim(),
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                    ),
+        child: SmartRefresher(
+          controller: _refreshController,
+          onRefresh: _onRefresh,
+          enablePullDown: true,
+          header: CustomHeader(
+            builder: (BuildContext context, RefreshStatus? mode) {
+              Widget body;
+              if (mode == RefreshStatus.idle) {
+                body = Text('下拉刷新',
+                    style: TextStyle(color: Colors.white70, fontSize: 14.sp));
+              } else if (mode == RefreshStatus.refreshing) {
+                body = Shimmer.fromColors(
+                  baseColor: Colors.white70,
+                  highlightColor: Colors.white,
+                  child: Text(
+                    '正在刷新...',
+                    style: TextStyle(fontSize: 14.sp),
                   ),
-                ],
-              ),
-            ),
-
-            // 可滚动内容区域
-            Expanded(
-              child: SmartRefresher(
-                controller: _refreshController,
-                onRefresh: _onRefresh,
-                enablePullDown: true,
-                header: CustomHeader(
-                  builder: (BuildContext context, RefreshStatus? mode) {
-                    Widget body;
-                    if (mode == RefreshStatus.idle) {
-                      body = Text('下拉刷新',
-                          style: TextStyle(
-                              color: Colors.white70, fontSize: 14.sp));
-                    } else if (mode == RefreshStatus.refreshing) {
-                      body = Shimmer.fromColors(
-                        baseColor: Colors.white70,
-                        highlightColor: Colors.white,
-                        child: Text(
-                          '正在刷新...',
-                          style: TextStyle(fontSize: 14.sp),
-                        ),
-                      );
-                    } else if (mode == RefreshStatus.failed) {
-                      body = Text('刷新失败',
-                          style:
-                              TextStyle(color: Colors.amber, fontSize: 14.sp));
-                    } else if (mode == RefreshStatus.canRefresh) {
-                      body = Text('松开刷新',
-                          style:
-                              TextStyle(color: Colors.white, fontSize: 14.sp));
-                    } else {
-                      body = Text('刷新完成',
-                          style: TextStyle(
-                              color: Colors.white70, fontSize: 14.sp));
-                    }
-                    return Container(
-                      height: 55.0,
-                      child: Center(child: body),
-                    );
-                  },
-                ),
-                child: CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    // 顶部按钮区域（三个按钮并排）
-                    SliverPadding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                      sliver: SliverToBoxAdapter(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // 发现更多AI角色
-                            Expanded(
-                              flex: 2, // 占据四分之二(即二分之一)的空间
-                              child: GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const AllItemsPage(),
-                                    ),
-                                  );
-                                },
-                                child: Container(
-                                  height: 120.h,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: AppTheme.primaryGradient,
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      transform: GradientRotation(0.4),
-                                    ),
-                                    borderRadius: BorderRadius.circular(16.r),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppTheme.primaryGradient.first
-                                            .withOpacity(0.3),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  padding: EdgeInsets.all(20.w),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.auto_awesome,
-                                            color: Colors.white,
-                                            size: 28.sp,
-                                          ),
-                                          SizedBox(width: 10.w),
-                                          Text(
-                                            '发现更多',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 20.sp,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            '浏览全部AI角色',
-                                            style: TextStyle(
-                                              color:
-                                                  Colors.white.withOpacity(0.9),
-                                              fontSize: 14.sp,
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.chevron_right_rounded,
-                                            color: Colors.white,
-                                            size: 24.sp,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                );
+              } else if (mode == RefreshStatus.failed) {
+                body = Text('刷新失败',
+                    style: TextStyle(color: Colors.amber, fontSize: 14.sp));
+              } else if (mode == RefreshStatus.canRefresh) {
+                body = Text('松开刷新',
+                    style: TextStyle(color: Colors.white, fontSize: 14.sp));
+              } else {
+                body = Text('刷新完成',
+                    style: TextStyle(color: Colors.white70, fontSize: 14.sp));
+              }
+              return Container(
+                height: 55.0,
+                child: Center(child: body),
+              );
+            },
+          ),
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              // 顶部按钮区域（三个按钮并排）
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 发现更多AI角色
+                      Expanded(
+                        flex: 2, // 占据四分之二(即二分之一)的空间
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AllItemsPage(),
                               ),
-                            ),
-                            SizedBox(width: 12.w),
-                            // 右侧两个按钮的容器
-                            Expanded(
-                              flex: 1, // 占据四分之一的空间
-                              child: Column(
-                                children: [
-                                  // 收藏按钮
-                                  GestureDetector(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const FavoritesPage(),
-                                        ),
-                                      );
-                                    },
-                                    child: Container(
-                                      height: 54.h,
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Colors.amber.shade700,
-                                            Colors.amber.shade500
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(16.r),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color:
-                                                Colors.amber.withOpacity(0.3),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ],
-                                      ),
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 16.w),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.star_rounded,
-                                            color: Colors.white,
-                                            size: 22.sp,
-                                          ),
-                                          SizedBox(width: 8.w),
-                                          Text(
-                                            '收藏',
-                                            style: TextStyle(
-                                              fontSize: 16.sp,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(height: 12.h),
-                                  // 偏好按钮
-                                  GestureDetector(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const PreferencesPage(),
-                                        ),
-                                      );
-                                    },
-                                    child: Container(
-                                      height: 54.h,
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Colors.blueAccent.shade700,
-                                            Colors.blueAccent.shade400
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(16.r),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.blueAccent
-                                                .withOpacity(0.3),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ],
-                                      ),
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 16.w),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.tune_rounded,
-                                            color: Colors.white,
-                                            size: 22.sp,
-                                          ),
-                                          SizedBox(width: 8.w),
-                                          Text(
-                                            '偏好',
-                                            style: TextStyle(
-                                              fontSize: 16.sp,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                            );
+                          },
+                          child: Container(
+                            height: 120.h,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: AppTheme.primaryGradient,
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                transform: GradientRotation(0.4),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // 今日热门
-                    _buildItemSection(
-                      '今日热门',
-                      '今日最受欢迎的AI角色',
-                      _hotItems,
-                      AppTheme.textPrimary,
-                      AppTheme.textSecondary,
-                      AppTheme.primaryColor,
-                    ),
-
-                    // 每日推荐
-                    _buildItemSection(
-                      '每日推荐',
-                      '根据您的兴趣智能推荐的角色',
-                      _recommendItems,
-                      AppTheme.textPrimary,
-                      AppTheme.textSecondary,
-                      AppTheme.primaryColor,
-                    ),
-
-                    // 热门标签
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16.w),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.tag_rounded,
-                                  color: Colors.blueAccent,
-                                  size: 20.sp,
-                                ),
-                                SizedBox(width: 8.w),
-                                Text(
-                                  '热门标签',
-                                  style: AppTheme.gradientTitleStyle,
+                              borderRadius: BorderRadius.circular(16.r),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primaryGradient.first
+                                      .withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
-                            SizedBox(height: 4.h),
-                            Text(
-                              '点击标签探索更多相关角色',
-                              style: AppTheme.gradientLabelStyle,
+                            padding: EdgeInsets.all(20.w),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.auto_awesome,
+                                      color: Colors.white,
+                                      size: 28.sp,
+                                    ),
+                                    SizedBox(width: 10.w),
+                                    Text(
+                                      '发现更多',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20.sp,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '浏览全部AI角色',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: 14.sp,
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: Colors.white,
+                                      size: 24.sp,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      // 右侧两个按钮的容器
+                      Expanded(
+                        flex: 1, // 占据四分之一的空间
+                        child: Column(
+                          children: [
+                            // 收藏按钮
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const FavoritesPage(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                height: 54.h,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.amber.shade700,
+                                      Colors.amber.shade500
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(16.r),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.amber.withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.star_rounded,
+                                      color: Colors.white,
+                                      size: 22.sp,
+                                    ),
+                                    SizedBox(width: 8.w),
+                                    Text(
+                                      '收藏',
+                                      style: TextStyle(
+                                        fontSize: 16.sp,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                             SizedBox(height: 12.h),
-                            _isLoading
-                                ? _buildTagsSkeleton()
-                                : Wrap(
-                                    spacing: 8.w,
-                                    runSpacing: 8.h,
-                                    children: [
-                                      ..._hotTags
-                                          .take(_showAllTags
-                                              ? _hotTags.length
-                                              : 8)
-                                          .map((tag) => GestureDetector(
-                                                onTap: () {
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          TagItemsPage(
-                                                        tag: tag,
-                                                      ),
-                                                    ),
-                                                  );
-                                                },
-                                                child: Container(
-                                                  padding: EdgeInsets.symmetric(
-                                                    horizontal: 12.w,
-                                                    vertical: 6.h,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color:
-                                                        AppTheme.primaryColor,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            6.r),
-                                                  ),
-                                                  child: Text(
-                                                    '#$tag',
-                                                    style: TextStyle(
-                                                      fontSize: 12.sp,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                      color: Colors.white,
-                                                    ),
-                                                  ),
-                                                ),
-                                              )),
-                                      if (_hotTags.length > 8)
-                                        GestureDetector(
-                                          onTap: () {
-                                            setState(() {
-                                              _showAllTags = !_showAllTags;
-                                            });
-                                          },
-                                          child: Container(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 12.w,
-                                              vertical: 6.h,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.primaryColor,
-                                              borderRadius:
-                                                  BorderRadius.circular(6.r),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  _showAllTags ? '收起' : '更多标签',
-                                                  style: TextStyle(
-                                                    fontSize: 12.sp,
-                                                    fontWeight: FontWeight.w500,
-                                                    color: Colors.white,
-                                                  ),
-                                                ),
-                                                SizedBox(width: 2.w),
-                                                Icon(
-                                                  _showAllTags
-                                                      ? Icons.keyboard_arrow_up
-                                                      : Icons
-                                                          .keyboard_arrow_down,
-                                                  size: 12.sp,
-                                                  color: Colors.white,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                    ],
+                            // 偏好按钮
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const PreferencesPage(),
                                   ),
+                                );
+                              },
+                              child: Container(
+                                height: 54.h,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.blueAccent.shade700,
+                                      Colors.blueAccent.shade400
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(16.r),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.blueAccent.withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.tune_rounded,
+                                      color: Colors.white,
+                                      size: 22.sp,
+                                    ),
+                                    SizedBox(width: 8.w),
+                                    Text(
+                                      '偏好',
+                                      style: TextStyle(
+                                        fontSize: 16.sp,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+
+              // 今日热门
+              SliverToBoxAdapter(
+                child: _buildItemSectionSimple(
+                  '今日热门',
+                  '今日最受欢迎的AI角色',
+                  _hotItems,
+                  AppTheme.textPrimary,
+                  AppTheme.textSecondary,
+                  AppTheme.primaryColor,
+                  isHotSection: true,
+                ),
+              ),
+
+              // 热门标签
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              ShaderMask(
+                                shaderCallback: (bounds) => LinearGradient(
+                                  colors: [Colors.blue, Colors.lightBlueAccent],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ).createShader(bounds),
+                                child: Icon(
+                                  Icons.tag_rounded,
+                                  color: Colors.white,
+                                  size: 20.sp,
+                                ),
+                              ),
+                              SizedBox(width: 8.w),
+                              Text(
+                                '热门标签',
+                                style: AppTheme.gradientTextStyle(
+                                  colors: [Colors.blue, Colors.lightBlueAccent],
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _showAllTags = !_showAllTags;
+                              });
+                            },
+                            child: Row(
+                              children: [
+                                Text(
+                                  _showAllTags ? '收起' : '查看全部',
+                                  style: AppTheme.gradientActionStyle,
+                                ),
+                                ShaderMask(
+                                  shaderCallback: (Rect bounds) {
+                                    return LinearGradient(
+                                      colors: AppTheme.primaryGradient,
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                    ).createShader(bounds);
+                                  },
+                                  child: Icon(
+                                    _showAllTags
+                                        ? Icons.keyboard_arrow_up
+                                        : Icons.chevron_right_rounded,
+                                    color: Colors.white,
+                                    size: 20.sp,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        '点击标签探索更多相关角色',
+                        style: AppTheme.gradientTextStyle(
+                          colors: [Colors.white60, Colors.white38],
+                          fontSize: 12.sp,
+                        ),
+                      ),
+                      SizedBox(height: 16.h),
+                      _isLoading
+                          ? _buildTagsSkeleton()
+                          : _showAllTags
+                              ? _buildTagsWrapLayout()
+                              : _buildTagsScrollLayout(),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 每日推荐
+              SliverToBoxAdapter(
+                child: _buildItemSectionSimple(
+                  '每日推荐',
+                  '根据您的兴趣智能推荐的角色',
+                  _recommendItems,
+                  AppTheme.textPrimary,
+                  AppTheme.textSecondary,
+                  AppTheme.primaryColor,
+                  isHotSection: false,
+                ),
+              ),
+
+              // 最新发布标题 (固定标题)
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SliverAppBarDelegate(
+                  minHeight: 50.h, // 减小高度
+                  maxHeight: 50.h, // 减小高度
+                  child: Container(
+                    color: AppTheme.background,
+                    padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h), // 减小上边距
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            ShaderMask(
+                              shaderCallback: (bounds) => LinearGradient(
+                                colors: [
+                                  Colors.purple,
+                                  Colors.deepPurpleAccent
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              child: Icon(
+                                Icons.new_releases_rounded,
+                                color: Colors.white,
+                                size: 20.sp,
+                              ),
+                            ),
+                            SizedBox(width: 8.w),
+                            Text(
+                              '最新发布',
+                              style: AppTheme.gradientTextStyle(
+                                colors: [
+                                  Colors.purple,
+                                  Colors.deepPurpleAccent
+                                ],
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AllItemsPage(),
+                              ),
+                            );
+                          },
+                          child: Row(
+                            children: [
+                              Text(
+                                '查看全部分类',
+                                style: AppTheme.gradientActionStyle,
+                              ),
+                              ShaderMask(
+                                shaderCallback: (Rect bounds) {
+                                  return LinearGradient(
+                                    colors: AppTheme.primaryGradient,
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                  ).createShader(bounds);
+                                },
+                                child: Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Colors.white,
+                                  size: 20.sp,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // 最新发布内容
+              _isLoadingLatest && _latestItems.isEmpty
+                  ? SliverToBoxAdapter(
+                      child: Container(
+                        height: 300.h,
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        child: _buildLatestSkeleton(),
+                      ),
+                    )
+                  : SliverPadding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      sliver: SliverGrid(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.75,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            // 到达底部时加载更多
+                            if (index == _latestItems.length + 1 - 1 &&
+                                _hasMoreLatest &&
+                                !_isLoadingLatest) {
+                              _loadMoreLatestItems();
+                            }
+
+                            // 在第0个位置插入关注作者更新通知卡片
+                            if (index == 0) {
+                              return _buildFollowingAuthorsCard();
+                            }
+
+                            // 调整索引以适应关注作者卡片
+                            final itemIndex = index - 1;
+                            if (itemIndex >= _latestItems.length)
+                              return const SizedBox();
+
+                            final item = _latestItems[itemIndex];
+                            return _buildLatestItemCard(item);
+                          },
+                          childCount:
+                              _latestItems.length + 1, // +1 是为了添加关注作者更新通知卡片
+                        ),
+                      ),
+                    ),
+
+              // 添加底部加载更多指示器
+              SliverToBoxAdapter(
+                child: _isLoadingLatest && _latestItems.isNotEmpty
+                    ? Container(
+                        height: 60.h,
+                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        alignment: Alignment.center,
+                        child: const CircularProgressIndicator(),
+                      )
+                    : !_hasMoreLatest && _latestItems.isNotEmpty
+                        ? Container(
+                            height: 60.h,
+                            padding: EdgeInsets.symmetric(vertical: 16.h),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '-- 已经到底了 --',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 14.sp,
+                              ),
+                            ),
+                          )
+                        : const SizedBox(),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildItemSection(
-    String title,
-    String subtitle,
-    List<dynamic> items,
-    Color textPrimary,
-    Color textSecondary,
-    Color primaryColor,
-  ) {
-    final bool isHotSection = title == '今日热门';
-    return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 4.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          isHotSection
-                              ? Icons.local_fire_department_rounded
-                              : Icons.recommend_rounded,
-                          color: isHotSection
-                              ? Colors.redAccent
-                              : Colors.orangeAccent,
-                          size: 20.sp,
+  // 简化版本的项目部分构建
+  Widget _buildItemSectionSimple(
+      String title,
+      String subtitle,
+      List<dynamic> items,
+      Color textPrimary,
+      Color textSecondary,
+      Color primaryColor,
+      {required bool isHotSection}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 4.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        isHotSection
+                            ? Icons.local_fire_department_rounded
+                            : Icons.recommend_rounded,
+                        color: isHotSection
+                            ? Colors.redAccent
+                            : Colors.orangeAccent,
+                        size: 20.sp,
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        title,
+                        style: AppTheme.gradientTextStyle(
+                          colors: AppTheme.primaryGradient,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.bold,
                         ),
-                        SizedBox(width: 8.w),
+                      ),
+                    ],
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      if (isHotSection) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const HotItemsPage(),
+                          ),
+                        );
+                      } else if (title == '每日推荐') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const RecommendItemsPage(),
+                          ),
+                        );
+                      }
+                    },
+                    child: Row(
+                      children: [
                         Text(
-                          title,
-                          style: AppTheme.gradientTextStyle(
-                            colors: AppTheme.primaryGradient,
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.bold,
+                          '查看全部',
+                          style: AppTheme.gradientActionStyle,
+                        ),
+                        ShaderMask(
+                          shaderCallback: (Rect bounds) {
+                            return LinearGradient(
+                              colors: AppTheme.primaryGradient,
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ).createShader(bounds);
+                          },
+                          child: Icon(
+                            Icons.chevron_right_rounded,
+                            color: Colors.white,
+                            size: 20.sp,
                           ),
                         ),
                       ],
                     ),
-                    GestureDetector(
-                      onTap: () {
-                        if (isHotSection) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const HotItemsPage(),
-                            ),
-                          );
-                        } else if (title == '每日推荐') {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const RecommendItemsPage(),
-                            ),
-                          );
-                        }
-                      },
-                      child: Row(
-                        children: [
-                          Text(
-                            '查看全部',
-                            style: AppTheme.gradientActionStyle,
-                          ),
-                          ShaderMask(
-                            shaderCallback: (Rect bounds) {
-                              return LinearGradient(
-                                colors: AppTheme.primaryGradient,
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              ).createShader(bounds);
-                            },
-                            child: Icon(
-                              Icons.chevron_right_rounded,
-                              color: Colors.white,
-                              size: 20.sp,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 2.h),
-                Text(
-                  subtitle,
-                  style: AppTheme.gradientTextStyle(
-                    colors: [Colors.white60, Colors.white38],
-                    fontSize: 12.sp,
                   ),
+                ],
+              ),
+              SizedBox(height: 2.h),
+              Text(
+                subtitle,
+                style: AppTheme.gradientTextStyle(
+                  colors: [Colors.white60, Colors.white38],
+                  fontSize: 12.sp,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          _isLoading
-              ? _buildItemsSkeleton(isHotSection)
-              : items.isEmpty
-                  ? _buildEmptyState(title, AppTheme.textSecondary)
-                  : SizedBox(
-                      height: 180.h,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.only(left: 12.w),
-                        itemCount: items.length,
-                        itemBuilder: (context, index) {
-                          final item = items[index];
-                          return _buildItemCard(
-                            item,
-                            AppTheme.textPrimary,
-                            isHotItem: isHotSection,
-                            index: index,
-                          );
-                        },
-                      ),
+        ),
+        _isLoading
+            ? _buildItemsSkeleton(isHotSection)
+            : items.isEmpty
+                ? _buildEmptyState(title, textSecondary)
+                : SizedBox(
+                    height: 180.h,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.only(left: 12.w),
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return _buildItemCard(
+                          item,
+                          textPrimary,
+                          isHotItem: isHotSection,
+                          index: index,
+                        );
+                      },
                     ),
-        ],
-      ),
+                  ),
+      ],
     );
   }
 
@@ -1019,7 +1128,7 @@ class HomePageState extends State<HomePage> {
       );
     }
 
-    if (!_loadingImages[coverUri]!) {
+    if (_loadingImages[coverUri] != true) {
       _loadItemImage(coverUri);
     }
 
@@ -1089,25 +1198,690 @@ class HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildTagsScrollLayout() {
+    return SizedBox(
+      height: 36.h,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _hotTags.length,
+        itemBuilder: (context, index) {
+          final tag = _hotTags[index];
+          // 为每个标签选择一个渐变色
+          final List<Color> tagGradient = _getTagGradient(index);
+
+          return TweenAnimationBuilder(
+            tween: Tween<double>(begin: 0.0, end: 1.0),
+            duration: Duration(milliseconds: 300 + (index * 50)),
+            curve: Curves.easeOutCubic,
+            builder: (context, double value, child) {
+              return Transform.translate(
+                offset: Offset(20 * (1 - value), 0),
+                child: Opacity(
+                  opacity: value,
+                  child: child,
+                ),
+              );
+            },
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TagItemsPage(
+                      tag: tag,
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                margin: EdgeInsets.only(right: 10.w),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: tagGradient,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(18.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: tagGradient.first.withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    '#$tag',
+                    style: TextStyle(
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTagsWrapLayout() {
+    return Wrap(
+      spacing: 10.w,
+      runSpacing: 12.h,
+      children: [
+        ..._hotTags.asMap().entries.map((entry) {
+          final index = entry.key;
+          final tag = entry.value;
+          final List<Color> tagGradient = _getTagGradient(index);
+
+          return TweenAnimationBuilder(
+            tween: Tween<double>(begin: 0.0, end: 1.0),
+            duration: Duration(milliseconds: 300 + (index * 30)),
+            curve: Curves.easeOutCubic,
+            builder: (context, double value, child) {
+              return Transform.scale(
+                scale: 0.8 + (0.2 * value),
+                child: Opacity(
+                  opacity: value,
+                  child: child,
+                ),
+              );
+            },
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TagItemsPage(
+                      tag: tag,
+                    ),
+                  ),
+                );
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: tagGradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: tagGradient.first.withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  '#$tag',
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  // 为标签生成渐变色
+  List<Color> _getTagGradient(int index) {
+    // 定义几种渐变组合
+    final gradients = [
+      [
+        const Color(0xFF4158D0),
+        const Color(0xFF6B8DD6),
+        const Color(0xFFC850C0)
+      ], // 蓝紫
+      [
+        const Color(0xFFFF416C),
+        const Color(0xFFFF5E62),
+        const Color(0xFFFF7C48)
+      ], // 红橙
+      [
+        const Color(0xFF43CEA2),
+        const Color(0xFF54C8AC),
+        const Color(0xFF28B485)
+      ], // 绿
+      [
+        const Color(0xFF584BD2),
+        const Color(0xFF896CDF),
+        const Color(0xFFB892FF)
+      ], // 紫色
+      [
+        const Color(0xFF4776E6),
+        const Color(0xFF5886E7),
+        const Color(0xFF8E54E9)
+      ], // 蓝紫
+      [
+        const Color(0xFFFFB347),
+        const Color(0xFFFFCC33),
+        const Color(0xFFFFD700)
+      ], // 金黄
+    ];
+
+    // 使用标签索引来选择渐变，确保同一标签始终获得相同的渐变
+    int gradientIndex = index % gradients.length;
+    return gradients[gradientIndex];
+  }
+
   Widget _buildTagsSkeleton() {
     return Shimmer.fromColors(
       baseColor: AppTheme.cardBackground,
       highlightColor: AppTheme.cardBackground.withOpacity(0.5),
-      child: Wrap(
-        spacing: 8.w,
-        runSpacing: 8.h,
-        children: List.generate(
-          8,
-          (index) => Container(
-            width: 60.w,
-            height: 28.h,
+      child: SizedBox(
+        height: 36.h,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: 8,
+          itemBuilder: (context, index) {
+            return Container(
+              width: 70.w,
+              height: 32.h,
+              margin: EdgeInsets.only(right: 10.w),
+              decoration: BoxDecoration(
+                color: AppTheme.cardBackground,
+                borderRadius: BorderRadius.circular(18.r),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // 构建最新发布区域的骨架屏
+  Widget _buildLatestSkeleton() {
+    return Shimmer.fromColors(
+      baseColor: AppTheme.cardBackground,
+      highlightColor: AppTheme.cardBackground.withOpacity(0.5),
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.75,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+        ),
+        itemCount: 6,
+        itemBuilder: (context, index) {
+          return Container(
             decoration: BoxDecoration(
               color: AppTheme.cardBackground,
-              borderRadius: BorderRadius.circular(4.r),
+              borderRadius: BorderRadius.circular(12.r),
             ),
+          );
+        },
+      ),
+    );
+  }
+
+  // 构建最新发布瀑布流
+  Widget _buildLatestGrid() {
+    if (_latestItems.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inbox_rounded,
+              size: 48.sp,
+              color: AppTheme.textSecondary.withOpacity(0.5),
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              '暂无内容',
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(), // 禁用内部滚动
+      shrinkWrap: true, // 收缩以适应内容高度
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.75, // 控制卡片高宽比
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: _latestItems.length + 1, // +1 是为了添加关注作者更新通知卡片
+      itemBuilder: (context, index) {
+        // 在第1个位置插入关注作者更新通知卡片
+        if (index == 0) {
+          return _buildFollowingAuthorsCard();
+        }
+
+        // 其他位置显示正常内容卡片，但需要调整实际索引
+        final itemIndex = index - 1;
+        if (itemIndex >= _latestItems.length) return const SizedBox();
+
+        final item = _latestItems[itemIndex];
+        return _buildLatestItemCard(item);
+      },
+    );
+  }
+
+  // 构建关注作者更新通知卡片
+  Widget _buildFollowingAuthorsCard() {
+    return GestureDetector(
+      onTap: () {
+        // 处理点击事件，跳转到关注作者页面
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFF9C27B0).withOpacity(0.8),
+              const Color(0xFF673AB7).withOpacity(0.9),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.purple.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -10,
+              bottom: -10,
+              child: ShaderMask(
+                shaderCallback: (Rect bounds) {
+                  return LinearGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.15),
+                      Colors.white.withOpacity(0.05)
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ).createShader(bounds);
+                },
+                child: Icon(
+                  Icons.notifications_active_rounded,
+                  color: Colors.white,
+                  size: 80.sp,
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(16.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.people_alt_rounded,
+                    color: Colors.white,
+                    size: 28.sp,
+                  ),
+                  SizedBox(height: 12.h),
+                  Text(
+                    '关注作者更新',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  Text(
+                    '3位作者有新内容',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14.sp,
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12.w,
+                      vertical: 6.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(16.r),
+                    ),
+                    child: Text(
+                      '查看更新',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 构建最新内容卡片
+  Widget _buildLatestItemCard(Map<String, dynamic> item) {
+    final String? coverUri = item['cover_uri'];
+    final DateTime createdAt =
+        DateTime.parse(item['created_at'] ?? DateTime.now().toIso8601String());
+    final Duration difference = DateTime.now().difference(createdAt);
+
+    // 计算时间显示
+    String timeAgo;
+    if (difference.inDays > 0) {
+      timeAgo = '${difference.inDays}天前';
+    } else if (difference.inHours > 0) {
+      timeAgo = '${difference.inHours}小时前';
+    } else if (difference.inMinutes > 0) {
+      timeAgo = '${difference.inMinutes}分钟前';
+    } else {
+      timeAgo = '刚刚';
+    }
+
+    // 判断是否为当天发布
+    final bool isNewToday = DateTime.now().day == createdAt.day &&
+        DateTime.now().month == createdAt.month &&
+        DateTime.now().year == createdAt.year;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ItemDetailPage(item: item),
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.cardBackground,
+          borderRadius: BorderRadius.circular(12.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12.r),
+          child: Stack(
+            children: [
+              // 封面图片作为整个卡片的背景
+              Positioned.fill(
+                child: coverUri != null
+                    ? _buildLatestCoverImage(coverUri)
+                    : Container(
+                        color: AppTheme.cardBackground.withOpacity(0.5),
+                        child: Center(
+                          child: Icon(
+                            Icons.image_outlined,
+                            color: AppTheme.textSecondary,
+                            size: 32.sp,
+                          ),
+                        ),
+                      ),
+              ),
+
+              // 发布时间标签
+              Positioned(
+                top: 8.h,
+                right: 8.w,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 8.w,
+                    vertical: 4.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(4.r),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.access_time_rounded,
+                        color: Colors.white,
+                        size: 12.sp,
+                      ),
+                      SizedBox(width: 4.w),
+                      Text(
+                        timeAgo,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.sp,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 新发布标签 - 仅当天发布的内容显示
+              if (isNewToday)
+                Positioned(
+                  top: 8.h,
+                  left: 8.w,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 10.w,
+                      vertical: 5.h,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.deepPurpleAccent,
+                          Colors.purpleAccent,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.deepPurpleAccent.withOpacity(0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.fiber_new_rounded,
+                          color: Colors.white,
+                          size: 12.sp,
+                        ),
+                        SizedBox(width: 2.w),
+                        Text(
+                          '新发布',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // 内容部分 - 底部渐变背景
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 150.h, // 卡片底部区域高度
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      stops: const [0.0, 0.5, 1.0], // 从底部到中间有实色背景，中间往上渐变透明
+                      colors: [
+                        Colors.black.withOpacity(0.8), // 底部较深的背景色
+                        Colors.black.withOpacity(0.6), // 中间区域半透明
+                        Colors.transparent, // 顶部完全透明
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // 内容文字区域
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Padding(
+                  padding: EdgeInsets.all(12.w),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        item['title'] ?? '未命名',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white, // 文字颜色改为白色以便在深色背景上显示
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: 4.h),
+                      if (item['description'] != null)
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxHeight: 36.h),
+                          child: Text(
+                            item['description'],
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: Colors.white70, // 次要文字使用半透明白色
+                              height: 1.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      SizedBox(height: 8.h),
+                      Row(
+                        mainAxisSize: MainAxisSize.max,
+                        children: [
+                          Icon(
+                            Icons.person_outline,
+                            size: 12.sp,
+                            color: Colors.white70, // 图标使用半透明白色
+                          ),
+                          SizedBox(width: 4.w),
+                          Expanded(
+                            child: Text(
+                              '@${item['author_name'] ?? '未知作者'}',
+                              style: TextStyle(
+                                fontSize: 10.sp,
+                                color: Colors.white70, // 作者名使用半透明白色
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  // 为最新发布构建封面图片
+  Widget _buildLatestCoverImage(String coverUri) {
+    if (_imageCache.containsKey(coverUri)) {
+      return Image.memory(
+        _imageCache[coverUri]!,
+        fit: BoxFit.cover,
+        height: double.infinity,
+        width: double.infinity,
+      );
+    }
+
+    if (_loadingImages[coverUri] != true) {
+      _loadItemImage(coverUri);
+    }
+
+    return Shimmer.fromColors(
+      baseColor: AppTheme.cardBackground,
+      highlightColor: AppTheme.cardBackground.withOpacity(0.5),
+      child: Container(
+        color: AppTheme.cardBackground,
+      ),
+    );
+  }
+}
+
+// 固定标题委托类
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  _SliverAppBarDelegate({
+    required this.minHeight,
+    required this.maxHeight,
+    required this.child,
+  });
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return maxHeight != oldDelegate.maxHeight ||
+        minHeight != oldDelegate.minHeight ||
+        child != oldDelegate.child;
   }
 }

@@ -1,4 +1,5 @@
 import '../../../net/http_client.dart';
+import 'package:flutter/foundation.dart';
 
 class CharacterService {
   final HttpClient _httpClient = HttpClient();
@@ -311,6 +312,23 @@ class CharacterService {
       }
     } catch (e) {
       throw '创建存档快照失败: $e';
+    }
+  }
+
+  /// 上报对话持续时间
+  Future<void> reportDialogDuration(int itemId, int authorId) async {
+    try {
+      await _httpClient.post(
+        '/dialog-duration/report',
+        data: {
+          'item_id': itemId,
+          'author_id': authorId,
+        },
+      );
+      // 忽略响应结果
+    } catch (e) {
+      // 忽略错误，不影响用户体验
+      debugPrint('上报对话持续时间失败: $e');
     }
   }
 }
