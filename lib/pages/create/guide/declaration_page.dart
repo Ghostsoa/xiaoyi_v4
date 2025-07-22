@@ -123,6 +123,11 @@ class DeclarationPage extends StatelessWidget {
               '猎奇、引人不适内容',
               description: '包含极端、血腥、恐怖、恶心或其他可能引起用户强烈不适的视觉或文字内容。',
             ),
+            _buildListItem(
+              '侵犯他人肖像权',
+              description:
+                  '尊重每位公民的肖像权，严禁在未经授权的情况下使用他人真实照片作为素材。AI 绘制、非真实的二次元虚拟角色不在此限制范围内。',
+            ),
             SizedBox(height: 16.h),
 
             // 违规处罚明细

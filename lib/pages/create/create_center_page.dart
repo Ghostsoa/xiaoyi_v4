@@ -985,7 +985,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
 
   // 显示领取时长弹窗
   void _showClaimDurationDialog(num hours) {
-    if (hours <= 0) return; // 如果没有可领取时长，不显示弹窗
+    if (hours <= 0) return; // 如果没有可兑换时长，不显示弹窗
 
     final double maxHours = hours.toDouble();
 
@@ -998,7 +998,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
             children: [
               Icon(Icons.schedule, color: AppTheme.primaryColor),
               SizedBox(width: 8.w),
-              Expanded(child: Text('领取可用时长')),
+              Expanded(child: Text('兑换本源魔法师时长')),
             ],
           ),
           content: Column(
@@ -1017,7 +1017,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                     SizedBox(width: 8.w),
                     Expanded(
                       child: Text(
-                        '您当前有 ${hours.toStringAsFixed(2)} 小时待领时长',
+                        '您当前有 ${hours.toStringAsFixed(2)} 小时奖励时长',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: AppTheme.textPrimary,
@@ -1029,7 +1029,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
               ),
               SizedBox(height: 16.h),
               Text(
-                '请选择要领取的时长：',
+                '请选择要兑换的时长：',
                 style: TextStyle(
                   fontSize: AppTheme.captionSize,
                   fontWeight: FontWeight.w500,
@@ -1044,7 +1044,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
               padding: EdgeInsets.only(bottom: 8.h, left: 8.w, right: 8.w),
               child: Column(
                 children: [
-                  // 领取10小时
+                  // 兑换10小时
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -1052,7 +1052,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                           ? () => _claimAndCloseDialog(10.0)
                           : null,
                       icon: Icon(Icons.access_time, size: 18.sp),
-                      label: Text('领取 10.00 小时'),
+                      label: Text('兑换 10.00 小时'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue[600],
                         foregroundColor: Colors.white,
@@ -1066,7 +1066,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                   ),
                   SizedBox(height: 8.h),
 
-                  // 领取24小时 (1天)
+                  // 兑换24小时 (1天)
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -1074,7 +1074,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                           ? () => _claimAndCloseDialog(24.0)
                           : null,
                       icon: Icon(Icons.av_timer, size: 18.sp),
-                      label: Text('领取 24.00 小时 (1天)'),
+                      label: Text('兑换 24.00 小时 (1天)'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue[700],
                         foregroundColor: Colors.white,
@@ -1088,7 +1088,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                   ),
                   SizedBox(height: 8.h),
 
-                  // 领取168小时 (7天)
+                  // 兑换168小时 (7天)
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -1096,7 +1096,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                           ? () => _claimAndCloseDialog(168.0)
                           : null,
                       icon: Icon(Icons.date_range, size: 18.sp),
-                      label: Text('领取 168.00 小时 (7天)'),
+                      label: Text('兑换 168.00 小时 (7天)'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue[800],
                         foregroundColor: Colors.white,
@@ -1110,7 +1110,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                   ),
                   SizedBox(height: 8.h),
 
-                  // 领取全部 (仅当时长>10小时时可用)
+                  // 兑换全部 (仅当时长>10小时时可用)
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -1118,7 +1118,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                           ? () => _claimAndCloseDialog(null)
                           : null,
                       icon: Icon(Icons.done_all, size: 18.sp),
-                      label: Text('领取全部 (${hours.toStringAsFixed(2)}小时)'),
+                      label: Text('兑换全部 (${hours.toStringAsFixed(2)}小时)'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,
@@ -1161,7 +1161,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
     );
   }
 
-  // 领取并关闭弹窗
+  // 兑换并关闭弹窗
   Future<void> _claimAndCloseDialog(double? hours) async {
     // 先关闭弹窗
     Navigator.of(context).pop();
@@ -1176,7 +1176,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
       // 显示成功消息
       CustomToast.show(
         context,
-        message: '领取成功',
+        message: '兑换成功',
         type: ToastType.success,
       );
     } catch (e) {
@@ -1206,13 +1206,26 @@ class _CreateCenterPageState extends State<CreateCenterPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '待领时长',
-                  style: TextStyle(
-                    fontSize: AppTheme.captionSize,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      '奖励时长',
+                      style: TextStyle(
+                        fontSize: AppTheme.captionSize,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    SizedBox(width: 4.w),
+                    GestureDetector(
+                      onTap: _showRewardExplanation,
+                      child: Icon(
+                        Icons.info_outline,
+                        color: AppTheme.primaryColor,
+                        size: 16.sp,
+                      ),
+                    ),
+                  ],
                 ),
                 SizedBox(height: 4.h),
                 Text(
@@ -1236,10 +1249,60 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                   borderRadius: BorderRadius.circular(20.r),
                 ),
               ),
-              child: Text('立即领取'),
+              child: Text('立即兑换'),
             ),
         ],
       ),
+    );
+  }
+
+  // 显示奖励时长说明弹窗
+  void _showRewardExplanation() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.info_outline, color: AppTheme.primaryColor),
+              SizedBox(width: 8.w),
+              Expanded(child: Text('奖励时长说明')),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '当有魔法师用户使用您的作品对话，您将获得用户对话时间10%的奖励。',
+                style: TextStyle(
+                  fontSize: AppTheme.bodySize,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              SizedBox(height: 12.h),
+              Text(
+                '该奖励可用于兑换本源魔法师时长。',
+                style: TextStyle(
+                  fontSize: AppTheme.bodySize,
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child:
+                  Text('我知道了', style: TextStyle(color: AppTheme.primaryColor)),
+            ),
+          ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.sp),
+          ),
+        );
+      },
     );
   }
 }

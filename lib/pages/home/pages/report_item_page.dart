@@ -40,8 +40,7 @@ class _ReportItemPageState extends State<ReportItemPage> {
       'id': 1,
       'name': '违规内容',
       'icon': Icons.block,
-      'description':
-          '指角色卡的公开部分（封面、背景、标题、简介、公开设定）中包含色情、暴力、政治敏感、赌博、毒品、血腥或引人不适的内容。'
+      'description': '指违反《大厅规则》中“违规内容限制”条款的行为。建议您在举报前，先阅读大厅规则以了解详细定义。'
     },
     {
       'id': 2,

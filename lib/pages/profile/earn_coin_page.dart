@@ -762,22 +762,13 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
 
                   // 邀请规则列表
                   _buildRuleItem(
-                    '1. 好友通过在注册时填写您的ID，双方均可获得58小懿币',
+                    '1. 协助好友成为小懿AI魔法师！双方均可可以获得58小懿币魔法能量！',
                     AppTheme.textSecondary,
                   ),
                   SizedBox(height: 8.h),
-                  _buildRuleItem(
-                    '2. 当您邀请的好友赞助小懿时，您将额外获得10%的小懿币奖励',
-                    AppTheme.textSecondary,
-                  ),
+                  _buildRuleItem('2. 被每次协助魔法师进阶契约魔法师或本源魔法师后均可以向您回报10%的魔法能量！',
+                      AppTheme.textSecondary),
                   SizedBox(height: 8.h),
-                  _buildRuleItem(
-                    '3. 没有邀请人限制，邀请越多，奖励越多',
-                    AppTheme.textSecondary,
-                  ),
-
-                  SizedBox(height: 24.h),
-
                   // 邀请ID显示
                   Container(
                     padding: EdgeInsets.all(16.w),
