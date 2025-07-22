@@ -60,18 +60,47 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _isLoadingAvatar = true;
       });
 
-      final response = await _fileService.getFile(_avatarUri!);
-      if (response.statusCode == 200) {
-        setState(() {
-          _avatarBytes = response.data;
-        });
+      debugPrint('尝试加载当前头像: $_avatarUri');
+
+      // 确保头像URI有效
+      if (_avatarUri == null || _avatarUri!.isEmpty) {
+        debugPrint('头像URI为空或无效');
+        return;
+      }
+
+      // 处理URI格式
+      final String processedUri = _avatarUri!.trim();
+      debugPrint('处理后的URI: $processedUri');
+
+      final response = await _fileService
+          .getFile(processedUri)
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint(
+          '头像加载结果: ${response.statusCode}, 数据长度: ${response.data?.length ?? 0}');
+
+      if (response.statusCode == 200 &&
+          response.data != null &&
+          response.data is Uint8List &&
+          (response.data as Uint8List).isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _avatarBytes = response.data;
+            debugPrint('成功设置头像数据，长度: ${_avatarBytes!.length}');
+          });
+        }
+      } else {
+        debugPrint('头像数据无效: ${response.statusCode}');
       }
     } catch (e) {
+      debugPrint('加载头像出错: $e');
       // 加载失败时不显示错误，只是不显示头像
     } finally {
-      setState(() {
-        _isLoadingAvatar = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingAvatar = false;
+        });
+      }
     }
   }
 
@@ -155,8 +184,29 @@ class _EditProfilePageState extends State<EditProfilePage> {
             type: ToastType.success,
           );
 
-          // 返回上一页
-          Navigator.pop(context, true);
+          // 检查是否需要重新登录
+          if (result['msg'] != null &&
+              result['msg'].toString().contains('请重新登录')) {
+            debugPrint('个人资料更新成功，需要重新登录');
+
+            // 清除用户信息
+            await _userDao.clearUserInfo();
+
+            // 延迟导航到登录页面，让用户先看到成功提示
+            Future.delayed(const Duration(seconds: 1), () {
+              if (mounted) {
+                // 导航到登录页面并清除导航栈
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                  (route) => false, // 清除所有路由历史
+                );
+              }
+            });
+          } else {
+            // 返回上一页
+            Navigator.pop(context, true);
+          }
         } else {
           // 显示错误消息
           CustomToast.show(
@@ -166,16 +216,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
           );
 
           // 如果需要重新登录，处理相应逻辑
-          if (result['msg'].contains('重新登录')) {
+          if (result['msg'] != null &&
+              result['msg'].toString().contains('请重新登录')) {
             await _userDao.clearUserInfo();
 
             // 延迟导航到登录页面，让用户先看到提示
-            Future.delayed(const Duration(seconds: 2), () {
+            Future.delayed(const Duration(seconds: 1), () {
               if (mounted) {
                 Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => const LoginPage()),
-                    (route) => false);
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                  (route) => false,
+                );
               }
             });
           }

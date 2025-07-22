@@ -1232,6 +1232,34 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     );
   }
 
+  // 添加插入中文引号功能方法
+  void _insertQuotes() {
+    final TextEditingController controller = _messageController;
+    final TextSelection selection = controller.selection;
+    final String currentText = controller.text;
+
+    String newText;
+    TextSelection newSelection;
+
+    // 如果有选中文本，则在两侧添加引号
+    if (selection.start != selection.end) {
+      final String selectedText =
+          currentText.substring(selection.start, selection.end);
+      newText = currentText.replaceRange(
+          selection.start, selection.end, '"$selectedText"');
+      newSelection = TextSelection.collapsed(offset: selection.end + 2);
+    } else {
+      // 如果没有选中文本，则插入空引号，并将光标放在引号中间
+      newText = currentText.replaceRange(selection.start, selection.end, '“”');
+      newSelection = TextSelection.collapsed(offset: selection.start + 1);
+    }
+
+    controller.value = controller.value.copyWith(
+      text: newText,
+      selection: newSelection,
+    );
+  }
+
   // 添加清空输入框方法
   void _clearInput() {
     _messageController.clear();
@@ -2032,6 +2060,12 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                       icon: null,
                                       label: '()',
                                       onTap: _insertBrackets,
+                                    ),
+                                    // 引号功能气泡
+                                    _buildFunctionBubble(
+                                      icon: null,
+                                      label: '“”',
+                                      onTap: _insertQuotes,
                                     ),
                                     // 清空功能气泡
                                     _buildFunctionBubble(

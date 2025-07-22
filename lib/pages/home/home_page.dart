@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'dart:typed_data';
+import 'dart:async'; // 导入Timer
 import '../../theme/app_theme.dart';
 import '../../services/file_service.dart';
 import 'services/home_service.dart';
@@ -13,6 +14,7 @@ import 'pages/all_items_page.dart';
 import 'pages/tag_items_page.dart';
 import 'pages/favorites_page.dart';
 import 'pages/preferences_page.dart';
+import 'pages/author_updates_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,10 +23,15 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => HomePageState();
 }
 
-class HomePageState extends State<HomePage> {
+class HomePageState extends State<HomePage> with WidgetsBindingObserver {
+  // 添加WidgetsBindingObserver
   final HomeService _homeService = HomeService();
   final FileService _fileService = FileService();
   final RefreshController _refreshController = RefreshController();
+
+  // 添加定时器
+  Timer? _pushCheckTimer;
+  bool _isVisible = true; // 跟踪页面是否可见
 
   bool _isLoading = true;
   bool _showAllTags = false;
@@ -45,17 +52,59 @@ class HomePageState extends State<HomePage> {
   final int _latestPageSize = 10;
   bool _hasMoreLatest = true;
 
+  int _authorUpdateCount = 0;
+
   @override
   void initState() {
     super.initState();
     _loadData();
     _loadLatestItems(); // 加载最新发布
+    _checkAuthorUpdates();
+
+    // 初始化页面可见性监听
+    WidgetsBinding.instance.addObserver(this);
+
+    // 启动推送检查定时器
+    _startPushCheckTimer();
   }
 
   @override
   void dispose() {
+    // 取消定时器
+    _pushCheckTimer?.cancel();
+    // 移除页面可见性监听
+    WidgetsBinding.instance.removeObserver(this);
     _refreshController.dispose();
     super.dispose();
+  }
+
+  // 处理应用生命周期状态变化
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // 应用回到前台，立即检查一次推送并重启定时器
+      _isVisible = true;
+      _checkAuthorUpdates();
+      _startPushCheckTimer();
+    } else if (state == AppLifecycleState.paused) {
+      // 应用进入后台，停止定时器
+      _isVisible = false;
+      _pushCheckTimer?.cancel();
+    }
+    super.didChangeAppLifecycleState(state);
+  }
+
+  // 启动推送检查定时器
+  void _startPushCheckTimer() {
+    // 取消现有定时器
+    _pushCheckTimer?.cancel();
+
+    // 创建新定时器，每10秒检查一次
+    _pushCheckTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (_isVisible && mounted) {
+        _checkAuthorUpdates();
+      }
+    });
   }
 
   Future<void> _loadItemImage(String? coverUri,
@@ -125,7 +174,13 @@ class HomePageState extends State<HomePage> {
       _forceReload = true; // 下拉刷新时强制重新加载图片
     });
     try {
-      await _loadData();
+      // 同时刷新所有内容
+      await Future.wait([
+        _loadData(),
+        _loadLatestItems(refresh: true),
+        _checkAuthorUpdates()
+      ]);
+
       if (mounted) {
         _refreshController.refreshCompleted();
       }
@@ -141,7 +196,6 @@ class HomePageState extends State<HomePage> {
   void refresh() {
     if (mounted) {
       // 静默加载数据，不更新加载状态
-      bool originalLoadingState = _isLoading;
       _loadSilently();
     }
   }
@@ -156,19 +210,26 @@ class HomePageState extends State<HomePage> {
         _homeService.getHotItems(),
         _homeService.getRecommendItems(),
         _homeService.getHotTags(),
+        _homeService.getAllItems(
+          page: 1,
+          pageSize: _latestPageSize,
+          sortBy: 'new', // 按最新排序
+        ),
       ]);
 
       if (mounted) {
         final newHotItems = results[0]['data']['items'] ?? [];
         final newRecommendItems = results[1]['data']['items'] ?? [];
         final newHotTags = List<String>.from(results[2]['data'] ?? []);
+        final newLatestItems = results[3]['data']['items'] ?? [];
 
         // 检查数据是否发生变化
         bool dataChanged = false;
 
         if (_hotItems.length != newHotItems.length ||
             _recommendItems.length != newRecommendItems.length ||
-            _hotTags.length != newHotTags.length) {
+            _hotTags.length != newHotTags.length ||
+            _latestItems.length != newLatestItems.length) {
           dataChanged = true;
         }
 
@@ -178,10 +239,17 @@ class HomePageState extends State<HomePage> {
             _hotItems = newHotItems;
             _recommendItems = newRecommendItems;
             _hotTags = newHotTags;
+            _latestItems = newLatestItems;
+            _latestPage = 1; // 重置最新发布页码
+            _hasMoreLatest = newLatestItems.length >= _latestPageSize;
           });
 
           // 预加载新图片
-          for (final item in [...newHotItems, ...newRecommendItems]) {
+          for (final item in [
+            ...newHotItems,
+            ...newRecommendItems,
+            ...newLatestItems
+          ]) {
             if (item['cover_uri'] != null) {
               _loadItemImage(item['cover_uri'], forceReload: false);
             }
@@ -271,6 +339,23 @@ class HomePageState extends State<HomePage> {
     await _loadLatestItems(refresh: true);
     if (mounted) {
       _refreshController.refreshCompleted();
+    }
+  }
+
+  Future<void> _checkAuthorUpdates() async {
+    if (!mounted) return;
+
+    try {
+      final count = await _homeService.getUnreadAuthorUpdatesCount();
+      if (mounted) {
+        setState(() {
+          _authorUpdateCount = count;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        debugPrint('检查作者更新失败: $e');
+      }
     }
   }
 
@@ -549,7 +634,7 @@ class HomePageState extends State<HomePage> {
                             children: [
                               ShaderMask(
                                 shaderCallback: (bounds) => LinearGradient(
-                                  colors: [Colors.blue, Colors.lightBlueAccent],
+                                  colors: AppTheme.accentGradient,
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ).createShader(bounds),
@@ -563,7 +648,7 @@ class HomePageState extends State<HomePage> {
                               Text(
                                 '热门标签',
                                 style: AppTheme.gradientTextStyle(
-                                  colors: [Colors.blue, Colors.lightBlueAccent],
+                                  colors: AppTheme.accentGradient,
                                   fontSize: 16.sp,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -651,10 +736,7 @@ class HomePageState extends State<HomePage> {
                           children: [
                             ShaderMask(
                               shaderCallback: (bounds) => LinearGradient(
-                                colors: [
-                                  Colors.purple,
-                                  Colors.deepPurpleAccent
-                                ],
+                                colors: AppTheme.accentGradient,
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ).createShader(bounds),
@@ -668,10 +750,7 @@ class HomePageState extends State<HomePage> {
                             Text(
                               '最新发布',
                               style: AppTheme.gradientTextStyle(
-                                colors: [
-                                  Colors.purple,
-                                  Colors.deepPurpleAccent
-                                ],
+                                colors: AppTheme.accentGradient,
                                 fontSize: 16.sp,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -1489,21 +1568,25 @@ class HomePageState extends State<HomePage> {
     return GestureDetector(
       onTap: () {
         // 处理点击事件，跳转到关注作者页面
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AuthorUpdatesPage(),
+          ),
+        );
+        // 移除返回后刷新的逻辑，因为现在有定时器了
       },
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              const Color(0xFF9C27B0).withOpacity(0.8),
-              const Color(0xFF673AB7).withOpacity(0.9),
-            ],
+            colors: AppTheme.accentGradient,
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(12.r),
           boxShadow: [
             BoxShadow(
-              color: Colors.purple.withOpacity(0.2),
+              color: AppTheme.accentGradient.first.withOpacity(0.2),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1511,6 +1594,52 @@ class HomePageState extends State<HomePage> {
         ),
         child: Stack(
           children: [
+            // 添加红点提醒
+            if (_authorUpdateCount > 0)
+              Positioned(
+                top: 10.h,
+                right: 10.w,
+                child: Container(
+                  width: 16.w,
+                  height: 16.w,
+                  decoration: BoxDecoration(
+                    color: AppTheme.error,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 2.w,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: _authorUpdateCount > 9
+                      ? Text(
+                          '9+',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : (_authorUpdateCount > 1
+                          ? Text(
+                              '$_authorUpdateCount',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 9.sp,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null),
+                ),
+              ),
+
             Positioned(
               right: -10,
               bottom: -10,
@@ -1537,14 +1666,29 @@ class HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.people_alt_rounded,
-                    color: Colors.white,
-                    size: 28.sp,
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.people_alt_rounded,
+                        color: Colors.white,
+                        size: 28.sp,
+                      ),
+                      // 添加红点指示器
+                      if (_authorUpdateCount > 0)
+                        Container(
+                          margin: EdgeInsets.only(left: 5.w, bottom: 15.h),
+                          width: 8.w,
+                          height: 8.w,
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                    ],
                   ),
                   SizedBox(height: 12.h),
                   Text(
-                    '关注作者更新',
+                    '作者动态推送',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16.sp,
@@ -1553,7 +1697,9 @@ class HomePageState extends State<HomePage> {
                   ),
                   SizedBox(height: 8.h),
                   Text(
-                    '3位作者有新内容',
+                    _authorUpdateCount > 0
+                        ? '$_authorUpdateCount条未读推送'
+                        : '暂无未读推送',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: 14.sp,
@@ -1570,7 +1716,7 @@ class HomePageState extends State<HomePage> {
                       borderRadius: BorderRadius.circular(16.r),
                     ),
                     child: Text(
-                      '查看更新',
+                      '查看推送',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 12.sp,

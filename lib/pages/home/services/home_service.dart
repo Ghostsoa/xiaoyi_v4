@@ -270,6 +270,28 @@ class HomeService {
     }
   }
 
+  /// 举报内容
+  Future<Map<String, dynamic>> reportItem(
+    String itemId,
+    int reportType,
+    String content,
+    List<String> evidence,
+  ) async {
+    try {
+      final response = await _httpClient.post(
+        '/hall/items/$itemId/report',
+        data: {
+          'report_type': reportType,
+          'content': content,
+          'evidence': evidence,
+        },
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception('提交举报失败: $e');
+    }
+  }
+
   /// 搜索用户名
   Future<Map<String, dynamic>> searchUsernames(String keyword,
       {int limit = 10}) async {
@@ -284,6 +306,220 @@ class HomeService {
       return response.data;
     } catch (e) {
       throw Exception('搜索用户名失败: $e');
+    }
+  }
+
+  /// 获取未读的作者更新通知
+  Future<Map<String, dynamic>> getUnreadAuthorUpdates({
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    try {
+      final response = await _httpClient.get(
+        '/authors/updates/unread',
+        queryParameters: {
+          'page': page,
+          'page_size': pageSize,
+        },
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception('获取未读作者更新失败: $e');
+    }
+  }
+
+  /// 获取未读作者更新数量
+  Future<int> getUnreadAuthorUpdatesCount() async {
+    try {
+      final response = await _httpClient.get('/authors/updates/unread/count');
+      if (response.data['code'] == 0) {
+        return response.data['data']['count'] ?? 0;
+      }
+      return 0;
+    } catch (e) {
+      // 出错时不抛异常，静默返回0
+      return 0;
+    }
+  }
+
+  /// 获取所有关注作者的更新
+  Future<Map<String, dynamic>> getAuthorUpdates({
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    try {
+      final response = await _httpClient.get(
+        '/authors/updates',
+        queryParameters: {
+          'page': page,
+          'page_size': pageSize,
+        },
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception('获取作者更新失败: $e');
+    }
+  }
+
+  /// 标记作者更新为已读
+  Future<bool> markAuthorUpdatesAsRead(String authorId) async {
+    try {
+      final response =
+          await _httpClient.post('/authors/$authorId/updates/read');
+      return response.data['code'] == 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// 检查是否关注了作者
+  Future<bool> checkAuthorFollowing(String authorId) async {
+    try {
+      final response = await _httpClient.get('/authors/$authorId/following');
+      if (response.data['code'] == 0) {
+        return response.data['data']['following'] ?? false;
+      }
+      return false;
+    } catch (e) {
+      // 出错时不抛异常，静默返回false
+      return false;
+    }
+  }
+
+  /// 关注作者
+  Future<bool> followAuthor(String authorId) async {
+    try {
+      final response = await _httpClient.post('/authors/$authorId/follow');
+      return response.data['code'] == 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// 取消关注作者
+  Future<bool> unfollowAuthor(String authorId) async {
+    try {
+      final response = await _httpClient.post('/authors/$authorId/unfollow');
+      return response.data['code'] == 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// 获取关注的作者列表
+  Future<Map<String, dynamic>> getFollowingAuthors({
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    try {
+      final response = await _httpClient.get(
+        '/authors/following',
+        queryParameters: {
+          'page': page,
+          'page_size': pageSize,
+        },
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception('获取关注作者列表失败: $e');
+    }
+  }
+
+  /// 批量获取用户信息
+  Future<List<dynamic>> getUsersBatch(List<int> userIds) async {
+    try {
+      final response = await _httpClient.post(
+        '/users/batch',
+        data: {
+          'user_ids': userIds,
+        },
+      );
+
+      if (response.data['code'] == 0) {
+        return response.data['data'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      throw Exception('批量获取用户信息失败: $e');
+    }
+  }
+
+  /// 获取作者的详细统计信息
+  Future<Map<String, dynamic>> getAuthorPublicStats(String authorId) async {
+    try {
+      final response = await _httpClient.get('/authors/$authorId/public-stats');
+
+      if (response.data['code'] == 0) {
+        return response.data;
+      } else {
+        throw Exception('获取作者信息失败: ${response.data['message']}');
+      }
+    } catch (e) {
+      throw Exception('获取作者信息失败: $e');
+    }
+  }
+
+  /// 获取作者的粉丝列表
+  Future<Map<String, dynamic>> getAuthorFollowers(
+    String authorId, {
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final response = await _httpClient.get(
+        '/authors/$authorId/followers',
+        queryParameters: {
+          'page': page,
+          'page_size': pageSize,
+        },
+      );
+
+      if (response.data['code'] == 0) {
+        return response.data;
+      } else {
+        throw Exception('获取粉丝列表失败: ${response.data['message']}');
+      }
+    } catch (e) {
+      throw Exception('获取粉丝列表失败: $e');
+    }
+  }
+
+  /// 获取作品详情
+  Future<Map<String, dynamic>> getItemDetail(String itemId) async {
+    try {
+      final response = await _httpClient.get('/hall/items/$itemId/detail');
+
+      if (response.data['code'] == 0) {
+        return response.data['data'];
+      } else {
+        throw Exception(response.data['msg'] ?? '获取作品详情失败');
+      }
+    } catch (e) {
+      throw Exception('获取作品详情失败: $e');
+    }
+  }
+
+  /// 获取我的粉丝列表
+  Future<Map<String, dynamic>> getMyFollowers({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final response = await _httpClient.get(
+        '/authors/followers',
+        queryParameters: {
+          'page': page,
+          'page_size': pageSize,
+        },
+      );
+
+      if (response.data['code'] == 0) {
+        return response.data;
+      } else {
+        throw Exception('获取我的粉丝列表失败: ${response.data['msg']}');
+      }
+    } catch (e) {
+      throw Exception('获取我的粉丝列表失败: $e');
     }
   }
 }

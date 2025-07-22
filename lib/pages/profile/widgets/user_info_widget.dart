@@ -44,32 +44,93 @@ class _UserInfoWidgetState extends State<UserInfoWidget> {
   void initState() {
     super.initState();
     _loadAvatar();
+
+    // 添加安全检查，确保不会一直显示加载中状态
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && _isLoadingAvatar) {
+        setState(() {
+          _isLoadingAvatar = false;
+        });
+      }
+    });
   }
 
   Future<void> _loadAvatar() async {
+    if (_isLoadingAvatar) return; // 防止重复加载
+
     try {
       final avatarUri = await _userDao.getAvatar();
+      debugPrint('Avatar URI: $avatarUri'); // 添加日志
+
       setState(() {
         _avatarUri = avatarUri;
       });
 
-      if (avatarUri != null) {
+      if (avatarUri != null && avatarUri.isNotEmpty) {
         setState(() {
           _isLoadingAvatar = true;
         });
 
-        final response = await _fileService.getFile(avatarUri);
-        if (response.statusCode == 200) {
+        try {
+          debugPrint('开始加载头像: $avatarUri');
+
+          // 构造正确的URL或URI
+          final String processedUri =
+              avatarUri.startsWith('http') ? avatarUri : avatarUri.trim();
+
+          debugPrint('处理后的URI: $processedUri');
+
+          final response = await _fileService
+              .getFile(processedUri)
+              .timeout(const Duration(seconds: 10));
+
+          debugPrint(
+              '头像加载结果: ${response.statusCode}, 数据长度: ${response.data?.length ?? 0}');
+
+          if (response.statusCode == 200 &&
+              response.data != null &&
+              response.data is Uint8List &&
+              (response.data as Uint8List).isNotEmpty) {
+            if (mounted) {
+              setState(() {
+                _avatarBytes = response.data;
+                _isLoadingAvatar = false;
+              });
+              debugPrint('成功设置头像数据，长度: ${_avatarBytes!.length}');
+            }
+          } else {
+            debugPrint('头像数据无效: ${response.statusCode}');
+            if (mounted) {
+              setState(() {
+                _avatarBytes = null;
+                _isLoadingAvatar = false;
+              });
+            }
+          }
+        } catch (error) {
+          debugPrint('加载头像出错: $error');
+          if (mounted) {
+            setState(() {
+              _avatarBytes = null;
+              _isLoadingAvatar = false;
+            });
+          }
+        }
+      } else {
+        debugPrint('头像URI为空或无效');
+        if (mounted) {
           setState(() {
-            _avatarBytes = response.data;
             _isLoadingAvatar = false;
           });
         }
       }
     } catch (e) {
-      setState(() {
-        _isLoadingAvatar = false;
-      });
+      debugPrint('获取头像URI出错: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingAvatar = false;
+        });
+      }
     }
   }
 
@@ -167,12 +228,26 @@ class _UserInfoWidgetState extends State<UserInfoWidget> {
             ),
             child: _isLoadingAvatar
                 ? Center(
-                    child: SizedBox(
-                      width: 24.w,
-                      height: 24.w,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.w,
-                        color: Colors.white,
+                    child: Container(
+                      width: 80.w,
+                      height: 80.w,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppTheme.primaryColor.withOpacity(0.8),
+                            AppTheme.primaryColor,
+                          ],
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.person,
+                          color: Colors.white.withOpacity(0.7),
+                          size: 40.sp,
+                        ),
                       ),
                     ),
                   )
@@ -183,6 +258,31 @@ class _UserInfoWidgetState extends State<UserInfoWidget> {
                           fit: BoxFit.cover,
                           width: 80.w,
                           height: 80.w,
+                          errorBuilder: (context, error, stackTrace) {
+                            // 图像加载失败时显示默认头像图标
+                            return Container(
+                              width: 80.w,
+                              height: 80.w,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    AppTheme.primaryColor.withOpacity(0.8),
+                                    AppTheme.primaryColor,
+                                  ],
+                                ),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 40.sp,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       )
                     : Center(

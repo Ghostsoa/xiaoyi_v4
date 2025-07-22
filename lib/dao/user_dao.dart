@@ -21,6 +21,12 @@ class UserDao {
     await prefs.setInt('userStatus', userData['status']);
     await prefs.setString('token', userData['token']);
 
+    // 保存头像URI，如果有的话
+    if (userData['avatar'] != null) {
+      await prefs.setString('avatar', userData['avatar']);
+      print('保存用户头像: ${userData['avatar']}'); // 添加日志便于调试
+    }
+
     // 记录登录状态
     await prefs.setBool('isLoggedIn', true);
   }

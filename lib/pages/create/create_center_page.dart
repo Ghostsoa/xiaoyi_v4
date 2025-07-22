@@ -13,6 +13,9 @@ import 'my_creation/my_creation_page.dart';
 import 'draft/draft_page.dart';
 import 'novel/create_novel_page.dart';
 import '../../widgets/custom_toast.dart';
+import 'author/my_followers_page.dart';
+import 'author/author_push_create_page.dart';
+import 'author/author_push_list_page.dart';
 
 class CreateCenterPage extends StatefulWidget {
   const CreateCenterPage({super.key});
@@ -204,11 +207,20 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                                           '词条',
                                           '获赞',
                                           '对话',
-                                          '待领时长'
+                                          '粉丝'
                                         ][i],
                                         0),
                                   )
-                              : _statistics)
+                              : {
+                                  '角色': _statistics['character_count'] ?? 0,
+                                  '小说': _statistics['novel_count'] ?? 0,
+                                  '世界书': _statistics['world_count'] ?? 0,
+                                  '模板': _statistics['template_count'] ?? 0,
+                                  '词条': _statistics['entry_count'] ?? 0,
+                                  '获赞': _statistics['like_count'] ?? 0,
+                                  '对话': _statistics['dialog_count'] ?? 0,
+                                  '粉丝': _statistics['follower_count'] ?? 0,
+                                })
                           .entries
                           .map((entry) => SizedBox(
                                 width: 60.w,
@@ -221,6 +233,11 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                               ))
                           .toList(),
                     ),
+
+                    // 待领时长单独显示
+                    SizedBox(height: 24.h),
+                    if (_statistics.isNotEmpty)
+                      _buildUnclaimedDuration(textPrimary, textSecondary),
                   ],
                 ),
               ),
@@ -300,7 +317,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                         ),
                         SizedBox(width: 8.w),
                         Text(
-                          '必读声明',
+                          '大厅规则',
                           style: TextStyle(
                             fontSize: AppTheme.captionSize,
                             fontWeight: FontWeight.w600,
@@ -514,6 +531,127 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                           ],
                         ),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // 分割线
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(24.w, 32.h, 24.w, 16.h),
+                child:
+                    Divider(height: 1.h, color: textSecondary.withOpacity(0.1)),
+              ),
+            ),
+
+            // 作者更新功能
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.w),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '作者更新',
+                      style: TextStyle(
+                        fontSize: AppTheme.bodySize,
+                        fontWeight: FontWeight.w600,
+                        color: textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 16.h),
+                    Row(
+                      children: [
+                        // 发布更新推送
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const AuthorPushCreatePage(),
+                                ),
+                              );
+                            },
+                            behavior: HitTestBehavior.opaque,
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.campaign_rounded,
+                                  color: Colors.deepPurple,
+                                  size: 28.sp,
+                                ),
+                                SizedBox(height: 8.h),
+                                Text(
+                                  '发布更新推送',
+                                  style: TextStyle(
+                                    fontSize: AppTheme.captionSize,
+                                    fontWeight: FontWeight.w500,
+                                    color: textPrimary,
+                                  ),
+                                ),
+                                SizedBox(height: 4.h),
+                                Text(
+                                  '通知粉丝最新内容',
+                                  style: TextStyle(
+                                    fontSize: AppTheme.smallSize,
+                                    color: textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Container(
+                          width: 1.w,
+                          height: 40.h,
+                          color: textSecondary.withOpacity(0.1),
+                        ),
+                        // 查看已发布推送
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const AuthorPushListPage(),
+                                ),
+                              );
+                            },
+                            behavior: HitTestBehavior.opaque,
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.notifications_active_rounded,
+                                  color: Colors.indigo,
+                                  size: 28.sp,
+                                ),
+                                SizedBox(height: 8.h),
+                                Text(
+                                  '已发布推送',
+                                  style: TextStyle(
+                                    fontSize: AppTheme.captionSize,
+                                    fontWeight: FontWeight.w500,
+                                    color: textPrimary,
+                                  ),
+                                ),
+                                SizedBox(height: 4.h),
+                                Text(
+                                  '管理已发布的更新',
+                                  style: TextStyle(
+                                    fontSize: AppTheme.smallSize,
+                                    color: textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -792,22 +930,23 @@ class _CreateCenterPageState extends State<CreateCenterPage>
     Color textPrimary,
     Color textSecondary,
   ) {
-    // 格式化数字显示：保留2位小数，>=100时显示整数
-    String formattedCount;
-    if (title == '待领时长') {
-      if (count >= 100) {
-        formattedCount = count.round().toString();
-      } else {
-        // 强制显示2位小数，确保即使是13.62这样的数值也能正确显示
-        formattedCount = count.toStringAsFixed(2);
-      }
-    } else {
-      formattedCount = count.toString();
-    }
+    // 格式化数字显示
+    String formattedCount = count.toString();
+
+    // 判断是否是粉丝统计项
+    final bool isFollowers = title == '粉丝';
 
     return GestureDetector(
-      onTap: title == '待领时长' && count > 0
-          ? () => _showClaimDurationDialog(count)
+      // 仅对粉丝项添加点击功能
+      onTap: isFollowers
+          ? () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MyFollowersPage(),
+                ),
+              );
+            }
           : null,
       child: Column(
         children: [
@@ -816,7 +955,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
             style: TextStyle(
               fontSize: 20.sp,
               fontWeight: FontWeight.w600,
-              color: textPrimary,
+              color: isFollowers ? AppTheme.primaryColor : textPrimary,
             ),
           ),
           SizedBox(height: 4.h),
@@ -824,9 +963,21 @@ class _CreateCenterPageState extends State<CreateCenterPage>
             title,
             style: TextStyle(
               fontSize: AppTheme.smallSize,
-              color: textSecondary,
+              color: isFollowers ? AppTheme.primaryColor : textSecondary,
             ),
           ),
+          // 为粉丝项添加底部指示线
+          if (isFollowers) ...[
+            SizedBox(height: 2.h),
+            Container(
+              width: 24.w,
+              height: 2.h,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor,
+                borderRadius: BorderRadius.circular(1.h),
+              ),
+            )
+          ],
         ],
       ),
     );
@@ -1036,6 +1187,60 @@ class _CreateCenterPageState extends State<CreateCenterPage>
         type: ToastType.error,
       );
     }
+  }
+
+  Widget _buildUnclaimedDuration(Color textPrimary, Color textSecondary) {
+    final unclaimedHours = _statistics['unclaimed_duration'] ?? 0;
+
+    return Container(
+      padding: EdgeInsets.all(12.sp),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8.sp),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.timer, color: AppTheme.primaryColor),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '待领时长',
+                  style: TextStyle(
+                    fontSize: AppTheme.captionSize,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  '您当前有 ${unclaimedHours.toStringAsFixed(2)} 小时可用时长',
+                  style: TextStyle(
+                    fontSize: AppTheme.smallSize,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (unclaimedHours > 0)
+            ElevatedButton(
+              onPressed: () => _showClaimDurationDialog(unclaimedHours),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20.r),
+                ),
+              ),
+              child: Text('立即领取'),
+            ),
+        ],
+      ),
+    );
   }
 }
 

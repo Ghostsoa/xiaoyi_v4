@@ -516,6 +516,7 @@ class ProfilePageState extends State<ProfilePage> {
                           exp: _exp,
                           onEditPressed: () async {
                             final currentAvatar = await _userDao.getAvatar();
+                            debugPrint('当前用户头像URI: $currentAvatar'); // 添加日志
                             final result = await Navigator.push(
                               context,
                               MaterialPageRoute(

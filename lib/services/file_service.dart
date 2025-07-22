@@ -75,6 +75,7 @@ class FileService {
       return Response(
         requestOptions: RequestOptions(path: ''),
         data: cachedData,
+        statusCode: 200, // 从缓存读取成功时设置状态码为200
       );
     }
 

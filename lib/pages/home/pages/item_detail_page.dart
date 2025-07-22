@@ -10,6 +10,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/custom_toast.dart';
 import '../../../widgets/markdown_renderer.dart';
 import 'author_items_page.dart';
+import 'report_item_page.dart'; // 添加举报页面的导入
 
 class ItemDetailPage extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -33,6 +34,11 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   late bool _isFavorite;
   bool _isFavoriting = false;
 
+  // 作者关注状态
+  bool _isFollowingAuthor = false;
+  bool _isLoadingFollowStatus = false;
+  bool _isUpdatingFollowStatus = false;
+
   // 缓存图片数据
   Uint8List? _cachedCoverImage;
   bool _isLoadingCover = false;
@@ -51,6 +57,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     _likeCount = widget.item['like_count'] ?? 0;
     _isFavorite = widget.item['is_favorited'] ?? false;
     _loadCoverImage();
+    _checkFollowingStatus();
 
     // 监听滚动事件
     _scrollController.addListener(() {
@@ -480,6 +487,88 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                             ),
                                             SizedBox(width: 6.w),
                                             GestureDetector(
+                                              onTap: () =>
+                                                  _toggleFollowAuthor(),
+                                              child: Container(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: 10.w,
+                                                  vertical: 4.h,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    colors: _isFollowingAuthor
+                                                        ? [
+                                                            Colors.grey
+                                                                .withOpacity(
+                                                                    0.2),
+                                                            Colors.grey
+                                                                .withOpacity(
+                                                                    0.1)
+                                                          ]
+                                                        : [
+                                                            AppTheme
+                                                                .primaryColor
+                                                                .withOpacity(
+                                                                    0.9),
+                                                            AppTheme
+                                                                .primaryColor
+                                                                .withOpacity(
+                                                                    0.7),
+                                                          ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  boxShadow: _isFollowingAuthor
+                                                      ? null
+                                                      : [
+                                                          BoxShadow(
+                                                            color: AppTheme
+                                                                .primaryColor
+                                                                .withOpacity(
+                                                                    0.3),
+                                                            blurRadius: 4,
+                                                            offset:
+                                                                const Offset(
+                                                                    0, 2),
+                                                          ),
+                                                        ],
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      _isFollowingAuthor
+                                                          ? Icons.check
+                                                          : Icons.add,
+                                                      size: 14.sp,
+                                                      color: _isFollowingAuthor
+                                                          ? Colors.grey
+                                                          : Colors.white,
+                                                    ),
+                                                    SizedBox(width: 4.w),
+                                                    Text(
+                                                      _isFollowingAuthor
+                                                          ? '已关注'
+                                                          : '关注',
+                                                      style: TextStyle(
+                                                        fontSize: 12.sp,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color:
+                                                            _isFollowingAuthor
+                                                                ? Colors.grey
+                                                                : Colors.white,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(width: 6.w),
+                                            GestureDetector(
                                               onTap: () {
                                                 final String authorId = widget
                                                         .item['author_id']
@@ -681,6 +770,61 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                       ],
                                     ),
                                   ),
+                                  // 如果是角色卡，添加举报按钮
+                                  if (widget.item["item_type"] ==
+                                      "character_card") ...[
+                                    SizedBox(width: 8.w),
+                                    InkWell(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                ReportItemPage(
+                                              itemId:
+                                                  widget.item['id'].toString(),
+                                              itemTitle: widget.item['title'] ??
+                                                  '未命名内容',
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      child: Container(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 12.w,
+                                          vertical: 6.h,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.shade100,
+                                          borderRadius: BorderRadius.circular(
+                                              AppTheme.radiusSmall),
+                                          border: Border.all(
+                                            color: Colors.red.shade300,
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.report_problem_rounded,
+                                              size: 16.sp,
+                                              color: Colors.red.shade700,
+                                            ),
+                                            SizedBox(width: 4.w),
+                                            Text(
+                                              '举报',
+                                              style: TextStyle(
+                                                fontSize: 14.sp,
+                                                color: Colors.red.shade700,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                               SizedBox(height: 24.h),
@@ -1045,6 +1189,83 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         ),
       ],
     );
+  }
+
+  // 检查作者关注状态
+  Future<void> _checkFollowingStatus() async {
+    final String? authorId = widget.item['author_id']?.toString();
+    if (authorId == null) {
+      return;
+    }
+
+    try {
+      final bool isFollowing =
+          await _homeService.checkAuthorFollowing(authorId);
+      if (mounted) {
+        setState(() {
+          _isFollowingAuthor = isFollowing;
+        });
+      }
+    } catch (e) {
+      // 静默处理错误，不显示任何提示
+      debugPrint('获取作者关注状态失败: $e');
+    }
+  }
+
+  // 关注或取消关注作者
+  Future<void> _toggleFollowAuthor() async {
+    final String? authorId = widget.item['author_id']?.toString();
+    if (authorId == null || _isUpdatingFollowStatus) {
+      return;
+    }
+
+    // 立即更新UI状态，提供即时反馈
+    final bool previousState = _isFollowingAuthor;
+    setState(() {
+      _isFollowingAuthor = !_isFollowingAuthor;
+      _isUpdatingFollowStatus = true;
+    });
+
+    try {
+      bool success;
+      if (previousState) {
+        success = await _homeService.unfollowAuthor(authorId);
+      } else {
+        success = await _homeService.followAuthor(authorId);
+      }
+
+      // 如果操作失败，恢复到原始状态
+      if (!success && mounted) {
+        setState(() {
+          _isFollowingAuthor = previousState;
+        });
+
+        // 仅在失败时才显示提示
+        CustomToast.show(
+          context,
+          message: '操作失败，请稍后重试',
+          type: ToastType.error,
+        );
+      }
+    } catch (e) {
+      // 发生异常时恢复状态
+      if (mounted) {
+        setState(() {
+          _isFollowingAuthor = previousState;
+        });
+
+        // 仅在捕获异常时显示提示
+        CustomToast.show(
+          context,
+          message: '网络异常，请检查连接',
+          type: ToastType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingFollowStatus = false);
+      }
+    }
   }
 }
 

@@ -9,6 +9,8 @@ import 'net/http_client.dart';
 import 'widgets/unfocus_wrapper.dart';
 import 'theme/app_theme.dart';
 import 'services/network_monitor_service.dart';
+import 'theme/custom_localizations.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -103,6 +105,20 @@ class MyApp extends StatelessWidget {
             theme: themeController.themeData,
             themeMode: ThemeMode.dark,
             darkTheme: themeController.themeData,
+            // 添加本地化支持
+            localizationsDelegates: [
+              // 添加我们的中文本地化委托
+              const ChineseMaterialLocalizationsDelegate(),
+              // 默认的委托
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('zh', 'CN'), // 中文简体
+              Locale('en', 'US'), // 英文
+            ],
+            locale: const Locale('zh', 'CN'), // 强制使用中文
             // 登录页面作为首页
             home: Builder(
               builder: (context) {

@@ -89,21 +89,25 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
         widget.vipExpireAt != null &&
         widget.vipExpireAt!.isNotEmpty) {
       try {
-        final expireDate =
-            DateTime.parse(widget.vipExpireAt!).add(const Duration(hours: 8));
-        final now = DateTime.now();
+        // 解析UTC时间
+        final expireDate = DateTime.parse(widget.vipExpireAt!);
+        final now = DateTime.now().toUtc(); // 使用UTC时间进行比较
         final difference = expireDate.difference(now);
 
-        // 计算剩余时间（天）
-        final remainingDays = difference.inHours / 24.0;
+        // 计算剩余天数，精确到1位小数
+        final totalHours = difference.inHours;
+        final days = totalHours ~/ 24; // 整天数
+        final remainingHours = totalHours % 24; // 剩余小时数
+        final decimalDay = remainingHours / 24.0; // 转换为小数天
+        final totalDays = days + decimalDay; // 总天数，包含小数部分
 
-        if (remainingDays > 0) {
-          // 如果是整数天，不显示小数部分
-          if (remainingDays == remainingDays.roundToDouble()) {
-            _formattedExpireTime = '剩余 ${remainingDays.toInt()} 天';
-          } else {
-            // 否则保留1位小数
-            _formattedExpireTime = '剩余 ${remainingDays.toStringAsFixed(1)} 天';
+        if (totalDays > 0) {
+          // 显示1位小数
+          _formattedExpireTime = '剩余 ${totalDays.toStringAsFixed(1)} 天';
+
+          // 如果小数部分是0，则显示整数
+          if (totalDays == totalDays.truncateToDouble()) {
+            _formattedExpireTime = '剩余 ${totalDays.toInt()} 天';
           }
         } else {
           _formattedExpireTime = '已过期';
