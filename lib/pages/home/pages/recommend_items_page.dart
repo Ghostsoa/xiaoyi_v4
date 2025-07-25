@@ -23,7 +23,6 @@ class _RecommendItemsPageState extends State<RecommendItemsPage> {
 
   bool _isLoading = true;
   List<dynamic> _items = [];
-  int _page = 1;
   final int _pageSize = 10;
 
   // 图片缓存
@@ -65,7 +64,6 @@ class _RecommendItemsPageState extends State<RecommendItemsPage> {
   }
 
   Future<void> _onRefresh() async {
-    _page = 1;
     // 清空图片缓存
     setState(() {
       _imageCache.clear();
@@ -74,39 +72,22 @@ class _RecommendItemsPageState extends State<RecommendItemsPage> {
     _refreshController.refreshCompleted();
   }
 
-  Future<void> _onLoading() async {
-    _page++;
-    await _loadData();
-    _refreshController.loadComplete();
-  }
-
   Future<void> _loadData() async {
     if (!mounted) return;
 
-    if (_page == 1) {
-      setState(() => _isLoading = true);
-    }
+    setState(() => _isLoading = true);
 
     try {
       final result = await _homeService.getRecommendItems(
-        page: _page,
+        page: 1,
         pageSize: _pageSize,
       );
 
       if (mounted) {
         setState(() {
-          if (_page == 1) {
-            _items = result['data']['items'] ?? [];
-          } else {
-            _items.addAll(result['data']['items'] ?? []);
-          }
+          _items = result['data']['items'] ?? [];
           _isLoading = false;
         });
-
-        final items = result['data']['items'] ?? [];
-        if (items.isEmpty) {
-          _refreshController.loadNoData();
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -116,11 +97,7 @@ class _RecommendItemsPageState extends State<RecommendItemsPage> {
           message: '加载失败，请重试',
           type: ToastType.error,
         );
-        if (_page == 1) {
-          _refreshController.refreshFailed();
-        } else {
-          _refreshController.loadFailed();
-        }
+        _refreshController.refreshFailed();
       }
     }
   }
@@ -133,11 +110,12 @@ class _RecommendItemsPageState extends State<RecommendItemsPage> {
         backgroundColor: AppTheme.background,
         title: Text('每日推荐', style: AppTheme.titleStyle),
         centerTitle: true,
+        scrolledUnderElevation: 0,
       ),
       body: SmartRefresher(
         controller: _refreshController,
         enablePullDown: true,
-        enablePullUp: true,
+        enablePullUp: false,
         header: ClassicHeader(
           idleText: "下拉刷新",
           releaseText: "松开刷新",
@@ -145,15 +123,7 @@ class _RecommendItemsPageState extends State<RecommendItemsPage> {
           completeText: "刷新完成",
           failedText: "刷新失败",
         ),
-        footer: ClassicFooter(
-          idleText: "上拉加载更多",
-          loadingText: "正在加载...",
-          noDataText: "没有更多数据",
-          failedText: "加载失败，请重试",
-          canLoadingText: "松开加载更多",
-        ),
         onRefresh: _onRefresh,
-        onLoading: _onLoading,
         child: _buildListView(),
       ),
     );
@@ -185,14 +155,9 @@ class _RecommendItemsPageState extends State<RecommendItemsPage> {
 
     return ListView.builder(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
-      itemCount: _isLoading && _page == 1
-          ? 5 // 显示5个骨架项
-          : _items.length + (_isLoading ? 1 : 0),
+      itemCount: _isLoading ? 5 : _items.length,
       itemBuilder: (context, index) {
-        if (_isLoading && _page == 1) {
-          return _buildShimmerItem();
-        }
-        if (index == _items.length) {
+        if (_isLoading) {
           return _buildShimmerItem();
         }
         return _buildListItem(_items[index]);

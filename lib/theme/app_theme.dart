@@ -319,6 +319,7 @@ class AppTheme {
     appBarTheme: AppBarTheme(
       backgroundColor: background,
       elevation: 0,
+      scrolledUnderElevation: 0,
       titleTextStyle: titleStyle.copyWith(color: textPrimary),
       iconTheme: IconThemeData(color: textPrimary),
     ),

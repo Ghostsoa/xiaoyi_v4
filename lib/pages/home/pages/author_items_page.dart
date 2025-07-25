@@ -66,7 +66,6 @@ class _AuthorItemsPageState extends State<AuthorItemsPage> {
     {'value': 'new', 'label': '最新'},
     {'value': 'hot', 'label': '最热'},
     {'value': 'like', 'label': '最多点赞'},
-    {'value': 'dialog', 'label': '最多对话'},
   ];
 
   @override
@@ -591,33 +590,39 @@ class _AuthorItemsPageState extends State<AuthorItemsPage> {
               ),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _buildStatItem('粉丝', _authorStats?['follower_count'] ?? 0),
+                Container(
+                  height: 24.h,
+                  width: 1,
+                  color: Colors.white.withOpacity(0.3),
+                ),
                 _buildStatItem('获赞', _authorStats?['like_count'] ?? 0),
-                _buildStatItem('对话', _authorStats?['dialog_count'] ?? 0),
+                Container(
+                  height: 24.h,
+                  width: 1,
+                  color: Colors.white.withOpacity(0.3),
+                ),
+                _buildStatItem(
+                    '作品',
+                    (_authorStats?['character_count'] ?? 0) +
+                        (_authorStats?['novel_count'] ?? 0)),
+                Container(
+                  height: 24.h,
+                  width: 1,
+                  color: Colors.white.withOpacity(0.3),
+                ),
+                _buildStatItem(
+                    '素材',
+                    (_authorStats?['world_count'] ?? 0) +
+                        (_authorStats?['template_count'] ?? 0) +
+                        (_authorStats?['entry_count'] ?? 0)),
               ],
             ),
           ),
 
-          // 详细创作数据 - 只在数据加载完成后显示
-          if (_authorStats != null)
-            Padding(
-              padding: EdgeInsets.all(16.w),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildCreationItem('角色卡',
-                      _authorStats!['character_count'] ?? 0, Icons.person),
-                  _buildCreationItem(
-                      '小说', _authorStats!['novel_count'] ?? 0, Icons.book),
-                  _buildCreationItem(
-                      '世界书', _authorStats!['world_count'] ?? 0, Icons.public),
-                  _buildCreationItem('模板', _authorStats!['template_count'] ?? 0,
-                      Icons.article),
-                ],
-              ),
-            ),
+          // 移除原有的详细创作数据展示部分
         ],
       ),
     );
@@ -1096,20 +1101,6 @@ class _AuthorItemsPageState extends State<AuthorItemsPage> {
                             SizedBox(width: 4.w),
                             Text(
                               '${item['like_count'] ?? 0}',
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                            SizedBox(width: 8.w),
-                            Icon(
-                              Icons.chat_rounded,
-                              size: 16.sp,
-                              color: AppTheme.textSecondary,
-                            ),
-                            SizedBox(width: 4.w),
-                            Text(
-                              '${item['dialog_count'] ?? 0}',
                               style: TextStyle(
                                 fontSize: 12.sp,
                                 color: AppTheme.textSecondary,

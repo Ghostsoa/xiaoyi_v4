@@ -147,6 +147,38 @@ class _HotItemsPageState extends State<HotItemsPage> {
         backgroundColor: AppTheme.background,
         title: Text('排行榜', style: AppTheme.titleStyle),
         centerTitle: true,
+        scrolledUnderElevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.info_outline, size: 20.sp),
+            tooltip: '此处显示的是周期内热度，非总热度值',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  backgroundColor: AppTheme.cardBackground,
+                  title: Text('热度说明', style: AppTheme.titleStyle),
+                  content: Text(
+                    '此榜单显示的是在当前选择周期内（日榜/周榜/月榜）的热度值，而非内容的总热度。\n\n'
+                    '热度根据内容在周期内的活跃度动态计算，反映了内容的实时流行程度。',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      child: Text('了解了',
+                          style: TextStyle(color: AppTheme.primaryLight)),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          SizedBox(width: 8.w),
+        ],
       ),
       body: Column(
         children: [
@@ -474,38 +506,10 @@ class _HotItemsPageState extends State<HotItemsPage> {
                             ),
                             SizedBox(width: 4.w),
                             Text(
-                              '${item['hot_score'] ?? 0}',
+                              '${item['periodic_hot_score'] ?? 0}',
                               style: TextStyle(
                                 fontSize: 12.sp,
                                 color: Colors.redAccent,
-                              ),
-                            ),
-                            SizedBox(width: 8.w),
-                            Icon(
-                              Icons.favorite_rounded,
-                              size: 16.sp,
-                              color: AppTheme.textSecondary,
-                            ),
-                            SizedBox(width: 4.w),
-                            Text(
-                              '${item['like_count'] ?? 0}',
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                            SizedBox(width: 8.w),
-                            Icon(
-                              Icons.chat_rounded,
-                              size: 16.sp,
-                              color: AppTheme.textSecondary,
-                            ),
-                            SizedBox(width: 4.w),
-                            Text(
-                              '${item['dialog_count'] ?? 0}',
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                color: AppTheme.textSecondary,
                               ),
                             ),
                           ],
