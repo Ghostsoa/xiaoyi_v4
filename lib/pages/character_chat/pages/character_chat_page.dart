@@ -173,6 +173,11 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   late AnimationController _inspirationAnimationController;
   late Animation<double> _inspirationOpacityAnimation;
 
+  // 🔥 添加"回到底部"按钮相关变量
+  bool _showBackToBottomButton = false;
+  late AnimationController _backToBottomAnimationController;
+  late Animation<double> _backToBottomAnimation;
+
   // 初始化行为日志上报定时器
   void _startDurationReporting() {
     // 每10秒上报一次行为日志
@@ -342,6 +347,21 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       ),
     );
 
+    // 🔥 初始化"回到底部"按钮动画控制器
+    _backToBottomAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    _backToBottomAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _backToBottomAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    // 🔥 监听滚动位置变化
+    _itemPositionsListener.itemPositions.addListener(_onScrollPositionChanged);
+
     _inspirationAnimationController.addListener(() {
       if (mounted) {
         setState(() {});
@@ -393,6 +413,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     _drawerAnimationController.dispose();
     _bubbleAnimationController.dispose();
     _inspirationAnimationController.dispose();
+    _backToBottomAnimationController.dispose(); // 🔥 释放"回到底部"按钮动画控制器
     _phraseNameController.dispose();
     _phraseContentController.dispose();
 
@@ -1116,6 +1137,16 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
     // 跳转到目标消息
     _jumpToMessage(msgId);
+
+    // 🔥 搜索跳转后显示"回到底部"按钮（延迟一下确保跳转完成）
+    Future.delayed(Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _showBackToBottomButton = true;
+        });
+        _backToBottomAnimationController.forward();
+      }
+    });
   }
 
   /// 🔥 格式化搜索结果的时间戳（+8小时时差）
@@ -1140,6 +1171,32 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     } catch (e) {
       debugPrint('时间格式化失败: $e');
       return '';
+    }
+  }
+
+  /// 🔥 监听滚动位置变化，控制"回到底部"按钮显示
+  void _onScrollPositionChanged() {
+    if (!mounted) return;
+
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return;
+
+    // 检查是否在底部（索引0是最新消息，因为列表是反转的）
+    final isAtBottom = positions.any((position) => position.index == 0);
+
+    // 如果不在底部且有足够的消息，显示"回到底部"按钮
+    final shouldShow = !isAtBottom && _messages.length > 5;
+
+    if (shouldShow != _showBackToBottomButton) {
+      setState(() {
+        _showBackToBottomButton = shouldShow;
+      });
+
+      if (shouldShow) {
+        _backToBottomAnimationController.forward();
+      } else {
+        _backToBottomAnimationController.reverse();
+      }
     }
   }
 
@@ -3553,6 +3610,76 @@ class _CharacterChatPageState extends State<CharacterChatPage>
               ),
             ],
           ),
+
+          // 🔥 "回到底部"悬浮按钮 - 长细条状设计
+          if (_showBackToBottomButton)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 100.h, // 在输入框上方
+              child: Center(
+                child: FadeTransition(
+                  opacity: _backToBottomAnimation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: Offset(0, 1),
+                      end: Offset(0, 0),
+                    ).animate(_backToBottomAnimation),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          _scrollToBottom();
+                          // 点击后隐藏按钮
+                          setState(() {
+                            _showBackToBottomButton = false;
+                          });
+                          _backToBottomAnimationController.reverse();
+                        },
+                        borderRadius: BorderRadius.circular(20.r),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(20.r),
+                            border: Border.all(
+                              color: AppTheme.primaryColor.withOpacity(0.5),
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.keyboard_arrow_down,
+                                color: Colors.white,
+                                size: 16.sp,
+                              ),
+                              SizedBox(width: 6.w),
+                              Text(
+                                '回到底部',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13.sp,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
