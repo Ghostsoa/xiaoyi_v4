@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../../services/file_service.dart';
+import '../../../services/message_cache_service.dart';
+import '../../../services/session_data_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../dao/chat_settings_dao.dart';
 import '../../../dao/user_dao.dart';
@@ -64,11 +68,14 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   final FileService _fileService = FileService();
   final CharacterChatStreamService _chatService = CharacterChatStreamService();
   final CharacterService _characterService = CharacterService();
+  final MessageCacheService _messageCacheService = MessageCacheService();
+  final SessionDataService _sessionDataService = SessionDataService();
   final ChatSettingsDao _settingsDao = ChatSettingsDao();
   final UserDao _userDao = UserDao();
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  final ScrollController _scrollController = ScrollController();
+  final ItemScrollController _itemScrollController = ItemScrollController();
+  final ItemPositionsListener _itemPositionsListener = ItemPositionsListener.create();
 
   // 添加行为日志上报定时器
   Timer? _durationReportTimer;
@@ -107,6 +114,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   bool _isSending = false;
   bool _isLoadingHistory = false;
   bool _isRefreshing = false;
+  bool _isResetting = false; // 添加重置状态
   String _currentInputText = ''; // 添加输入文本跟踪
   late AnimationController _menuAnimationController;
   late Animation<double> _menuHeightAnimation;
@@ -117,7 +125,23 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   // 分页信息
   int _currentPage = 1;
   int _totalPages = 1;
-  static const int _pageSize = 10;
+  int get _pageSize => _isLocalMode ? 100 : 20; // 本地模式使用更大的页面大小
+
+  // 双模式相关
+  bool _isLocalMode = false; // 是否为本地模式
+  String? _activeArchiveId; // 当前激活的存档ID
+
+  // 后台预加载相关
+  List<Map<String, dynamic>> _allLoadedMessages = []; // 所有已加载的消息
+  bool _isBackgroundLoading = false; // 是否正在后台加载
+  int _backgroundLoadedPages = 0; // 已后台加载的页数
+  static const int _backgroundPageSize = 200; // 后台加载的页面大小（本地模式可以更大）
+
+  // 搜索相关
+  bool _isSearchMode = false; // 是否处于搜索模式
+  String _searchKeyword = ''; // 当前搜索关键词
+  List<Map<String, dynamic>> _searchResults = []; // 搜索结果
+  final TextEditingController _searchController = TextEditingController();
 
   // 当前正在接收的消息
   String _currentMessage = '';
@@ -141,6 +165,13 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   final double _maxDrawerOffset = 500.0;
   late AnimationController _drawerAnimationController;
   late Animation<double> _drawerAnimation;
+
+  // 添加灵感相关变量
+  bool _isLoadingInspiration = false;
+  List<Map<String, dynamic>> _inspirationSuggestions = [];
+  bool _isShowingInspiration = false;
+  late AnimationController _inspirationAnimationController;
+  late Animation<double> _inspirationOpacityAnimation;
 
   // 初始化行为日志上报定时器
   void _startDurationReporting() {
@@ -166,16 +197,81 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     }
   }
 
+  /// 检查并初始化模式（本地/在线）
+  Future<void> _checkAndInitializeMode() async {
+    try {
+      await _sessionDataService.initDatabase();
+      await _messageCacheService.initDatabase();
+
+      debugPrint('[CharacterChatPage] 会话数据: ${widget.sessionData}');
+
+      // 先从传入的会话数据检查
+      _activeArchiveId = widget.sessionData['active_archive_id'] as String?;
+
+      // 如果传入数据没有，从数据库获取最新的会话信息
+      if (_activeArchiveId == null) {
+        try {
+          final sessionResponse = await _sessionDataService.getLocalCharacterSessions(
+            page: 1,
+            pageSize: 1000
+          );
+
+          final session = sessionResponse.sessions.firstWhere(
+            (s) => s.id == widget.sessionData['id'],
+            orElse: () => throw '会话不存在',
+          );
+
+          _activeArchiveId = session.activeArchiveId;
+          debugPrint('[CharacterChatPage] 从数据库获取激活存档ID: $_activeArchiveId');
+        } catch (e) {
+          debugPrint('[CharacterChatPage] 从数据库获取会话信息失败: $e');
+        }
+      }
+
+      debugPrint('[CharacterChatPage] 最终激活存档ID: $_activeArchiveId');
+
+      if (_activeArchiveId != null && _activeArchiveId!.isNotEmpty) {
+        // 检查是否有对应的缓存数据
+        final hasCache = await _messageCacheService.hasArchiveCache(
+          sessionId: widget.sessionData['id'],
+          archiveId: _activeArchiveId!,
+        );
+
+        debugPrint('[CharacterChatPage] 存档 $_activeArchiveId 是否有缓存: $hasCache');
+
+        if (hasCache) {
+          _isLocalMode = true;
+          debugPrint('[CharacterChatPage] ✅ 进入本地模式，存档ID: $_activeArchiveId');
+          // 启动后台预加载
+          _startBackgroundLoading();
+        } else {
+          _isLocalMode = false;
+          debugPrint('[CharacterChatPage] ❌ 存档 $_activeArchiveId 无缓存，使用在线模式');
+        }
+      } else {
+        _isLocalMode = false;
+        debugPrint('[CharacterChatPage] ❌ 无激活存档，使用在线模式');
+      }
+
+      debugPrint('[CharacterChatPage] 最终模式: ${_isLocalMode ? "本地模式" : "在线模式"}');
+    } catch (e) {
+      debugPrint('[CharacterChatPage] 模式检查失败，默认使用在线模式: $e');
+      _isLocalMode = false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    // 先加载设置，再加载其他内容
-    _loadSettings().then((_) {
-      _loadBackgroundImage();
-      _loadAvatarImage(); // 添加加载头像
-      _loadMessageHistory();
-      _loadFormatMode();
-      _loadCommonPhrases(); // 加载常用记录
+    // 先检查模式，再加载设置和其他内容
+    _checkAndInitializeMode().then((_) {
+      _loadSettings().then((_) {
+        _loadBackgroundImage();
+        _loadAvatarImage(); // 添加加载头像
+        _loadMessageHistory();
+        _loadFormatMode();
+        _loadCommonPhrases(); // 加载常用记录
+      });
     });
 
     // 静默检查版本
@@ -233,8 +329,27 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
     _bubbleAnimationController.addListener(() => setState(() {}));
 
-    // 改进滚动监听
-    _scrollController.addListener(_onScroll);
+    // 初始化灵感动画控制器
+    _inspirationAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _inspirationOpacityAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _inspirationAnimationController,
+        curve: Curves.easeOut,
+      ),
+    );
+
+    _inspirationAnimationController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+
+    // 改进滚动监听 - 使用ItemPositionsListener
+    _itemPositionsListener.itemPositions.addListener(_onScroll);
 
     // 初始化刷新动画控制器
     _refreshAnimationController = AnimationController(
@@ -270,12 +385,14 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   @override
   void dispose() {
     _messageController.dispose();
+    _searchController.dispose();
     _focusNode.dispose();
     _menuAnimationController.dispose();
-    _scrollController.dispose();
+    // ItemScrollController 不需要手动dispose
     _refreshAnimationController.dispose();
     _drawerAnimationController.dispose();
     _bubbleAnimationController.dispose();
+    _inspirationAnimationController.dispose();
     _phraseNameController.dispose();
     _phraseContentController.dispose();
 
@@ -345,11 +462,29 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     setState(() => _isLoadingHistory = true);
 
     try {
-      final result = await _characterService.getSessionMessages(
-        widget.sessionData['id'],
-        page: _currentPage,
-        pageSize: _pageSize,
-      );
+      Map<String, dynamic> result;
+
+      debugPrint('[CharacterChatPage] _loadMessageHistory - 当前模式: ${_isLocalMode ? "本地模式" : "在线模式"}');
+      debugPrint('[CharacterChatPage] _loadMessageHistory - 激活存档ID: $_activeArchiveId');
+
+      if (_isLocalMode && _activeArchiveId != null) {
+        // 本地模式：直接从缓存加载，不请求API
+        debugPrint('[CharacterChatPage] 🔄 从本地缓存加载消息 (page: $_currentPage)');
+        result = await _messageCacheService.getArchiveMessages(
+          sessionId: widget.sessionData['id'],
+          archiveId: _activeArchiveId!,
+          page: _currentPage,
+          pageSize: _pageSize,
+        );
+      } else {
+        // 在线模式：直接从API加载
+        debugPrint('[CharacterChatPage] 🌐 从API加载消息 (page: $_currentPage)');
+        result = await _characterService.getSessionMessages(
+          widget.sessionData['id'],
+          page: _currentPage,
+          pageSize: _pageSize,
+        );
+      }
 
       final List<dynamic> messageList = result['list'] ?? [];
       final pagination = result['pagination'] ?? {};
@@ -389,15 +524,21 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     }
   }
 
+
+
   // 修改滚动监听方法
   void _onScroll() {
-    // 当滚动到底部时加载更多历史消息
-    if (_scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 100 &&
-        _currentPage < _totalPages &&
-        !_isLoadingHistory) {
-      _currentPage++;
-      _loadMoreMessages();
+    // 使用ItemPositionsListener检查是否滚动到底部
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isNotEmpty) {
+      // 检查最后一个item是否可见（因为reverse=true，最后一个item在顶部）
+      final maxIndex = positions.map((pos) => pos.index).reduce((a, b) => a > b ? a : b);
+      if (maxIndex >= _messages.length - 3 && // 提前3个item开始加载
+          _currentPage < _totalPages &&
+          !_isLoadingHistory) {
+        _currentPage++;
+        _loadMoreMessages();
+      }
     }
   }
 
@@ -407,11 +548,24 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     setState(() => _isLoadingHistory = true);
 
     try {
-      final result = await _characterService.getSessionMessages(
-        widget.sessionData['id'],
-        page: _currentPage,
-        pageSize: _pageSize,
-      );
+      Map<String, dynamic> result;
+
+      if (_isLocalMode && _activeArchiveId != null) {
+        // 本地模式：从缓存分页加载
+        result = await _messageCacheService.getArchiveMessages(
+          sessionId: widget.sessionData['id'],
+          archiveId: _activeArchiveId!,
+          page: _currentPage,
+          pageSize: _pageSize,
+        );
+      } else {
+        // 在线模式：从API分页加载
+        result = await _characterService.getSessionMessages(
+          widget.sessionData['id'],
+          page: _currentPage,
+          pageSize: _pageSize,
+        );
+      }
 
       final List<dynamic> messageList = result['list'] ?? [];
       final pagination = result['pagination'] ?? {};
@@ -734,6 +888,11 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       debugPrint(
           '获取到消息数量: ${messageList.length}, 总页数: ${pagination['total_pages'] ?? 1}');
 
+      // 如果是本地模式，同步更新缓存
+      if (_isLocalMode && _activeArchiveId != null) {
+        await _syncRefreshToCache(messageList);
+      }
+
       final newMessages = messageList
           .map(
             (msg) => {
@@ -807,19 +966,89 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     if (confirm != true) return;
 
     try {
+      // 设置重置状态，显示加载指示器
+      setState(() => _isResetting = true);
+
       // 调用重置会话接口
       await _characterService.resetSession(widget.sessionData['id']);
 
+      // 重置成功后，清理当前存档的本地缓存数据
+      await _clearCurrentArchiveCacheAfterReset();
+
       if (mounted) {
-        // 清空本地消息列表
+        // 🔥 关键改进：先获取新数据，再一次性更新UI，避免闪烁
+        Map<String, dynamic>? newData;
+        try {
+          debugPrint('[CharacterChatPage] 重置后立即获取新数据');
+          newData = await _characterService.getSessionMessages(
+            widget.sessionData['id'],
+            page: 1,
+            pageSize: _pageSize,
+          );
+          debugPrint('[CharacterChatPage] 重置后获取到 ${(newData['list'] as List?)?.length ?? 0} 条消息');
+        } catch (e) {
+          debugPrint('[CharacterChatPage] 获取重置后数据失败: $e');
+        }
+
+        // 重新检查模式状态
+        await _checkAndInitializeMode();
+
+        // 如果是本地模式且获取到新数据，同步写入缓存
+        if (_isLocalMode && _activeArchiveId != null && newData != null) {
+          try {
+            await _syncRefreshToCache(newData['list'] ?? []);
+            debugPrint('[CharacterChatPage] 重置后数据已同步到本地缓存');
+          } catch (e) {
+            debugPrint('[CharacterChatPage] 同步重置后数据到缓存失败: $e');
+          }
+        }
+
+        // 原子性更新所有状态，避免中间空白期
         setState(() {
           _messages.clear();
           _currentPage = 1;
           _totalPages = 1;
+          // 清理搜索相关状态
+          _isSearchMode = false;
+          _searchKeyword = '';
+          _searchResults.clear();
+          _allLoadedMessages.clear();
+          _isBackgroundLoading = false;
+          _backgroundLoadedPages = 0;
+
+          // 如果成功获取到新数据，立即填充，避免空白状态
+          if (newData != null) {
+            final List<dynamic> messageList = newData['list'] ?? [];
+            final pagination = newData['pagination'] ?? {};
+
+            _messages.addAll(messageList.map((msg) => {
+              'content': msg['content'] ?? '',
+              'isUser': msg['role'] == 'user',
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+              'tokenCount': msg['tokenCount'] ?? 0,
+              'msgId': msg['msgId'],
+              'status': 'done',
+              'statusBar': msg['statusBar'],
+              'enhanced': msg['enhanced'],
+              'createdAt': msg['createdAt'],
+              'keywords': msg['keywords'],
+            }));
+
+            _totalPages = pagination['total_pages'] ?? 1;
+            debugPrint('[CharacterChatPage] UI已原子性更新，消息数量: ${_messages.length}');
+          }
         });
 
-        // 刷新消息列表
-        await _refreshMessages();
+        // 清空输入框
+        _messageController.clear();
+
+        // 🔥 无需延迟，立即滚动到底部，避免动画延迟
+        _scrollToBottom(immediate: true);
+
+        // 启动后台预加载（如果是本地模式）
+        if (_isLocalMode && _activeArchiveId != null) {
+          _startBackgroundLoading();
+        }
 
         // 显示成功提示
         CustomToast.show(context, message: '对话已重置', type: ToastType.success);
@@ -828,6 +1057,486 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       if (mounted) {
         CustomToast.show(context, message: '重置失败: $e', type: ToastType.error);
       }
+    } finally {
+      // 重置完成，恢复按钮状态
+      if (mounted) {
+        setState(() => _isResetting = false);
+      }
+    }
+  }
+
+  /// 显示搜索对话框
+  /// 切换搜索模式
+  void _toggleSearchMode() {
+    setState(() {
+      _isSearchMode = !_isSearchMode;
+      if (_isSearchMode) {
+        // 进入搜索模式，清空输入框
+        _messageController.clear();
+        _searchKeyword = '';
+        _searchResults.clear();
+      } else {
+        // 退出搜索模式，清空搜索结果
+        _messageController.clear();
+        _searchKeyword = '';
+        _searchResults.clear();
+      }
+    });
+  }
+
+  /// 执行内联搜索
+  void _performInlineSearch(String keyword) {
+    if (!_isLocalMode || keyword.trim().isEmpty) {
+      setState(() {
+        _searchResults.clear();
+      });
+      return;
+    }
+
+    setState(() {
+      _searchKeyword = keyword.trim();
+
+      // 在内存中搜索已加载的消息
+      _searchResults = _allLoadedMessages.where((message) {
+        final content = message['content'] as String? ?? '';
+        return content.toLowerCase().contains(_searchKeyword.toLowerCase());
+      }).toList();
+    });
+  }
+
+  /// 跳转到搜索结果消息
+  void _jumpToSearchResult(String msgId) {
+    // 退出搜索模式并清空输入框
+    setState(() {
+      _isSearchMode = false;
+      _messageController.clear(); // 清空主输入框
+      _searchKeyword = '';
+      _searchResults.clear();
+    });
+
+    // 跳转到目标消息
+    _jumpToMessage(msgId);
+  }
+
+  /// 🔥 格式化搜索结果的时间戳（+8小时时差）
+  String _formatSearchResultTime(String? createdAt) {
+    if (createdAt == null || createdAt.isEmpty) {
+      return '';
+    }
+
+    try {
+      // 解析服务器时间（UTC）
+      DateTime serverTime = DateTime.parse(createdAt);
+      // 添加8小时时差
+      DateTime localTime = serverTime.add(Duration(hours: 8));
+
+      // 格式化为 MM-dd HH:mm
+      String month = localTime.month.toString().padLeft(2, '0');
+      String day = localTime.day.toString().padLeft(2, '0');
+      String hour = localTime.hour.toString().padLeft(2, '0');
+      String minute = localTime.minute.toString().padLeft(2, '0');
+
+      return '$month-$day $hour:$minute';
+    } catch (e) {
+      debugPrint('时间格式化失败: $e');
+      return '';
+    }
+  }
+
+  /// 构建搜索结果界面（模仿灵感功能样式）
+  Widget _buildSearchInterface() {
+    if (_searchResults.isEmpty && _searchKeyword.isEmpty) {
+      return SizedBox.shrink();
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标题栏
+          Row(
+            children: [
+              Icon(
+                Icons.search,
+                color: AppTheme.primaryColor,
+                size: 16.sp,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                '搜索结果 (${_searchResults.length})',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Spacer(),
+              // 关闭按钮
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _toggleSearchMode,
+                  borderRadius: BorderRadius.circular(12.r),
+                  child: Padding(
+                    padding: EdgeInsets.all(4.w),
+                    child: Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 16.sp,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          // 搜索结果列表
+          if (_searchResults.isNotEmpty)
+            _buildSearchResults()
+          else if (_searchKeyword.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 12.h),
+              child: Center(
+                child: Text(
+                  '未找到相关消息',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12.sp,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建搜索结果列表（模仿灵感列表样式）
+  Widget _buildSearchResults() {
+    return Container(
+      constraints: BoxConstraints(maxHeight: 200.h),
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+        itemCount: _searchResults.length,
+        itemBuilder: (context, index) {
+          final result = _searchResults[index];
+          final content = result['content'] as String? ?? '';
+          final isUser = result['isUser'] as bool? ?? false;
+          final msgId = result['msgId'] as String? ?? '';
+          final createdAt = result['createdAt'] as String? ?? ''; // 🔥 获取创建时间
+
+          return Container(
+            margin: EdgeInsets.only(bottom: 8.h),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(
+                color: isUser
+                    ? AppTheme.primaryColor.withOpacity(0.6) // 用户消息用主题色边框
+                    : Colors.grey.withOpacity(0.6), // AI消息用灰色边框
+                width: 1,
+              ),
+            ),
+            child: InkWell(
+              onTap: () => _jumpToSearchResult(msgId),
+              borderRadius: BorderRadius.circular(8.r),
+              child: Container(
+                padding: EdgeInsets.all(12.w),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 顶部信息行：消息类型标签 + 时间戳
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // 消息类型标签
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                          decoration: BoxDecoration(
+                            color: isUser
+                                ? AppTheme.primaryColor.withOpacity(0.3)
+                                : Colors.grey.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(4.r),
+                          ),
+                          child: Text(
+                            isUser ? '用户' : '模型',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        // 🔥 时间戳显示
+                        if (createdAt.isNotEmpty)
+                          Text(
+                            _formatSearchResultTime(createdAt),
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.6),
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.normal,
+                            ),
+                          ),
+                      ],
+                    ),
+                    SizedBox(height: 6.h),
+                    // 消息内容
+                    Text(
+                      content,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.sp,
+                        height: 1.4,
+                        fontWeight: FontWeight.normal,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  
+
+
+
+  /// 跳转到指定消息（优先使用后台预加载数据）
+  Future<void> _jumpToMessage(String msgId) async {
+    try {
+      // 先在当前显示的消息列表中查找
+      final currentIndex = _messages.indexWhere((msg) => msg['msgId'] == msgId);
+
+      if (currentIndex != -1) {
+        // 消息在当前页面，瞬间跳转到位置
+        _itemScrollController.jumpTo(index: currentIndex);
+        CustomToast.show(context, message: '已定位到消息', type: ToastType.success);
+        return;
+      }
+
+      // 如果有后台预加载的数据，优先使用快速定位
+      if (_allLoadedMessages.isNotEmpty) {
+        await _fastJumpUsingPreloadedData(msgId);
+      } else {
+        // 没有预加载数据，使用传统的逐页加载方式
+        await _loadUntilMessageFound(msgId);
+      }
+
+    } catch (e) {
+      debugPrint('[CharacterChatPage] 跳转到消息失败: $e');
+      CustomToast.show(context, message: '定位消息失败', type: ToastType.error);
+    }
+  }
+
+  /// 使用预加载数据快速跳转
+  Future<void> _fastJumpUsingPreloadedData(String msgId) async {
+    try {
+      // 在预加载的数据中查找目标消息
+      final targetIndex = _allLoadedMessages.indexWhere((msg) => msg['msgId'] == msgId);
+
+      if (targetIndex == -1) {
+        // 预加载数据中没有找到，可能还没加载到，使用传统方式
+        await _loadUntilMessageFound(msgId);
+        return;
+      }
+
+      // 找到目标消息，计算需要加载到第几页
+      final targetPage = (targetIndex ~/ _pageSize) + 1;
+
+      debugPrint('[CharacterChatPage] 🚀 快速定位：目标消息在第 $targetPage 页，索引 $targetIndex');
+
+      // 直接加载到目标页面
+      _currentPage = targetPage;
+      await _loadMessageHistory();
+
+      // 等待UI更新
+      await Future.delayed(Duration(milliseconds: 100));
+
+      // 在新加载的页面中找到目标消息并瞬间跳转
+      final newIndex = _messages.indexWhere((msg) => msg['msgId'] == msgId);
+      if (newIndex != -1) {
+        _itemScrollController.jumpTo(index: newIndex);
+        CustomToast.show(context, message: '已定位到消息', type: ToastType.success);
+      } else {
+        CustomToast.show(context, message: '定位失败，请重试', type: ToastType.warning);
+      }
+    } catch (e) {
+      debugPrint('[CharacterChatPage] 快速定位失败: $e');
+      // 快速定位失败，回退到传统方式
+      await _loadUntilMessageFound(msgId);
+    }
+  }
+
+  /// 加载页面直到找到目标消息
+  Future<void> _loadUntilMessageFound(String msgId) async {
+    if (!_isLocalMode || _activeArchiveId == null) {
+      CustomToast.show(context, message: '只有本地模式才能跨页定位', type: ToastType.warning);
+      return;
+    }
+
+    try {
+      // 显示加载提示
+      bool isLoading = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16.h),
+              Text('正在查找消息...'),
+            ],
+          ),
+        ),
+      );
+
+      // 重置到第一页并开始加载
+      _currentPage = 1;
+      await _loadMessageHistory();
+
+      // 检查消息是否在当前页
+      int targetIndex = _messages.indexWhere((msg) => msg['msgId'] == msgId);
+
+      // 如果不在当前页，继续加载更多页面
+      while (targetIndex == -1 && _currentPage < _totalPages) {
+        _currentPage++;
+        await _loadMoreMessages();
+        targetIndex = _messages.indexWhere((msg) => msg['msgId'] == msgId);
+      }
+
+      // 关闭加载对话框
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      if (targetIndex != -1) {
+        // 找到消息，瞬间跳转到位置
+        await Future.delayed(Duration(milliseconds: 100));
+        _itemScrollController.jumpTo(index: targetIndex);
+        CustomToast.show(context, message: '已定位到消息', type: ToastType.success);
+      } else {
+        CustomToast.show(context, message: '未找到该消息', type: ToastType.warning);
+      }
+    } catch (e) {
+      // 确保关闭加载对话框
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+      debugPrint('[CharacterChatPage] 跨页定位失败: $e');
+      CustomToast.show(context, message: '定位失败: $e', type: ToastType.error);
+    }
+  }
+
+
+
+  /// 启动后台预加载
+  Future<void> _startBackgroundLoading() async {
+    if (!_isLocalMode || _activeArchiveId == null || _isBackgroundLoading) return;
+
+    debugPrint('[CharacterChatPage] 🚀 启动后台预加载');
+    _isBackgroundLoading = true;
+    _backgroundLoadedPages = 0;
+    _allLoadedMessages.clear();
+
+    // 延迟500ms后开始，本地模式可以更快
+    Future.delayed(Duration(milliseconds: 500), () {
+      _backgroundLoadMessages();
+    });
+  }
+
+  /// 后台加载消息
+  Future<void> _backgroundLoadMessages() async {
+    try {
+      int currentPage = 1;
+      bool hasMorePages = true;
+
+      while (hasMorePages && _isLocalMode && _activeArchiveId != null) {
+        debugPrint('[CharacterChatPage] 📥 后台加载第 $currentPage 页');
+
+        final result = await _messageCacheService.getArchiveMessages(
+          sessionId: widget.sessionData['id'],
+          archiveId: _activeArchiveId!,
+          page: currentPage,
+          pageSize: _backgroundPageSize,
+        );
+
+        final List<dynamic> messageList = result['list'] ?? [];
+        final pagination = result['pagination'] ?? {};
+
+        if (messageList.isEmpty) {
+          hasMorePages = false;
+          break;
+        }
+
+        // 转换消息格式并添加到全量列表
+        final convertedMessages = messageList.map((msg) => {
+          'content': msg['content'] ?? '',
+          'isUser': msg['role'] == 'user',
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'tokenCount': msg['tokenCount'] ?? 0,
+          'msgId': msg['msgId'] ?? msg['msg_id'] ?? '',
+          'status': 'done',
+          'statusBar': msg['statusBar'],
+          'enhanced': msg['enhanced'] is int ? (msg['enhanced'] == 1) : msg['enhanced'],
+          'createdAt': msg['createdAt'] ?? msg['created_at'] ?? '',
+          'keywords': msg['keywords'],
+        }).toList();
+
+        _allLoadedMessages.addAll(convertedMessages);
+        _backgroundLoadedPages = currentPage;
+
+        debugPrint('[CharacterChatPage] 📥 已加载 ${_allLoadedMessages.length} 条消息');
+
+        // 检查是否还有更多页面
+        final totalPages = pagination['total_pages'] ?? 1;
+        hasMorePages = currentPage < totalPages;
+        currentPage++;
+
+        // 添加小延迟，本地模式可以更快
+        await Future.delayed(Duration(milliseconds: 50));
+      }
+
+      debugPrint('[CharacterChatPage] ✅ 后台预加载完成，共加载 ${_allLoadedMessages.length} 条消息');
+    } catch (e) {
+      debugPrint('[CharacterChatPage] ❌ 后台预加载失败: $e');
+    } finally {
+      _isBackgroundLoading = false;
+    }
+  }
+
+  /// 重置后清理当前存档的本地缓存
+  Future<void> _clearCurrentArchiveCacheAfterReset() async {
+    // 只有在本地模式且有激活存档时才清理缓存
+    if (_isLocalMode && _activeArchiveId != null && _activeArchiveId!.isNotEmpty) {
+      try {
+        await _messageCacheService.initDatabase();
+
+        // 清理当前激活存档的缓存数据
+        await _messageCacheService.clearArchiveCache(
+          sessionId: widget.sessionData['id'],
+          archiveId: _activeArchiveId!,
+        );
+
+        debugPrint('[CharacterChatPage] ✅ 重置后已清理当前存档的本地缓存: $_activeArchiveId');
+      } catch (e) {
+        debugPrint('[CharacterChatPage] ❌ 重置后清理本地缓存失败: $e');
+      }
+    } else {
+      debugPrint('[CharacterChatPage] 非本地模式或无激活存档，跳过缓存清理');
     }
   }
 
@@ -849,11 +1558,168 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           _messages[index]['content'] = newContent;
         }
       });
+
+      // 如果是本地模式，同步更新缓存
+      if (_isLocalMode && _activeArchiveId != null) {
+        await _syncMessageUpdateToCache(msgId, newContent);
+      }
     } catch (e) {
       debugPrint('更新消息失败: $e');
       if (mounted) {
         CustomToast.show(context, message: e.toString(), type: ToastType.error);
       }
+    }
+  }
+
+  /// 同步消息更新到缓存
+  Future<void> _syncMessageUpdateToCache(String msgId, String newContent) async {
+    try {
+      // 找到对应的消息数据
+      final messageIndex = _messages.indexWhere((msg) => msg['msgId'] == msgId);
+      if (messageIndex == -1) return;
+
+      final message = _messages[messageIndex];
+
+      // 更新缓存
+      await _messageCacheService.updateMessage(
+        sessionId: widget.sessionData['id'],
+        archiveId: _activeArchiveId!,
+        msgId: msgId,
+        messageData: {
+          'content': newContent,
+          'tokenCount': message['tokenCount'] ?? 0,
+          'statusBar': message['statusBar'],
+          'enhanced': message['enhanced'],
+          'keywords': message['keywords'],
+        },
+      );
+
+      debugPrint('[CharacterChatPage] 已同步消息更新到缓存: $msgId');
+    } catch (e) {
+      debugPrint('[CharacterChatPage] 同步消息更新到缓存失败: $e');
+    }
+  }
+
+  /// 同步刷新操作到缓存（处理删除/撤销等操作）
+  Future<void> _syncRefreshToCache(List<dynamic> messageList) async {
+    try {
+      // 转换消息格式
+      final messages = messageList.map((msg) => {
+        'msgId': msg['msgId'],
+        'content': msg['content'] ?? '',
+        'role': msg['role'],
+        'createdAt': msg['createdAt'],
+        'tokenCount': msg['tokenCount'] ?? 0,
+        'statusBar': msg['statusBar'],
+        'enhanced': msg['enhanced'],
+        'keywords': msg['keywords'],
+      }).toList();
+
+      // 更新缓存（这会覆盖现有数据，实现删除/撤销的同步）
+      await _messageCacheService.insertOrUpdateMessages(
+        sessionId: widget.sessionData['id'],
+        archiveId: _activeArchiveId!,
+        messages: messages,
+      );
+
+      debugPrint('[CharacterChatPage] 已同步刷新操作到缓存: ${messages.length} 条消息');
+    } catch (e) {
+      debugPrint('[CharacterChatPage] 同步刷新操作到缓存失败: $e');
+    }
+  }
+
+  /// 处理消息删除（包含幽灵消息处理）
+  Future<void> _handleMessageDeleted(String? msgId) async {
+    // 只有在幽灵消息的情况下才会调用这个方法
+    // 因为ChatBubble只在检测到幽灵消息时才触发回调
+
+    debugPrint('[CharacterChatPage] 检测到幽灵消息删除，msgId: $msgId');
+
+    // 如果是本地模式，立即删除本地缓存并重新加载
+    if (_isLocalMode && _activeArchiveId != null && msgId != null) {
+      await _handleGhostMessage(msgId, '删除');
+    }
+
+    // 幽灵消息不需要刷新，因为服务器上已经不存在了
+    // 本地缓存已经删除并重新加载，数据已经是最新的
+  }
+
+  /// 处理消息撤销（包含幽灵消息处理和批量删除）
+  Future<void> _handleMessageRevoked(String? msgId) async {
+    // 只有在幽灵消息的情况下才会调用这个方法
+    // 因为ChatBubble只在检测到幽灵消息时才触发回调
+
+    debugPrint('[CharacterChatPage] 检测到幽灵消息撤销，msgId: $msgId');
+
+    // 如果是本地模式，立即删除本地缓存并重新加载
+    if (_isLocalMode && _activeArchiveId != null && msgId != null) {
+      await _handleGhostMessageRevoke(msgId);
+    }
+
+    // 幽灵消息不需要刷新，因为服务器上已经不存在了
+    // 本地缓存已经删除并重新加载，数据已经是最新的
+  }
+
+  /// 处理幽灵消息（删除失败但本地有缓存）
+  Future<void> _handleGhostMessage(String msgId, String operation) async {
+    try {
+      debugPrint('[CharacterChatPage] 开始处理幽灵消息：sessionId=${widget.sessionData['id']}, archiveId=$_activeArchiveId, msgId=$msgId');
+
+      await _messageCacheService.deleteMessage(
+        sessionId: widget.sessionData['id'],
+        archiveId: _activeArchiveId!,
+        msgId: msgId,
+      );
+
+      debugPrint('[CharacterChatPage] ✅ 幽灵消息处理：已从本地缓存${operation}消息 $msgId');
+
+      // 重新加载本地缓存数据
+      debugPrint('[CharacterChatPage] 重新加载本地缓存数据...');
+      await _loadMessageHistory();
+      debugPrint('[CharacterChatPage] 本地缓存数据重新加载完成');
+    } catch (e) {
+      debugPrint('[CharacterChatPage] ❌ 处理幽灵消息失败: $e');
+    }
+  }
+
+  /// 处理幽灵消息撤销（删除该消息及之后的所有消息）
+  Future<void> _handleGhostMessageRevoke(String msgId) async {
+    try {
+      debugPrint('[CharacterChatPage] 开始处理幽灵消息撤销：sessionId=${widget.sessionData['id']}, archiveId=$_activeArchiveId, msgId=$msgId');
+
+      // 找到要撤销的消息在列表中的位置
+      final messageIndex = _messages.indexWhere((msg) => msg['msgId'] == msgId);
+      if (messageIndex == -1) {
+        debugPrint('[CharacterChatPage] 未找到要撤销的消息: $msgId');
+        return;
+      }
+
+      // 获取该消息的创建时间
+      final targetMessage = _messages[messageIndex];
+      final targetCreatedAt = targetMessage['createdAt'];
+
+      if (targetCreatedAt == null) {
+        debugPrint('[CharacterChatPage] 消息缺少创建时间，无法确定撤销范围');
+        return;
+      }
+
+      debugPrint('[CharacterChatPage] 找到目标消息，创建时间: $targetCreatedAt');
+
+      // 删除该消息及之后的所有消息（包括该消息本身）
+      await _messageCacheService.deleteMessagesFromTime(
+        sessionId: widget.sessionData['id'],
+        archiveId: _activeArchiveId!,
+        fromTime: targetCreatedAt,
+      );
+
+      debugPrint('[CharacterChatPage] ✅ 幽灵消息撤销：已从本地缓存删除消息 $msgId 及之后的所有消息');
+
+      // 重新加载本地缓存数据
+      debugPrint('[CharacterChatPage] 重新加载本地缓存数据...');
+      await _loadMessageHistory();
+      debugPrint('[CharacterChatPage] 本地缓存数据重新加载完成');
+    } catch (e) {
+      debugPrint('[CharacterChatPage] ❌ 处理幽灵消息撤销失败: $e');
     }
   }
 
@@ -1033,11 +1899,12 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    bool isLoading = false, // 添加加载状态参数
   }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: isLoading ? null : onTap, // 加载时禁用点击
         borderRadius: BorderRadius.circular(8.r),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1047,17 +1914,30 @@ class _CharacterChatPageState extends State<CharacterChatPage>
               width: 36.w,
               height: 36.h,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: isLoading
+                    ? Colors.white.withOpacity(0.3) // 加载时更明显的背景
+                    : Colors.white.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8.r),
               ),
               alignment: Alignment.center,
-              child: Icon(icon, color: Colors.white, size: 22.sp),
+              child: isLoading
+                  ? SizedBox(
+                      width: 16.w,
+                      height: 16.h,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.w,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Icon(icon, color: Colors.white, size: 22.sp),
             ),
             SizedBox(height: 2.h), // 减小图标和文字间的间距
             Text(
               label,
               style: TextStyle(
-                color: Colors.white,
+                color: isLoading
+                    ? Colors.white.withOpacity(0.6) // 加载时文字变淡
+                    : Colors.white,
                 fontSize: 11.sp, // 减小字体大小
               ),
               maxLines: 1,
@@ -1070,9 +1950,19 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   }
 
   // 添加简单的滚动到底部方法
-  void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.jumpTo(0); // 因为列表是反向的,所以滚动到0就是底部
+  void _scrollToBottom({bool immediate = false}) {
+    if (_messages.isNotEmpty) {
+      if (immediate) {
+        // 立即跳转，无动画，用于重置等需要快速响应的场景
+        _itemScrollController.jumpTo(index: 0);
+      } else {
+        // 使用更快的动画，提供更流畅的体验
+        _itemScrollController.scrollTo(
+          index: 0,
+          duration: Duration(milliseconds: 150), // 从300ms减少到150ms
+          curve: Curves.easeOutCubic, // 更自然的缓动曲线
+        );
+      }
     }
   }
 
@@ -1271,12 +2161,15 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     required String label,
     required VoidCallback onTap,
     Key? key,
+    bool isHighlighted = false, // 添加高亮参数
   }) {
     return Container(
       key: key,
       margin: EdgeInsets.only(right: 8.w),
       child: Material(
-        color: Colors.white.withOpacity(0.2),
+        color: isHighlighted
+            ? AppTheme.primaryColor // 高亮时使用主题色
+            : Colors.white.withOpacity(0.2), // 正常时使用半透明白色
         borderRadius: BorderRadius.circular(16.r),
         child: InkWell(
           onTap: onTap,
@@ -1513,13 +2406,37 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                SizedBox(width: 4.w),
-                                GestureDetector(
-                                  onTap: () => _deleteCommonPhrase(phrase.id),
-                                  child: Icon(
-                                    Icons.close,
-                                    color: Colors.white.withOpacity(0.7),
-                                    size: 14.sp,
+                                SizedBox(width: 8.w),
+                                Material(
+                                  color: Colors.red.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                  child: InkWell(
+                                    onTap: () => _deleteCommonPhrase(phrase.id),
+                                    borderRadius: BorderRadius.circular(12.r),
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 8.w,
+                                        vertical: 4.h,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.delete_outline,
+                                            color: Colors.white,
+                                            size: 12.sp,
+                                          ),
+                                          SizedBox(width: 4.w),
+                                          Text(
+                                            '删除',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10.sp,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1596,10 +2513,309 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       ),
     );
 
-    // 如果返回值为true，表示有存档被激活，需要刷新消息
+    // 如果返回值为true，表示激活存档发生变化，需要重新检查模式并刷新消息
     if (needRefresh == true && mounted) {
+      debugPrint('[CharacterChatPage] 存档页面返回，激活存档发生变化，重新加载');
+      await _recheckModeAfterArchiveChange();
       _refreshMessages();
     }
+  }
+
+  /// 存档切换后重新检查模式
+  Future<void> _recheckModeAfterArchiveChange() async {
+    try {
+      // 重新获取会话数据，检查最新的激活存档ID
+      final sessionResponse = await _sessionDataService.getLocalCharacterSessions(
+        page: 1,
+        pageSize: 1000
+      );
+
+      final session = sessionResponse.sessions.firstWhere(
+        (s) => s.id == widget.sessionData['id'],
+        orElse: () => throw '会话不存在',
+      );
+
+      // 更新本地的激活存档ID
+      _activeArchiveId = session.activeArchiveId;
+
+      if (_activeArchiveId != null && _activeArchiveId!.isNotEmpty) {
+        // 检查是否有对应的缓存数据
+        final hasCache = await _messageCacheService.hasArchiveCache(
+          sessionId: widget.sessionData['id'],
+          archiveId: _activeArchiveId!,
+        );
+
+        if (hasCache) {
+          _isLocalMode = true;
+          debugPrint('[CharacterChatPage] 切换到本地模式，存档ID: $_activeArchiveId');
+          // 🔥 关键修复：启动后台预加载，确保搜索功能可用
+          _startBackgroundLoading();
+        } else {
+          _isLocalMode = false;
+          debugPrint('[CharacterChatPage] 存档 $_activeArchiveId 无缓存，使用在线模式');
+        }
+      } else {
+        _isLocalMode = false;
+        _activeArchiveId = null;
+        debugPrint('[CharacterChatPage] 无激活存档，切换到在线模式');
+      }
+    } catch (e) {
+      debugPrint('[CharacterChatPage] 重新检查模式失败: $e');
+      _isLocalMode = false;
+      _activeArchiveId = null;
+    }
+  }
+
+  /// 清理JSON字符串，去除可能的markdown包裹
+  String _cleanJsonString(String jsonString) {
+    // 去除前后空白
+    String cleaned = jsonString.trim();
+
+    // 去除markdown代码块包裹
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.substring(7); // 去除 ```json
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.substring(3); // 去除 ```
+    }
+
+    if (cleaned.endsWith('```')) {
+      cleaned = cleaned.substring(0, cleaned.length - 3); // 去除结尾的 ```
+    }
+
+    // 再次去除前后空白
+    return cleaned.trim();
+  }
+
+  // 获取灵感建议
+  Future<void> _getInspirationSuggestions() async {
+    if (_isLoadingInspiration) return;
+
+    setState(() {
+      _isLoadingInspiration = true;
+      _isShowingInspiration = true;
+      _inspirationSuggestions.clear();
+    });
+
+    // 确保动画控制器处于正确状态
+    _inspirationAnimationController.reset();
+    _inspirationAnimationController.forward();
+
+    try {
+      final result = await _characterService.getInspirationSuggestions(
+        widget.sessionData['id'],
+      );
+
+      if (mounted) {
+        // 解析灵感数据
+        final inspirationJson = result['inspiration'];
+        debugPrint('原始灵感数据: $inspirationJson');
+
+        if (inspirationJson != null && inspirationJson is String) {
+          try {
+            // 🔥 关键修复：预处理JSON字符串，去除可能的markdown包裹
+            String cleanedJson = _cleanJsonString(inspirationJson);
+            debugPrint('清理后的JSON字符串: $cleanedJson');
+
+            final inspirationData = jsonDecode(cleanedJson);
+            debugPrint('解析后的灵感数据: $inspirationData');
+
+            final suggestions = inspirationData['suggestions'] as List<dynamic>?;
+            debugPrint('建议列表: $suggestions');
+
+            if (suggestions != null) {
+              setState(() {
+                _inspirationSuggestions = suggestions
+                    .map((item) => {
+                          'content': (item['content'] ?? '').toString().trim(),
+                        })
+                    .where((item) => (item['content'] as String).isNotEmpty)
+                    .toList();
+              });
+              debugPrint('最终建议列表: $_inspirationSuggestions');
+            }
+          } catch (e) {
+            debugPrint('解析灵感数据失败: $e');
+            if (mounted) {
+              CustomToast.show(context, message: '解析灵感数据失败', type: ToastType.error);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('获取灵感建议失败: $e');
+      if (mounted) {
+        CustomToast.show(context, message: e.toString(), type: ToastType.error);
+        _hideInspirationSuggestions();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingInspiration = false;
+        });
+        // 确保动画保持显示状态
+        if (_inspirationAnimationController.status != AnimationStatus.completed) {
+          _inspirationAnimationController.forward();
+        }
+      }
+    }
+  }
+
+  // 隐藏灵感建议
+  void _hideInspirationSuggestions() {
+    if (mounted) {
+      setState(() {
+        _isShowingInspiration = false;
+        _inspirationSuggestions.clear();
+        _isLoadingInspiration = false;
+      });
+      // 重置动画到初始状态
+      _inspirationAnimationController.reset();
+    }
+  }
+
+  // 使用灵感建议
+  void _useInspirationSuggestion(String content) {
+    _messageController.text = content;
+    _messageController.selection = TextSelection.fromPosition(
+      TextPosition(offset: content.length),
+    );
+    _hideInspirationSuggestions();
+  }
+
+  // 构建灵感建议列表UI
+  Widget _buildInspirationList() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标题栏
+          Row(
+            children: [
+              Icon(
+                Icons.lightbulb,
+                color: Colors.amber,
+                size: 16.sp,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                _isLoadingInspiration ? '灵感涌现中...' : '灵感建议',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Spacer(),
+              // 关闭按钮
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _hideInspirationSuggestions,
+                  borderRadius: BorderRadius.circular(12.r),
+                  child: Padding(
+                    padding: EdgeInsets.all(4.w),
+                    child: Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 16.sp,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          // 列表内容
+          if (_isLoadingInspiration)
+            _buildLoadingText()
+          else if (_inspirationSuggestions.isEmpty)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 12.h),
+              child: Center(
+                child: Text(
+                  '暂无灵感建议',
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.7), fontSize: 12.sp),
+                ),
+              ),
+            )
+          else
+            Container(
+              constraints: BoxConstraints(maxHeight: 200.h),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: _inspirationSuggestions.length,
+                itemBuilder: (context, index) {
+                  final suggestion = _inspirationSuggestions[index];
+                  final content = suggestion['content'] ?? '';
+                  debugPrint('渲染建议 $index: $content');
+
+                  return Container(
+                    margin: EdgeInsets.only(bottom: 8.h),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(
+                        color: Colors.amber.withOpacity(0.6),
+                        width: 1,
+                      ),
+                    ),
+                    child: InkWell(
+                      onTap: () {
+                        debugPrint('点击建议: $content');
+                        _useInspirationSuggestion(content);
+                      },
+                      borderRadius: BorderRadius.circular(8.r),
+                      child: Container(
+                        padding: EdgeInsets.all(12.w),
+                        child: Text(
+                          content,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13.sp,
+                            height: 1.4,
+                            fontWeight: FontWeight.normal,
+                          ),
+                          maxLines: null,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // 构建加载文本流光效果
+  Widget _buildLoadingText() {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 20.h),
+      child: Center(
+        child: Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.amber,
+          period: const Duration(milliseconds: 1500),
+          child: Text(
+            '灵感涌现中...',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1964,15 +3180,20 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                           child: ClipRRect(
                             borderRadius: BorderRadius.vertical(
                                 top: Radius.circular(20.r)),
-                            child: ListView.builder(
+                            child: ScrollablePositionedList.builder(
                               reverse: true, // 反转列表,新消息在底部
-                              controller: _scrollController,
+                              itemScrollController: _itemScrollController,
+                              itemPositionsListener: _itemPositionsListener,
                               padding: EdgeInsets.only(
                                 top: 16.h,
                                 bottom: 16.h,
                               ),
                               itemCount: _messages.length,
                               itemBuilder: (context, index) {
+                                // 添加边界检查，防止重置时的索引错误
+                                if (index < 0 || index >= _messages.length) {
+                                  return SizedBox.shrink();
+                                }
                                 final message = _messages[index];
                                 return ChatBubble(
                                   key: ValueKey(
@@ -1999,11 +3220,11 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                   sessionId: widget.sessionData['id'], // 添加会话ID
                                   onMessageDeleted: () {
                                     // 消息删除成功后刷新消息列表
-                                    _refreshMessages();
+                                    _handleMessageDeleted(message['msgId']);
                                   },
                                   onMessageRevoked: () {
                                     // 消息撤销成功后刷新消息列表
-                                    _refreshMessages();
+                                    _handleMessageRevoked(message['msgId']);
                                   },
                                   onMessageRegenerate: !message['isUser']
                                       ? _handleRegenerateMessage
@@ -2012,10 +3233,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                   keywords: message['keywords'], // 传递关键词数组
                                 );
                               },
-                              // 性能优化选项
-                              addAutomaticKeepAlives: false,
-                              addRepaintBoundaries: true,
-                              clipBehavior: Clip.hardEdge,
                             ),
                           ),
                         ),
@@ -2052,9 +3269,20 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                             : Container(
                                 padding: EdgeInsets.symmetric(
                                     horizontal: 16.w, vertical: 8.h),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  children: [
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                    // 搜索功能气泡（只在本地模式显示）
+                                    if (_isLocalMode)
+                                      _buildFunctionBubble(
+                                        icon: Icon(_isSearchMode ? Icons.close : Icons.search,
+                                            color: Colors.white, size: 14.sp),
+                                        label: _isSearchMode ? '取消' : '搜索',
+                                        onTap: _toggleSearchMode,
+                                        isHighlighted: _isSearchMode, // 搜索模式时高亮
+                                      ),
                                     // 括号功能气泡
                                     _buildFunctionBubble(
                                       icon: null,
@@ -2105,7 +3333,18 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                   ],
                                 ),
                               ),
+                            ),
                       ),
+
+                    // 灵感建议区域
+                    if (_isShowingInspiration)
+                      FadeTransition(
+                        opacity: _inspirationOpacityAnimation,
+                        child: _buildInspirationList(),
+                      ),
+
+                    // 搜索结果区域
+                    if (_isSearchMode) _buildSearchInterface(),
 
                     // 输入框区域
                     Container(
@@ -2151,7 +3390,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                 ),
                                 maxLines: null,
                                 decoration: InputDecoration(
-                                  hintText: '发送消息...',
+                                  hintText: _isSearchMode ? '输入关键词搜索...' : '发送消息...',
                                   hintStyle: TextStyle(
                                     color:
                                         AppTheme.textSecondary.withOpacity(0.6),
@@ -2164,10 +3403,11 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                   border: InputBorder.none,
                                   isDense: true,
                                 ),
+                                onChanged: _isSearchMode ? _performInlineSearch : null,
                               ),
                             ),
                           ),
-                          // 发送/终止按钮 (修改为灯泡图标)
+                          // 发送/灵感按钮
                           Container(
                             width: 36.w,
                             height: 36.w,
@@ -2175,22 +3415,35 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                onTap: _isSending
-                                    ? _handleStopGeneration
-                                    : _currentInputText.trim().isNotEmpty
-                                        ? _handleSendMessage
-                                        : null,
+                                onTap: _isSearchMode
+                                    ? () {
+                                        // 搜索模式：执行搜索
+                                        final keyword = _messageController.text.trim();
+                                        if (keyword.isNotEmpty) {
+                                          _performInlineSearch(keyword);
+                                        }
+                                      }
+                                    : _isSending
+                                        ? _handleStopGeneration
+                                        : _currentInputText.trim().isNotEmpty
+                                            ? _handleSendMessage
+                                            : _getInspirationSuggestions,
                                 borderRadius: BorderRadius.circular(18.r),
                                 child: Icon(
-                                  _isSending
-                                      ? Icons.stop_rounded
-                                      : Icons.lightbulb,
-                                  color: _isSending
-                                      ? Colors.red.withOpacity(0.8)
-                                      : _currentInputText.trim().isNotEmpty
-                                          ? Colors.amber
-                                          : Colors.white
-                                              .withOpacity(0.4), // 输入为空时按钮变灰
+                                  _isSearchMode
+                                      ? Icons.search // 搜索模式显示搜索图标
+                                      : _isSending
+                                          ? Icons.stop_rounded
+                                          : _currentInputText.trim().isNotEmpty
+                                              ? Icons.send
+                                              : Icons.lightbulb,
+                                  color: _isSearchMode
+                                      ? AppTheme.primaryColor // 搜索模式主题色图标
+                                      : _isSending
+                                          ? Colors.red.withOpacity(0.8)
+                                          : _currentInputText.trim().isNotEmpty
+                                              ? AppTheme.primaryColor
+                                              : Colors.amber, // 灯泡常亮为琥珀色
                                   size: 24.sp,
                                 ),
                               ),
@@ -2284,6 +3537,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                 icon: Icons.restart_alt,
                                 label: '重置',
                                 onTap: _handleResetSession,
+                                isLoading: _isResetting, // 传入重置状态
                               ),
                               _buildExpandedFunctionButton(
                                 icon: Icons.archive,

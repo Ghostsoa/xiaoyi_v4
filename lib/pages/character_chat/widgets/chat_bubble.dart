@@ -180,12 +180,34 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
         );
       }
     } catch (e) {
-      if (mounted) {
-        CustomToast.show(
-          context,
-          message: e.toString(),
-          type: ToastType.error,
-        );
+      debugPrint('删除消息失败: $e');
+
+      // 检查是否是幽灵消息（未找到指定消息）
+      final errorString = e.toString();
+      final isGhostMessage = errorString.contains('未找到指定消息');
+
+      if (isGhostMessage) {
+        // 幽灵消息：触发回调让对话页面删除本地缓存
+        if (widget.onMessageDeleted != null) {
+          widget.onMessageDeleted!();
+        }
+
+        if (mounted) {
+          CustomToast.show(
+            context,
+            message: '消息不存在，已从本地移除',
+            type: ToastType.warning,
+          );
+        }
+      } else {
+        // 其他错误：正常显示错误信息
+        if (mounted) {
+          CustomToast.show(
+            context,
+            message: e.toString(),
+            type: ToastType.error,
+          );
+        }
       }
     } finally {
       if (mounted) {
@@ -251,12 +273,33 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
       }
     } catch (e) {
       debugPrint('撤销消息失败: $e');
-      if (mounted) {
-        CustomToast.show(
-          context,
-          message: e.toString(),
-          type: ToastType.error,
-        );
+
+      // 检查是否是幽灵消息（未找到指定消息）
+      final errorString = e.toString();
+      final isGhostMessage = errorString.contains('未找到指定消息');
+
+      if (isGhostMessage) {
+        // 幽灵消息：触发回调让对话页面删除本地缓存
+        if (widget.onMessageRevoked != null) {
+          widget.onMessageRevoked!();
+        }
+
+        if (mounted) {
+          CustomToast.show(
+            context,
+            message: '消息不存在，已从本地移除',
+            type: ToastType.warning,
+          );
+        }
+      } else {
+        // 其他错误：正常显示错误信息
+        if (mounted) {
+          CustomToast.show(
+            context,
+            message: e.toString(),
+            type: ToastType.error,
+          );
+        }
       }
     } finally {
       if (mounted) {

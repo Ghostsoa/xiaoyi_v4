@@ -3,12 +3,14 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:shimmer/shimmer.dart';
 import 'dart:typed_data';
+import 'dart:async';
 
 import '../../../theme/app_theme.dart';
 import '../../../widgets/custom_toast.dart';
 import '../../character_chat/pages/character_chat_page.dart';
 import '../message_service.dart';
 import '../../../services/file_service.dart';
+import '../../../services/session_data_service.dart';
 
 class CharacterSessionList extends StatefulWidget {
   const CharacterSessionList({
@@ -22,7 +24,7 @@ class CharacterSessionList extends StatefulWidget {
   final bool isMultiSelectMode;
   final Set<int> selectedIds;
   final ValueChanged<int> onSelectionChanged;
-  final Function(BuildContext, Map<String, dynamic>) onShowMenu;
+  final Function(BuildContext, Map<String, dynamic>, Offset) onShowMenu; // 🔥 添加位置参数
 
   @override
   CharacterSessionListState createState() => CharacterSessionListState();
@@ -31,6 +33,7 @@ class CharacterSessionList extends StatefulWidget {
 class CharacterSessionListState extends State<CharacterSessionList> {
   final MessageService _messageService = MessageService();
   final FileService _fileService = FileService();
+  final SessionDataService _sessionDataService = SessionDataService();
   final RefreshController _refreshController = RefreshController();
   final ScrollController _scrollController = ScrollController();
 
@@ -40,19 +43,39 @@ class CharacterSessionListState extends State<CharacterSessionList> {
   bool _hasMore = true;
   final Map<String, Uint8List> _avatarCache = {};
   bool _isLoadingMore = false;
+  bool _isSyncing = false; // 是否正在后台同步
+  StreamSubscription? _sessionStreamSubscription;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _initSessionDataService();
     _loadSessions();
   }
 
   @override
   void dispose() {
+    _sessionStreamSubscription?.cancel();
     _refreshController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 初始化会话数据服务
+  Future<void> _initSessionDataService() async {
+    await _sessionDataService.initDatabase();
+
+    // 监听会话数据变化
+    _sessionStreamSubscription = _sessionDataService.characterSessionsStream.listen(
+      (sessions) {
+        if (mounted) {
+          setState(() {
+            _sessions = sessions.map((session) => session.toApiJson()).toList();
+          });
+        }
+      },
+    );
   }
 
   void _onScroll() {
@@ -74,6 +97,7 @@ class CharacterSessionListState extends State<CharacterSessionList> {
     });
 
     try {
+      // 优先从本地数据库加载
       final result = await _messageService.getCharacterSessions(
         page: _currentPage,
         pageSize: 10,
@@ -85,7 +109,7 @@ class CharacterSessionListState extends State<CharacterSessionList> {
             _sessions = List<Map<String, dynamic>>.from(result['list']);
           } else {
             _sessions = [];
-            debugPrint('获取会话列表返回数据格式错误: $result');
+            debugPrint('获取本地会话列表返回数据格式错误: $result');
           }
 
           final int total = result['total'] is int ? result['total'] : 0;
@@ -93,9 +117,13 @@ class CharacterSessionListState extends State<CharacterSessionList> {
           _isLoading = false;
         });
 
+        // 加载头像
         for (var session in _sessions) {
           _loadAvatar(session['cover_uri']);
         }
+
+        // 静默同步API数据
+        _syncWithApiInBackground();
       }
     } catch (e) {
       if (mounted) {
@@ -103,8 +131,26 @@ class CharacterSessionListState extends State<CharacterSessionList> {
           _isLoading = false;
           _sessions = [];
         });
-        debugPrint('加载会话列表失败: $e');
+        debugPrint('加载本地会话列表失败: $e');
       }
+    }
+  }
+
+  /// 后台静默同步API数据
+  Future<void> _syncWithApiInBackground() async {
+    if (_isSyncing) return;
+
+    _isSyncing = true;
+    try {
+      await _messageService.syncCharacterSessionsFromApi(
+        page: 1,
+        pageSize: 1000, // 获取所有数据进行同步
+      );
+      debugPrint('[CharacterSessionList] 后台同步完成');
+    } catch (e) {
+      debugPrint('[CharacterSessionList] 后台同步失败: $e');
+    } finally {
+      _isSyncing = false;
     }
   }
 
@@ -150,6 +196,13 @@ class CharacterSessionListState extends State<CharacterSessionList> {
   Future<void> onRefresh() async {
     _currentPage = 1;
     try {
+      // 手动刷新时，强制从API同步最新数据
+      await _messageService.syncCharacterSessionsFromApi(
+        page: 1,
+        pageSize: 1000, // 获取所有数据
+      );
+
+      // 然后从本地数据库重新加载第一页
       final result = await _messageService.getCharacterSessions(
         page: _currentPage,
         pageSize: 10,
@@ -179,6 +232,7 @@ class CharacterSessionListState extends State<CharacterSessionList> {
       }
     } catch (e) {
       _refreshController.refreshFailed();
+      debugPrint('[CharacterSessionList] 刷新失败: $e');
     }
   }
 
@@ -497,7 +551,7 @@ class CharacterSessionListState extends State<CharacterSessionList> {
 
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 10.h),
-      child: InkWell(
+      child: GestureDetector(
         onTap: () {
           if (widget.isMultiSelectMode) {
             widget.onSelectionChanged(sessionId);
@@ -513,15 +567,18 @@ class CharacterSessionListState extends State<CharacterSessionList> {
             );
           }
         },
-        onLongPress: widget.isMultiSelectMode
+        onLongPressStart: widget.isMultiSelectMode
             ? null
-            : () {
-                widget.onShowMenu(context, session);
+            : (LongPressStartDetails details) {
+                // 🔥 修复：使用LongPressStartDetails获取准确的触摸位置
+                final Offset globalPosition = details.globalPosition;
+                widget.onShowMenu(context, session, globalPosition);
               },
-        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-        splashColor: Colors.transparent,
-        highlightColor: Colors.white.withOpacity(0.05),
-        child: Padding(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          ),
+          child: Padding(
           padding: EdgeInsets.symmetric(vertical: 2.h),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -640,14 +697,30 @@ class CharacterSessionListState extends State<CharacterSessionList> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Flexible(
-                          child: Text(
-                            sessionName,
-                            style: AppTheme.titleStyle.copyWith(
-                              fontSize: 15.sp,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  sessionName,
+                                  style: AppTheme.titleStyle.copyWith(
+                                    fontSize: 15.sp,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                              // 🔥 置顶图标
+                              if ((session['is_pinned'] as int? ?? 0) == 1) ...[
+                                SizedBox(width: 4.w),
+                                Icon(
+                                  Icons.push_pin,
+                                  size: 12.sp,
+                                  color: Colors.orange,
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                         Text(
@@ -670,6 +743,7 @@ class CharacterSessionListState extends State<CharacterSessionList> {
           ),
         ),
       ),
+    ),
     );
   }
 

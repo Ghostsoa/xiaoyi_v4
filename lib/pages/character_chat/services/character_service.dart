@@ -1,5 +1,6 @@
 import '../../../net/http_client.dart';
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 
 class CharacterService {
   final HttpClient _httpClient = HttpClient();
@@ -329,6 +330,27 @@ class CharacterService {
     } catch (e) {
       // 忽略错误，不影响用户体验
       debugPrint('上报对话持续时间失败: $e');
+    }
+  }
+
+  /// 获取对话灵感建议
+  Future<Map<String, dynamic>> getInspirationSuggestions(int sessionId) async {
+    try {
+      final response = await _httpClient.get(
+        '/sessions/character/$sessionId/inspiration',
+        options: Options(
+          receiveTimeout: const Duration(minutes: 2),
+          sendTimeout: const Duration(minutes: 2),
+        ),
+      );
+
+      if (response.data['code'] == 0) {
+        return response.data['data'];
+      } else {
+        throw response.data['msg'] ?? '获取灵感建议失败';
+      }
+    } catch (e) {
+      throw '获取灵感建议失败: $e';
     }
   }
 }

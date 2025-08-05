@@ -1,10 +1,39 @@
 import '../../../net/http_client.dart';
+import '../../services/session_data_service.dart';
+import '../../models/session_model.dart';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 class MessageService {
   final HttpClient _httpClient = HttpClient();
+  final SessionDataService _sessionDataService = SessionDataService();
 
-  /// 获取角色会话列表
+  /// 获取角色会话列表（从本地数据库）
   Future<Map<String, dynamic>> getCharacterSessions({
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    try {
+      final response = await _sessionDataService.getLocalCharacterSessions(
+        page: page,
+        pageSize: pageSize,
+      );
+
+      // 转换为原有的API格式，保持兼容性
+      return {
+        'list': response.sessions.map((session) => session.toApiJson()).toList(),
+        'total': response.total,
+        'page': response.page,
+        'pageSize': response.pageSize,
+      };
+    } catch (e) {
+      debugPrint('[MessageService] 获取本地角色会话失败: $e');
+      throw '获取会话列表失败: $e';
+    }
+  }
+
+  /// 从API获取角色会话并同步到本地
+  Future<Map<String, dynamic>> syncCharacterSessionsFromApi({
     int page = 1,
     int pageSize = 10,
   }) async {
@@ -18,17 +47,50 @@ class MessageService {
       );
 
       if (response.data['code'] == 0) {
-        return response.data['data'];
+        final apiData = response.data['data'];
+
+        // 转换API数据为SessionModel
+        final apiResponse = SessionListResponse.fromApiJson(apiData, false);
+
+        // 同步到本地数据库
+        await _sessionDataService.syncCharacterSessionsWithApi(apiResponse.sessions);
+
+        return apiData;
       } else {
         throw response.data['msg'] ?? '获取会话列表失败';
       }
     } catch (e) {
-      throw '获取会话列表失败: $e';
+      debugPrint('[MessageService] 同步角色会话失败: $e');
+      throw '同步会话列表失败: $e';
     }
   }
 
-  /// 获取小说会话列表
+  /// 获取小说会话列表（从本地数据库）
   Future<Map<String, dynamic>> getNovelSessions({
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    try {
+      final response = await _sessionDataService.getLocalNovelSessions(
+        page: page,
+        pageSize: pageSize,
+      );
+
+      // 转换为原有的API格式，保持兼容性
+      return {
+        'sessions': response.sessions.map((session) => session.toApiJson()).toList(),
+        'total': response.total,
+        'page': response.page,
+        'pageSize': response.pageSize,
+      };
+    } catch (e) {
+      debugPrint('[MessageService] 获取本地小说会话失败: $e');
+      throw '获取小说会话列表失败: $e';
+    }
+  }
+
+  /// 从API获取小说会话并同步到本地
+  Future<Map<String, dynamic>> syncNovelSessionsFromApi({
     int page = 1,
     int pageSize = 10,
   }) async {
@@ -42,12 +104,21 @@ class MessageService {
       );
 
       if (response.data['code'] == 0) {
-        return response.data['data'];
+        final apiData = response.data['data'];
+
+        // 转换API数据为SessionModel
+        final apiResponse = SessionListResponse.fromApiJson(apiData, true);
+
+        // 同步到本地数据库
+        await _sessionDataService.syncNovelSessionsWithApi(apiResponse.sessions);
+
+        return apiData;
       } else {
         throw response.data['message'] ?? '获取小说会话列表失败';
       }
     } catch (e) {
-      throw '获取小说会话列表失败: $e';
+      debugPrint('[MessageService] 同步小说会话失败: $e');
+      throw '同步小说会话列表失败: $e';
     }
   }
 
@@ -60,6 +131,15 @@ class MessageService {
       );
 
       if (response.data['code'] == 0) {
+        // API删除成功后，同步删除本地数据
+        for (final sessionId in sessionIds) {
+          try {
+            await _sessionDataService.deleteCharacterSession(sessionId);
+          } catch (e) {
+            debugPrint('[MessageService] 删除本地角色会话失败 $sessionId: $e');
+          }
+        }
+
         return {
           'success': true,
           'msg': response.data['msg'] ?? '批量删除成功',
@@ -87,6 +167,15 @@ class MessageService {
       );
 
       if (response.data['code'] == 0) {
+        // API删除成功后，同步删除本地数据
+        for (final sessionId in sessionIds) {
+          try {
+            await _sessionDataService.deleteNovelSession(sessionId);
+          } catch (e) {
+            debugPrint('[MessageService] 删除本地小说会话失败 $sessionId: $e');
+          }
+        }
+
         return {
           'success': true,
           'msg': response.data['msg'] ?? '批量删除成功',
@@ -115,6 +204,24 @@ class MessageService {
       );
 
       if (response.data['code'] == 0) {
+        // API重命名成功后，更新本地数据
+        try {
+          final localResponse = await _sessionDataService.getLocalCharacterSessions(page: 1, pageSize: 1000);
+          final existingSession = localResponse.sessions.firstWhere(
+            (session) => session.id == sessionId,
+            orElse: () => throw '会话不存在',
+          );
+
+          final updatedSession = existingSession.copyWith(
+            name: newName,
+            lastSyncTime: DateTime.now(),
+          );
+
+          await _sessionDataService.updateCharacterSession(updatedSession);
+        } catch (e) {
+          debugPrint('[MessageService] 更新本地角色会话名称失败: $e');
+        }
+
         return {
           'success': true,
           'data': response.data['data'],
@@ -144,6 +251,25 @@ class MessageService {
       );
 
       if (response.data['code'] == 0) {
+        // API重命名成功后，更新本地数据
+        try {
+          final localResponse = await _sessionDataService.getLocalNovelSessions(page: 1, pageSize: 1000);
+          final existingSession = localResponse.sessions.firstWhere(
+            (session) => session.id == sessionId,
+            orElse: () => throw '会话不存在',
+          );
+
+          final updatedSession = existingSession.copyWith(
+            name: newName,
+            title: newName, // 小说会话的title也需要更新
+            lastSyncTime: DateTime.now(),
+          );
+
+          await _sessionDataService.updateNovelSession(updatedSession);
+        } catch (e) {
+          debugPrint('[MessageService] 更新本地小说会话名称失败: $e');
+        }
+
         return {
           'success': true,
           'data': response.data['data'],
@@ -160,6 +286,46 @@ class MessageService {
         'success': false,
         'msg': '重命名失败: $e',
       };
+    }
+  }
+
+  /// 🔥 置顶角色会话
+  Future<void> pinCharacterSession(int sessionId) async {
+    try {
+      await _sessionDataService.pinCharacterSession(sessionId);
+    } catch (e) {
+      debugPrint('[MessageService] 置顶角色会话失败: $e');
+      throw '置顶会话失败: $e';
+    }
+  }
+
+  /// 🔥 取消置顶角色会话
+  Future<void> unpinCharacterSession(int sessionId) async {
+    try {
+      await _sessionDataService.unpinCharacterSession(sessionId);
+    } catch (e) {
+      debugPrint('[MessageService] 取消置顶角色会话失败: $e');
+      throw '取消置顶失败: $e';
+    }
+  }
+
+  /// 🔥 置顶小说会话
+  Future<void> pinNovelSession(int sessionId) async {
+    try {
+      await _sessionDataService.pinNovelSession(sessionId);
+    } catch (e) {
+      debugPrint('[MessageService] 置顶小说会话失败: $e');
+      throw '置顶会话失败: $e';
+    }
+  }
+
+  /// 🔥 取消置顶小说会话
+  Future<void> unpinNovelSession(int sessionId) async {
+    try {
+      await _sessionDataService.unpinNovelSession(sessionId);
+    } catch (e) {
+      debugPrint('[MessageService] 取消置顶小说会话失败: $e');
+      throw '取消置顶失败: $e';
     }
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../theme/app_theme.dart';
 import 'model_series_service.dart';
@@ -94,29 +95,36 @@ class _ModelManagementPageState extends State<ModelManagementPage> {
     }
   }
 
-  Future<void> _updateStatus(int status) async {
-    if (_selectedApiKeys.isEmpty) return;
 
-    try {
-      final response = await _apiKeyService.updateOfficialApiKeysStatus(
-        ids: _selectedApiKeys.toList(),
-        status: status,
-      );
 
-      if (response.data['code'] == 0) {
-        _showSuccessSnackBar('状态更新成功');
-        _resetAndReload();
-      } else {
-        _showErrorDialog(response.data['msg']);
-      }
-    } catch (e) {
-      _showErrorDialog('状态更新失败: $e');
+  // 处理菜单操作
+  void _handleMenuAction(String action) {
+    switch (action) {
+      case 'export':
+        _showExportDialog();
+        break;
+      case 'quota':
+        _showBatchQuotaDialog();
+        break;
+      case 'delete':
+        _handleDelete();
+        break;
     }
   }
 
-  Future<void> _deleteSelected() async {
-    if (_selectedApiKeys.isEmpty) return;
+  // 智能删除处理
+  Future<void> _handleDelete() async {
+    if (_selectedApiKeys.isNotEmpty) {
+      // 有选中项，直接删除选中项
+      await _deleteSelected();
+    } else {
+      // 无选中项，显示删除类型选择
+      await _showDeleteTypeDialog();
+    }
+  }
 
+  // 删除选中项
+  Future<void> _deleteSelected() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -128,8 +136,8 @@ class _ModelManagementPageState extends State<ModelManagementPage> {
               child: const Text('取消')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('确定'),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('确定'),
           ),
         ],
       ),
@@ -144,6 +152,127 @@ class _ModelManagementPageState extends State<ModelManagementPage> {
       } catch (e) {
         _showErrorDialog('删除失败: $e');
       }
+    }
+  }
+
+  // 显示导出对话框
+  Future<void> _showExportDialog() async {
+    final exportType = await showDialog<int>(
+      context: context,
+      builder: (context) => const _ExportDialog(),
+    );
+
+    if (exportType != null) {
+      await _exportApiKeys(exportType);
+    }
+  }
+
+  // 导出API密钥到剪切板
+  Future<void> _exportApiKeys(int exportType) async {
+    try {
+      final response = await _apiKeyService.exportOfficialApiKeys(
+        exportType: exportType,
+      );
+
+      if (response.data['code'] == 0) {
+        final List<dynamic> apiKeyData = response.data['data'];
+        // 只提取API密钥字符串
+        final List<String> apiKeys = apiKeyData
+            .map((item) => item['apiKey'] as String)
+            .toList();
+
+        // 将密钥复制到剪切板，每行一个
+        final String keysText = apiKeys.join('\n');
+        await Clipboard.setData(ClipboardData(text: keysText));
+
+        _showSuccessSnackBar('已复制 ${apiKeys.length} 个密钥到剪切板');
+      } else {
+        _showErrorDialog(response.data['msg']);
+      }
+    } catch (e) {
+      _showErrorDialog('导出失败: $e');
+    }
+  }
+
+  // 显示删除类型对话框
+  Future<void> _showDeleteTypeDialog() async {
+    final deleteType = await showDialog<int>(
+      context: context,
+      builder: (context) => const _DeleteTypeDialog(),
+    );
+
+    if (deleteType != null) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('确认删除'),
+          content: Text(_getDeleteTypeDescription(deleteType)),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        try {
+          final response = await _apiKeyService.deleteOfficialApiKeysByType(
+            deleteType: deleteType,
+          );
+
+          if (response.data['code'] == 0) {
+            _showSuccessSnackBar('删除成功');
+            _resetAndReload();
+          } else {
+            _showErrorDialog(response.data['msg']);
+          }
+        } catch (e) {
+          _showErrorDialog('删除失败: $e');
+        }
+      }
+    }
+  }
+
+  // 显示批量设置配额对话框
+  Future<void> _showBatchQuotaDialog() async {
+    final modelQuotas = await showDialog<List<Map<String, dynamic>>>(
+      context: context,
+      builder: (context) => const _BatchQuotaDialog(),
+    );
+
+    if (modelQuotas != null && modelQuotas.isNotEmpty) {
+      try {
+        final response = await _apiKeyService.batchSetQuotas(
+          modelQuotas: modelQuotas,
+        );
+
+        if (response.data['code'] == 0) {
+          _showSuccessSnackBar('配额设置成功');
+        } else {
+          _showErrorDialog(response.data['msg']);
+        }
+      } catch (e) {
+        _showErrorDialog('配额设置失败: $e');
+      }
+    }
+  }
+
+  String _getDeleteTypeDescription(int deleteType) {
+    switch (deleteType) {
+      case 1:
+        return '确定要删除全部API密钥吗？';
+      case 2:
+        return '确定要删除所有有效（启用状态）的API密钥吗？';
+      case 3:
+        return '确定要删除所有封禁状态的API密钥吗？';
+      default:
+        return '确定要执行删除操作吗？';
     }
   }
 
@@ -315,15 +444,15 @@ class _ModelManagementPageState extends State<ModelManagementPage> {
                 color: textPrimary),
           ),
           const Spacer(),
-          Wrap(
-            spacing: 8.w,
+          Row(
             children: [
+              // 添加密钥按钮（独立）
               ElevatedButton(
                 onPressed: _showAddApiKeyDialog,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(horizontal: 8.w),
+                  padding: EdgeInsets.symmetric(horizontal: 12.w),
                   minimumSize: Size(0, 32.h),
                   textStyle: TextStyle(fontSize: 12.sp),
                 ),
@@ -332,37 +461,73 @@ class _ModelManagementPageState extends State<ModelManagementPage> {
                   children: [
                     Icon(Icons.add, size: 16.sp),
                     SizedBox(width: 4.w),
-                    const Text('添加'),
+                    const Text('添加密钥'),
                   ],
                 ),
               ),
-              PopupMenuButton<int>(
-                enabled: _selectedApiKeys.isNotEmpty,
-                onSelected: (status) => _updateStatus(status),
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 1, child: Text('启用选中')),
-                  PopupMenuItem(value: 2, child: Text('禁用选中')),
-                  PopupMenuItem(value: 3, child: Text('封禁选中')),
-                ],
-                child: ElevatedButton(
-                  onPressed: _selectedApiKeys.isEmpty ? null : () {},
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w),
-                    minimumSize: Size(0, 32.h),
-                    textStyle: TextStyle(fontSize: 12.sp),
+              SizedBox(width: 8.w),
+              // 功能菜单（折叠）
+              PopupMenuButton<String>(
+                onSelected: _handleMenuAction,
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'export',
+                    child: Row(
+                      children: [
+                        Icon(Icons.download),
+                        SizedBox(width: 8),
+                        Text('导出'),
+                      ],
+                    ),
                   ),
-                  child: const Text('更新状态'),
+                  const PopupMenuItem(
+                    value: 'quota',
+                    child: Row(
+                      children: [
+                        Icon(Icons.settings),
+                        SizedBox(width: 8),
+                        Text('设置配额'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete),
+                        SizedBox(width: 8),
+                        Text('删除'),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Container(
+                  height: 32.h,
+                  padding: EdgeInsets.symmetric(horizontal: 12.w),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.grey[400]!),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '功能',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      SizedBox(width: 4.w),
+                      Icon(
+                        Icons.arrow_drop_down,
+                        size: 16.sp,
+                        color: Colors.black87,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              ElevatedButton(
-                onPressed: _selectedApiKeys.isNotEmpty ? _deleteSelected : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  padding: EdgeInsets.symmetric(horizontal: 8.w),
-                  minimumSize: Size(0, 32.h),
-                  textStyle: TextStyle(fontSize: 12.sp),
-                ),
-                child: const Text('删除'),
               ),
             ],
           ),
@@ -656,12 +821,11 @@ class _QuotaDetailsDialog extends StatelessWidget {
                   children: [
                     Text('每日限额: ${quota['dailyLimit'] ?? 'N/A'}'),
                     Text('当前用量: ${quota['currentUsage'] ?? 'N/A'}'),
-                    Text('上次重置: ' +
-                        (quota['lastResetAt'] != null
-                            ? (quota['lastResetAt'] as String)
-                                .substring(0, 16)
-                                .replaceFirst('T', ' ')
-                            : 'N/A')),
+                    Text('上次重置: ${quota['lastResetAt'] != null
+                        ? (quota['lastResetAt'] as String)
+                            .substring(0, 16)
+                            .replaceFirst('T', ' ')
+                        : 'N/A'}'),
                   ],
                 ),
               ),
@@ -673,6 +837,335 @@ class _QuotaDetailsDialog extends StatelessWidget {
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('关闭'),
+        ),
+      ],
+    );
+  }
+}
+
+// 导出对话框
+class _ExportDialog extends StatelessWidget {
+  const _ExportDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('导出API密钥'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildExportOption(
+            context,
+            '导出全部密钥',
+            '导出所有API密钥到剪切板',
+            Icons.download,
+            1,
+          ),
+          const SizedBox(height: 8),
+          _buildExportOption(
+            context,
+            '导出有效密钥',
+            '导出启用状态的API密钥',
+            Icons.check_circle,
+            2,
+          ),
+          const SizedBox(height: 8),
+          _buildExportOption(
+            context,
+            '导出封禁密钥',
+            '导出封禁状态的API密钥',
+            Icons.block,
+            3,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExportOption(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    int value,
+  ) {
+    return InkWell(
+      onTap: () => Navigator.pop(context, value),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.blue),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 删除类型对话框
+class _DeleteTypeDialog extends StatelessWidget {
+  const _DeleteTypeDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('选择删除类型'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildDeleteOption(
+            context,
+            '删除全部密钥',
+            '删除所有API密钥',
+            Icons.delete_forever,
+            Colors.red,
+            1,
+          ),
+          const SizedBox(height: 8),
+          _buildDeleteOption(
+            context,
+            '删除有效密钥',
+            '删除启用状态的API密钥',
+            Icons.delete,
+            Colors.orange,
+            2,
+          ),
+          const SizedBox(height: 8),
+          _buildDeleteOption(
+            context,
+            '删除封禁密钥',
+            '删除封禁状态的API密钥',
+            Icons.remove_circle,
+            Colors.grey,
+            3,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDeleteOption(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    Color iconColor,
+    int value,
+  ) {
+    return InkWell(
+      onTap: () => Navigator.pop(context, value),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 批量设置配额对话框
+class _BatchQuotaDialog extends StatefulWidget {
+  const _BatchQuotaDialog();
+
+  @override
+  State<_BatchQuotaDialog> createState() => _BatchQuotaDialogState();
+}
+
+class _BatchQuotaDialogState extends State<_BatchQuotaDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final List<Map<String, TextEditingController>> _modelQuotas = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _addModelQuota();
+  }
+
+  void _addModelQuota() {
+    setState(() {
+      _modelQuotas.add({
+        'modelName': TextEditingController(),
+        'dailyLimit': TextEditingController(),
+      });
+    });
+  }
+
+  void _removeModelQuota(int index) {
+    setState(() {
+      _modelQuotas[index]['modelName']!.dispose();
+      _modelQuotas[index]['dailyLimit']!.dispose();
+      _modelQuotas.removeAt(index);
+    });
+  }
+
+  @override
+  void dispose() {
+    for (var quota in _modelQuotas) {
+      quota['modelName']!.dispose();
+      quota['dailyLimit']!.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('批量设置配额'),
+      content: Form(
+        key: _formKey,
+        child: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '为所有API密钥设置模型配额',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                ..._modelQuotas.asMap().entries.map((entry) {
+                  int index = entry.key;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: entry.value['modelName'],
+                            decoration: const InputDecoration(
+                              labelText: '模型名称',
+                              hintText: '如: gemini-2.0-flash',
+                            ),
+                            validator: (v) => v!.isEmpty ? '必填' : null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            controller: entry.value['dailyLimit'],
+                            decoration: const InputDecoration(
+                              labelText: '每日限额',
+                            ),
+                            keyboardType: TextInputType.number,
+                            validator: (v) => v!.isEmpty ? '必填' : null,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline),
+                          onPressed: _modelQuotas.length > 1
+                              ? () => _removeModelQuota(index)
+                              : null,
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                TextButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('添加模型配额'),
+                  onPressed: _addModelQuota,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              final modelQuotas = _modelQuotas
+                  .map((c) => {
+                        'modelName': c['modelName']!.text,
+                        'dailyLimit': int.parse(c['dailyLimit']!.text),
+                      })
+                  .toList();
+
+              Navigator.pop(context, modelQuotas);
+            }
+          },
+          child: const Text('设置'),
         ),
       ],
     );

@@ -65,4 +65,36 @@ class ModelSeriesService {
       data: ids,
     );
   }
+
+  /// 导出官方API密钥
+  Future<Response> exportOfficialApiKeys({required int exportType}) async {
+    return await _httpClient.post(
+      '/admin/official-apikeys/export',
+      data: {
+        'exportType': exportType,
+      },
+    );
+  }
+
+  /// 按类型删除官方API密钥
+  Future<Response> deleteOfficialApiKeysByType({required int deleteType}) async {
+    return await _httpClient.post(
+      '/admin/official-apikeys/delete-by-type',
+      data: {
+        'deleteType': deleteType,
+      },
+    );
+  }
+
+  /// 批量设置配额
+  Future<Response> batchSetQuotas({
+    required List<Map<String, dynamic>> modelQuotas,
+  }) async {
+    return await _httpClient.post(
+      '/admin/official-apikeys/batch-set-quotas',
+      data: {
+        'modelQuotas': modelQuotas,
+      },
+    );
+  }
 }

@@ -3,11 +3,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:shimmer/shimmer.dart';
 import 'dart:typed_data';
+import 'dart:async';
 
 import '../../../theme/app_theme.dart';
 import '../../novel/pages/novel_reading_page.dart';
 import '../message_service.dart';
 import '../../../services/file_service.dart';
+import '../../../services/session_data_service.dart';
 
 class NovelSessionList extends StatefulWidget {
   const NovelSessionList({
@@ -21,7 +23,7 @@ class NovelSessionList extends StatefulWidget {
   final bool isMultiSelectMode;
   final Set<int> selectedIds;
   final ValueChanged<int> onSelectionChanged;
-  final Function(BuildContext, Map<String, dynamic>) onShowMenu;
+  final Function(BuildContext, Map<String, dynamic>, Offset) onShowMenu; // 🔥 添加位置参数
 
   @override
   NovelSessionListState createState() => NovelSessionListState();
@@ -30,6 +32,7 @@ class NovelSessionList extends StatefulWidget {
 class NovelSessionListState extends State<NovelSessionList> {
   final MessageService _messageService = MessageService();
   final FileService _fileService = FileService();
+  final SessionDataService _sessionDataService = SessionDataService();
   final RefreshController _refreshController = RefreshController();
   final ScrollController _scrollController = ScrollController();
 
@@ -39,19 +42,39 @@ class NovelSessionListState extends State<NovelSessionList> {
   bool _hasMore = true;
   final Map<String, Uint8List> _avatarCache = {};
   bool _isLoadingMore = false;
+  bool _isSyncing = false; // 是否正在后台同步
+  StreamSubscription? _sessionStreamSubscription;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _initSessionDataService();
     _loadSessions();
   }
 
   @override
   void dispose() {
+    _sessionStreamSubscription?.cancel();
     _refreshController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 初始化会话数据服务
+  Future<void> _initSessionDataService() async {
+    await _sessionDataService.initDatabase();
+
+    // 监听会话数据变化
+    _sessionStreamSubscription = _sessionDataService.novelSessionsStream.listen(
+      (sessions) {
+        if (mounted) {
+          setState(() {
+            _sessions = sessions.map((session) => session.toApiJson()).toList();
+          });
+        }
+      },
+    );
   }
 
   void _onScroll() {
@@ -73,6 +96,7 @@ class NovelSessionListState extends State<NovelSessionList> {
     });
 
     try {
+      // 优先从本地数据库加载
       final result = await _messageService.getNovelSessions(
         page: _currentPage,
         pageSize: 10,
@@ -84,7 +108,7 @@ class NovelSessionListState extends State<NovelSessionList> {
             _sessions = List<Map<String, dynamic>>.from(result['sessions']);
           } else {
             _sessions = [];
-            debugPrint('获取小说会话列表返回数据格式错误: $result');
+            debugPrint('获取本地小说会话列表返回数据格式错误: $result');
           }
 
           final int total = result['total'] is int ? result['total'] : 0;
@@ -92,9 +116,13 @@ class NovelSessionListState extends State<NovelSessionList> {
           _isLoading = false;
         });
 
+        // 加载头像
         for (var session in _sessions) {
           _loadAvatar(session['cover_uri']);
         }
+
+        // 静默同步API数据
+        _syncWithApiInBackground();
       }
     } catch (e) {
       if (mounted) {
@@ -102,8 +130,26 @@ class NovelSessionListState extends State<NovelSessionList> {
           _isLoading = false;
           _sessions = [];
         });
-        debugPrint('加载小说会话列表失败: $e');
+        debugPrint('加载本地小说会话列表失败: $e');
       }
+    }
+  }
+
+  /// 后台静默同步API数据
+  Future<void> _syncWithApiInBackground() async {
+    if (_isSyncing) return;
+
+    _isSyncing = true;
+    try {
+      await _messageService.syncNovelSessionsFromApi(
+        page: 1,
+        pageSize: 1000, // 获取所有数据进行同步
+      );
+      debugPrint('[NovelSessionList] 后台同步完成');
+    } catch (e) {
+      debugPrint('[NovelSessionList] 后台同步失败: $e');
+    } finally {
+      _isSyncing = false;
     }
   }
 
@@ -149,6 +195,13 @@ class NovelSessionListState extends State<NovelSessionList> {
   Future<void> onRefresh() async {
     _currentPage = 1;
     try {
+      // 手动刷新时，强制从API同步最新数据
+      await _messageService.syncNovelSessionsFromApi(
+        page: 1,
+        pageSize: 1000, // 获取所有数据
+      );
+
+      // 然后从本地数据库重新加载第一页
       final result = await _messageService.getNovelSessions(
         page: _currentPage,
         pageSize: 10,
@@ -177,6 +230,7 @@ class NovelSessionListState extends State<NovelSessionList> {
       }
     } catch (e) {
       _refreshController.refreshFailed();
+      debugPrint('[NovelSessionList] 刷新失败: $e');
     }
   }
 
@@ -459,7 +513,7 @@ class NovelSessionListState extends State<NovelSessionList> {
 
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 10.h),
-      child: InkWell(
+      child: GestureDetector(
         onTap: () {
           if (widget.isMultiSelectMode) {
             widget.onSelectionChanged(sessionId);
@@ -481,14 +535,13 @@ class NovelSessionListState extends State<NovelSessionList> {
             );
           }
         },
-        onLongPress: widget.isMultiSelectMode
+        onLongPressStart: widget.isMultiSelectMode
             ? null
-            : () {
-                widget.onShowMenu(context, session);
+            : (LongPressStartDetails details) {
+                // 🔥 修复：使用LongPressStartDetails获取准确的触摸位置
+                final Offset globalPosition = details.globalPosition;
+                widget.onShowMenu(context, session, globalPosition);
               },
-        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-        splashColor: Colors.transparent,
-        highlightColor: Colors.white.withOpacity(0.05),
         child: Container(
           height: 60.h,
           decoration: BoxDecoration(
@@ -626,22 +679,38 @@ class NovelSessionListState extends State<NovelSessionList> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Flexible(
-                          child: Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: 15.sp,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
-                              shadows: [
-                                Shadow(
-                                  offset: Offset(0, 1),
-                                  blurRadius: 3.0,
-                                  color: Colors.black.withOpacity(0.5),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  title,
+                                  style: TextStyle(
+                                    fontSize: 15.sp,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white,
+                                    shadows: [
+                                      Shadow(
+                                        offset: Offset(0, 1),
+                                        blurRadius: 3.0,
+                                        color: Colors.black.withOpacity(0.5),
+                                      ),
+                                    ],
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                              // 🔥 置顶图标
+                              if ((session['is_pinned'] as int? ?? 0) == 1) ...[
+                                SizedBox(width: 4.w),
+                                Icon(
+                                  Icons.push_pin,
+                                  size: 12.sp,
+                                  color: Colors.orange,
                                 ),
                               ],
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
+                            ],
                           ),
                         ),
                         Text(

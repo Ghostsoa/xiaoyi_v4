@@ -4,7 +4,10 @@ import 'dart:ui';
 import 'dart:typed_data';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/custom_toast.dart';
+import '../../../widgets/cache_pull_dialog.dart';
 import '../services/character_service.dart';
+import '../../../services/message_cache_service.dart';
+import '../../../services/session_data_service.dart';
 import 'package:shimmer/shimmer.dart';
 
 class ChatArchivePage extends StatefulWidget {
@@ -26,10 +29,19 @@ class ChatArchivePage extends StatefulWidget {
 class _ChatArchivePageState extends State<ChatArchivePage>
     with SingleTickerProviderStateMixin {
   final CharacterService _characterService = CharacterService();
+  final MessageCacheService _messageCacheService = MessageCacheService();
+  final SessionDataService _sessionDataService = SessionDataService();
   bool _isLoading = true;
   bool _isRefreshing = false;
   List<Map<String, dynamic>> _saveSlots = [];
   bool _archiveActivated = false;
+
+  // 记录进入时的激活存档ID，用于退出时比较
+  String? _initialActiveArchiveId;
+  String? _currentActiveArchiveId;
+
+  // 记录是否拉取过缓存，用于退出时判断是否需要重载
+  bool _hasPulledCache = false;
 
   // 添加动画控制器
   late AnimationController _refreshAnimationController;
@@ -42,7 +54,73 @@ class _ChatArchivePageState extends State<ChatArchivePage>
       duration: const Duration(seconds: 1),
       vsync: this,
     );
-    _loadSaveSlots();
+    _initializeAndLoadSaveSlots();
+  }
+
+  /// 初始化并加载存档列表（包含同步检查）
+  Future<void> _initializeAndLoadSaveSlots() async {
+    // 1. 先获取本地的激活存档ID
+    await _getLocalActiveArchiveId();
+
+    // 2. 加载存档列表
+    await _loadSaveSlots();
+
+    // 3. 检查服务器激活ID与本地是否一致
+    await _syncActiveArchiveId();
+  }
+
+  /// 获取本地的激活存档ID
+  Future<void> _getLocalActiveArchiveId() async {
+    try {
+      await _sessionDataService.initDatabase();
+
+      final sessionId = int.parse(widget.sessionId);
+      final sessionResponse = await _sessionDataService.getLocalCharacterSessions(
+        page: 1,
+        pageSize: 1000
+      );
+
+      final session = sessionResponse.sessions.firstWhere(
+        (s) => s.id == sessionId,
+        orElse: () => throw '会话不存在',
+      );
+
+      _initialActiveArchiveId = session.activeArchiveId;
+      _currentActiveArchiveId = session.activeArchiveId;
+
+      debugPrint('[ChatArchivePage] 进入时本地激活存档ID: $_initialActiveArchiveId');
+    } catch (e) {
+      debugPrint('[ChatArchivePage] 获取本地激活存档ID失败: $e');
+    }
+  }
+
+  /// 同步激活存档ID（检查服务器与本地是否一致）
+  Future<void> _syncActiveArchiveId() async {
+    try {
+      // 从存档列表中找到服务器激活的存档
+      final serverActiveSlot = _saveSlots.firstWhere(
+        (slot) => slot['active'] == true,
+        orElse: () => <String, dynamic>{},
+      );
+
+      final serverActiveArchiveId = serverActiveSlot['id'] as String?;
+
+      debugPrint('[ChatArchivePage] 服务器激活存档ID: $serverActiveArchiveId');
+      debugPrint('[ChatArchivePage] 本地激活存档ID: $_currentActiveArchiveId');
+
+      // 如果服务器激活ID与本地不一致，更新本地
+      if (serverActiveArchiveId != _currentActiveArchiveId) {
+        debugPrint('[ChatArchivePage] 检测到激活存档不一致，更新本地记录');
+
+        if (serverActiveArchiveId != null) {
+          await _updateSessionActiveArchive(serverActiveArchiveId);
+          _currentActiveArchiveId = serverActiveArchiveId;
+          _archiveActivated = true; // 标记为已激活，退出时需要刷新
+        }
+      }
+    } catch (e) {
+      debugPrint('[ChatArchivePage] 同步激活存档ID失败: $e');
+    }
   }
 
   @override
@@ -84,6 +162,9 @@ class _ChatArchivePageState extends State<ChatArchivePage>
         int.parse(widget.sessionId),
       );
 
+      // 检查每个存档是否有本地缓存
+      await _checkCacheForSaveSlots(saveSlots);
+
       if (mounted) {
         setState(() {
           _saveSlots = saveSlots;
@@ -97,6 +178,26 @@ class _ChatArchivePageState extends State<ChatArchivePage>
         });
         CustomToast.show(context, message: '加载存档失败: $e', type: ToastType.error);
       }
+    }
+  }
+
+  /// 检查存档是否有本地缓存
+  Future<void> _checkCacheForSaveSlots(List<Map<String, dynamic>> saveSlots) async {
+    try {
+      await _messageCacheService.initDatabase();
+
+      for (var slot in saveSlots) {
+        final archiveId = slot['id'] as String;
+        final hasCache = await _messageCacheService.hasArchiveCache(
+          sessionId: int.parse(widget.sessionId),
+          archiveId: archiveId,
+        );
+
+        // 添加缓存标识
+        slot['hasCache'] = hasCache;
+      }
+    } catch (e) {
+      debugPrint('[ChatArchivePage] 检查缓存失败: $e');
     }
   }
 
@@ -114,6 +215,9 @@ class _ChatArchivePageState extends State<ChatArchivePage>
       final saveSlots = await _characterService.getSessionSaveSlots(
         int.parse(widget.sessionId),
       );
+
+      // 🔥 关键修复：重新检查缓存状态，避免缓存标记丢失
+      await _checkCacheForSaveSlots(saveSlots);
 
       if (mounted) {
         setState(() {
@@ -184,10 +288,17 @@ class _ChatArchivePageState extends State<ChatArchivePage>
 
   Future<void> _activateSaveSlot(String saveSlotId) async {
     try {
+      // 1. 激活存档
       await _characterService.activateSaveSlot(
         int.parse(widget.sessionId),
         saveSlotId,
       );
+
+      // 2. 立即更新会话的激活存档ID
+      await _updateSessionActiveArchive(saveSlotId);
+
+      // 3. 更新当前激活存档ID
+      _currentActiveArchiveId = saveSlotId;
 
       if (mounted) {
         setState(() {
@@ -203,6 +314,168 @@ class _ChatArchivePageState extends State<ChatArchivePage>
     } catch (e) {
       if (mounted) {
         CustomToast.show(context, message: '激活存档失败: $e', type: ToastType.error);
+      }
+    }
+  }
+
+  /// 更新会话的激活存档ID
+  Future<void> _updateSessionActiveArchive(String archiveId) async {
+    try {
+      await _sessionDataService.initDatabase();
+
+      final sessionId = int.parse(widget.sessionId);
+
+      // 获取当前会话数据
+      final sessionResponse = await _sessionDataService.getLocalCharacterSessions(
+        page: 1,
+        pageSize: 1000
+      );
+
+      final session = sessionResponse.sessions.firstWhere(
+        (s) => s.id == sessionId,
+        orElse: () => throw '会话不存在',
+      );
+
+      // 更新激活存档ID
+      final updatedSession = session.copyWith(
+        activeArchiveId: archiveId,
+        lastSyncTime: DateTime.now(),
+      );
+
+      await _sessionDataService.updateCharacterSession(updatedSession);
+
+      debugPrint('[ChatArchivePage] ✅ 激活存档时已更新会话激活存档ID: $archiveId');
+    } catch (e) {
+      debugPrint('[ChatArchivePage] ❌ 更新会话激活存档ID失败: $e');
+    }
+  }
+
+
+
+  /// 显示拉取缓存对话框（只拉取当前激活的存档）
+  void _showPullCacheDialog() {
+    // 找到当前激活的存档
+    final activeSlot = _saveSlots.firstWhere(
+      (slot) => slot['active'] == true,
+      orElse: () => throw '没有激活的存档',
+    );
+
+    final activeArchiveId = activeSlot['id'] as String;
+    final hasCache = activeSlot['hasCache'] == true;
+
+    if (hasCache) {
+      // 如果已有缓存，显示覆盖确认对话框
+      _showOverwriteConfirmDialog(activeArchiveId);
+    } else {
+      // 没有缓存，直接拉取
+      _startPullCache(activeArchiveId);
+    }
+  }
+
+  /// 显示覆盖确认对话框
+  void _showOverwriteConfirmDialog(String archiveId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('覆盖本地缓存'),
+        content: Text('该存档已有本地缓存，是否要覆盖？\n\n覆盖后将重新从服务器拉取最新数据。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _startPullCache(archiveId);
+            },
+            child: Text('覆盖'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 开始拉取缓存
+  void _startPullCache(String archiveId) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => CachePullDialog(
+        sessionId: int.parse(widget.sessionId),
+        archiveId: archiveId,
+        onCompleted: () {
+          // 标记已拉取过缓存
+          _hasPulledCache = true;
+          // 重新检查缓存状态
+          _checkCacheForSaveSlots(_saveSlots).then((_) {
+            if (mounted) {
+              setState(() {});
+            }
+          });
+          CustomToast.show(context, message: '缓存拉取完成', type: ToastType.success);
+        },
+      ),
+    );
+  }
+
+  /// 显示清空缓存确认对话框
+  void _showClearCacheConfirmDialog(String archiveId, String archiveName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('清空本地缓存'),
+        content: Text('确定要清空存档"$archiveName"的本地缓存吗？\n\n清空后该存档将恢复为在线模式，需要重新拉取缓存才能使用本地模式。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _clearArchiveCache(archiveId, archiveName);
+            },
+            child: Text('清空', style: TextStyle(color: Colors.orange)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 清空指定存档的本地缓存
+  Future<void> _clearArchiveCache(String archiveId, String archiveName) async {
+    try {
+      await _messageCacheService.initDatabase();
+
+      // 清空指定存档的缓存数据
+      await _messageCacheService.clearArchiveCache(
+        sessionId: int.parse(widget.sessionId),
+        archiveId: archiveId,
+      );
+
+      // 重新检查缓存状态，更新UI
+      await _checkCacheForSaveSlots(_saveSlots);
+
+      if (mounted) {
+        setState(() {});
+        CustomToast.show(
+          context,
+          message: '已清空存档"$archiveName"的本地缓存',
+          type: ToastType.success
+        );
+      }
+
+      debugPrint('[ChatArchivePage] ✅ 已清空存档缓存: $archiveId');
+    } catch (e) {
+      debugPrint('[ChatArchivePage] ❌ 清空存档缓存失败: $e');
+
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '清空缓存失败: $e',
+          type: ToastType.error
+        );
       }
     }
   }
@@ -243,6 +516,9 @@ class _ChatArchivePageState extends State<ChatArchivePage>
         saveSlotId,
       );
 
+      // 删除成功后，立即清理该存档的本地缓存数据
+      await _clearArchiveCacheAfterDelete(saveSlotId);
+
       if (mounted) {
         setState(() {
           _saveSlots.removeWhere((slot) => slot['id'] == saveSlotId);
@@ -255,6 +531,23 @@ class _ChatArchivePageState extends State<ChatArchivePage>
       if (mounted) {
         CustomToast.show(context, message: '删除存档失败: $e', type: ToastType.error);
       }
+    }
+  }
+
+  /// 删除存档后清理本地缓存
+  Future<void> _clearArchiveCacheAfterDelete(String saveSlotId) async {
+    try {
+      await _messageCacheService.initDatabase();
+
+      // 只删除特定存档的缓存数据，不影响其他存档
+      await _messageCacheService.clearArchiveCache(
+        sessionId: int.parse(widget.sessionId),
+        archiveId: saveSlotId,
+      );
+
+      debugPrint('[ChatArchivePage] ✅ 已清理删除存档的本地缓存: $saveSlotId');
+    } catch (e) {
+      debugPrint('[ChatArchivePage] ❌ 清理删除存档的本地缓存失败: $e');
     }
   }
 
@@ -667,7 +960,18 @@ class _ChatArchivePageState extends State<ChatArchivePage>
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        Navigator.of(context).pop(_archiveActivated);
+        // 检查激活存档ID是否发生变化
+        final bool archiveIdChanged = _initialActiveArchiveId != _currentActiveArchiveId;
+
+        debugPrint('[ChatArchivePage] 退出存档页面');
+        debugPrint('[ChatArchivePage] 进入时激活存档ID: $_initialActiveArchiveId');
+        debugPrint('[ChatArchivePage] 退出时激活存档ID: $_currentActiveArchiveId');
+        debugPrint('[ChatArchivePage] 激活存档ID是否变化: $archiveIdChanged');
+        debugPrint('[ChatArchivePage] 是否拉取过缓存: $_hasPulledCache');
+
+        // 如果激活存档ID发生变化或拉取过缓存，需要通知对话界面重新加载
+        final bool needRefresh = archiveIdChanged || _archiveActivated || _hasPulledCache;
+        Navigator.of(context).pop(needRefresh);
         return false;
       },
       child: Scaffold(
@@ -812,7 +1116,28 @@ class _ChatArchivePageState extends State<ChatArchivePage>
                                                   ),
                                                 ),
                                               ),
-                                              // 移除"当前"标记
+                                              // 缓存标识
+                                              if (saveSlot['hasCache'] == true) ...[
+                                                Container(
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal: 6.w,
+                                                    vertical: 2.h,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.green.withOpacity(0.2),
+                                                    borderRadius: BorderRadius.circular(4.r),
+                                                    border: Border.all(
+                                                      color: Colors.green,
+                                                      width: 1,
+                                                    ),
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.storage,
+                                                    size: 12.sp,
+                                                    color: Colors.green,
+                                                  ),
+                                                ),
+                                              ],
                                             ],
                                           ),
                                           SizedBox(height: 4.h),
@@ -853,6 +1178,29 @@ class _ChatArchivePageState extends State<ChatArchivePage>
                                             ],
                                           ),
                                         ),
+                                        if (isActive)
+                                          PopupMenuItem(
+                                            value: 'pull_cache',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.download, size: 18.sp, color: AppTheme.primaryColor),
+                                                SizedBox(width: 8.w),
+                                                Text('拉取缓存', style: TextStyle(color: AppTheme.primaryColor)),
+                                              ],
+                                            ),
+                                          ),
+                                        // 清空缓存选项（只有有缓存的存档才显示）
+                                        if (saveSlot['hasCache'] == true)
+                                          PopupMenuItem(
+                                            value: 'clear_cache',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.clear_all, size: 18.sp, color: Colors.orange),
+                                                SizedBox(width: 8.w),
+                                                Text('清空缓存', style: TextStyle(color: Colors.orange)),
+                                              ],
+                                            ),
+                                          ),
                                         if (!isActive)
                                           PopupMenuItem(
                                             value: 'delete',
@@ -878,6 +1226,15 @@ class _ChatArchivePageState extends State<ChatArchivePage>
                                             _showRenameSaveSlotDialog(
                                               saveSlot['id'],
                                               saveSlot['saveName'] ?? '',
+                                            );
+                                            break;
+                                          case 'pull_cache':
+                                            _showPullCacheDialog();
+                                            break;
+                                          case 'clear_cache':
+                                            _showClearCacheConfirmDialog(
+                                              saveSlot['id'],
+                                              saveSlot['saveName'] ?? '未命名存档',
                                             );
                                             break;
                                           case 'delete':

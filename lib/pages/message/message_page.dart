@@ -190,8 +190,8 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                         }
                       });
                     },
-                    onShowMenu: (context, session) {
-                      _showSessionMenu(context, session);
+                    onShowMenu: (context, session, position) {
+                      _showSessionMenu(context, session, position);
                     },
                   ),
                   NovelSessionList(
@@ -207,8 +207,8 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                         }
                       });
                     },
-                    onShowMenu: (context, session) {
-                      _showSessionMenu(context, session);
+                    onShowMenu: (context, session, position) {
+                      _showSessionMenu(context, session, position);
                     },
                   ),
                 ],
@@ -383,6 +383,9 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
         ? (session['name'] ?? '未命名会话')
         : (session['title'] ?? '未命名小说');
 
+    // 🔥 获取置顶状态
+    final bool isPinned = (session['is_pinned'] as int? ?? 0) == 1;
+
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
 
@@ -429,6 +432,30 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
             ],
           ),
         ),
+        // 🔥 置顶/取消置顶选项
+        PopupMenuItem(
+          value: isPinned ? 'unpin' : 'pin',
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+          height: 40.h,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                size: 16.sp,
+                color: isPinned ? Colors.orange : AppTheme.primaryColor,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                isPinned ? '取消置顶' : '置顶',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 14.sp,
+                ),
+              ),
+            ],
+          ),
+        ),
         PopupMenuItem(
           value: 'delete',
           padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
@@ -458,6 +485,10 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
         _showRenameDialog(sessionId, sessionName);
       } else if (value == 'delete') {
         _showDeleteConfirmDialog(sessionId);
+      } else if (value == 'pin') {
+        _pinSession(sessionId);
+      } else if (value == 'unpin') {
+        _unpinSession(sessionId);
       }
     });
   }
@@ -622,6 +653,56 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
           message: '删除失败: $e',
           type: ToastType.error,
         );
+      }
+    }
+  }
+
+  /// 🔥 置顶会话
+  Future<void> _pinSession(int sessionId) async {
+    try {
+      if (_isCharacterMode) {
+        await _messageService.pinCharacterSession(sessionId);
+      } else {
+        await _messageService.pinNovelSession(sessionId);
+      }
+
+      if (mounted) {
+        CustomToast.show(context, message: '置顶成功', type: ToastType.success);
+        // 刷新列表
+        if (_isCharacterMode) {
+          _characterListKey.currentState?.onRefresh();
+        } else {
+          _novelListKey.currentState?.onRefresh();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(context, message: '置顶失败: $e', type: ToastType.error);
+      }
+    }
+  }
+
+  /// 🔥 取消置顶会话
+  Future<void> _unpinSession(int sessionId) async {
+    try {
+      if (_isCharacterMode) {
+        await _messageService.unpinCharacterSession(sessionId);
+      } else {
+        await _messageService.unpinNovelSession(sessionId);
+      }
+
+      if (mounted) {
+        CustomToast.show(context, message: '取消置顶成功', type: ToastType.success);
+        // 刷新列表
+        if (_isCharacterMode) {
+          _characterListKey.currentState?.onRefresh();
+        } else {
+          _novelListKey.currentState?.onRefresh();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(context, message: '取消置顶失败: $e', type: ToastType.error);
       }
     }
   }
