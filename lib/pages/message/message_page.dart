@@ -4,8 +4,10 @@ import 'package:xiaoyi_v4/pages/message/widgets/character_session_list.dart';
 import 'package:xiaoyi_v4/pages/message/widgets/novel_session_list.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/custom_toast.dart';
+import '../../widgets/confirmation_dialog.dart';
 import 'notifications_page.dart';
 import 'message_service.dart';
+import 'customer_service_page.dart';
 
 class MessagePage extends StatefulWidget {
   final int unreadCount;
@@ -86,6 +88,18 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                           },
                           showBadge: _unreadCount > 0,
                           badgeCount: _unreadCount,
+                        ),
+                        SizedBox(width: 8.w),
+                        _buildIconButton(
+                          icon: Icons.support_agent,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const CustomerServicePage(),
+                              ),
+                            );
+                          },
                         ),
                         SizedBox(width: 8.w),
                         _buildIconButton(
@@ -329,6 +343,18 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
 
   Future<void> _deleteSelectedSessions() async {
     if (_selectedIds.isEmpty) return;
+
+    // 显示确认对话框
+    final bool? confirmed = await ConfirmationDialog.show(
+      context: context,
+      title: '批量删除',
+      content: '确定要删除选中的 ${_selectedIds.length} 个会话吗？此操作不可恢复。',
+      confirmText: '删除',
+      cancelText: '取消',
+      isDangerous: true,
+    );
+
+    if (confirmed != true) return;
 
     CustomToast.show(
       context,
@@ -577,47 +603,19 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
     }
   }
 
-  void _showDeleteConfirmDialog(int sessionId) {
-    showDialog(
+  Future<void> _showDeleteConfirmDialog(int sessionId) async {
+    final bool? confirmed = await ConfirmationDialog.show(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: AppTheme.cardBackground,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          ),
-          title: Text(
-            '确认删除',
-            style: AppTheme.titleStyle,
-          ),
-          content: Text(
-            '确定要删除这个会话吗？此操作不可恢复。',
-            style: TextStyle(color: AppTheme.textPrimary),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text(
-                '取消',
-                style: TextStyle(color: AppTheme.textSecondary),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _deleteSingleSession(sessionId);
-              },
-              child: Text(
-                '删除',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        );
-      },
+      title: '确认删除',
+      content: '确定要删除这个会话吗？此操作不可恢复。',
+      confirmText: '删除',
+      cancelText: '取消',
+      isDangerous: true,
     );
+
+    if (confirmed == true) {
+      _deleteSingleSession(sessionId);
+    }
   }
 
   Future<void> _deleteSingleSession(int sessionId) async {

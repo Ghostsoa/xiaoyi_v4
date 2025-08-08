@@ -5,6 +5,7 @@ import '../../../theme/app_theme.dart';
 import '../services/characte_service.dart';
 import '../../../services/file_service.dart';
 import '../../../widgets/custom_toast.dart';
+import '../../home/pages/item_detail_page.dart';
 import 'modules/basic_info_module.dart';
 import 'modules/system_settings_module.dart';
 import 'modules/model_config_module.dart';
@@ -68,6 +69,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   int _selectedWorldBookCount = 0;
   final List<Map<String, dynamic>> _selectedWorldBooks = [];
   String _enhanceMode = 'disabled';
+  final _resourceMappingController = TextEditingController();
 
   final List<String> _pageNames = ['基础信息', '系统设定', '模型配置', '高级设定'];
 
@@ -107,6 +109,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     _searchDepth = character['searchDepth'] ?? 5;
     _status = character['status'] ?? 'draft';
     _enhanceMode = character['enhanceMode'] ?? 'disabled';
+    _resourceMappingController.text = character['resourceMapping'] ?? '';
 
     // 处理世界书数据
     if (character['worldbookMap'] != null) {
@@ -144,6 +147,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     _rulesController.dispose();
     _positiveDialogExamplesController.dispose();
     _negativeDialogExamplesController.dispose();
+    _resourceMappingController.dispose();
     super.dispose();
   }
 
@@ -186,6 +190,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
         "settingEditable": _settingEditable,
         "status": _status,
         "enhanceMode": _enhanceMode,
+        "resourceMapping": _resourceMappingController.text,
       };
 
       final response = widget.isEdit
@@ -196,7 +201,14 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
       if (response['code'] == 0) {
         if (mounted) {
           _showToast(widget.isEdit ? '更新成功' : '创建成功', type: ToastType.success);
-          Navigator.pop(context, true);
+
+          if (widget.isEdit) {
+            // 编辑模式：返回上一页并通知刷新
+            Navigator.pop(context, true);
+          } else {
+            // 创建模式：返回上一页
+            Navigator.pop(context, true);
+          }
         }
       } else {
         if (mounted) {
@@ -214,6 +226,62 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+
+  /// 预览角色
+  void _previewCharacter() {
+    if (!widget.isEdit || widget.character == null) {
+      _showToast('只有编辑模式下才能预览', type: ToastType.warning);
+      return;
+    }
+
+    // 转换当前表单数据为预览格式（下划线命名）
+    final previewData = _convertToPreviewFormat();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ItemDetailPage(item: previewData),
+      ),
+    );
+  }
+
+  /// 将当前表单数据转换为预览格式（下划线命名，适配 ItemDetailPage）
+  Map<String, dynamic> _convertToPreviewFormat() {
+    return {
+      'id': widget.character?['id'] ?? 0,
+      'title': _nameController.text.isNotEmpty ? _nameController.text : '未命名角色',
+      'description': _descriptionController.text,
+      'cover_uri': _coverUri,
+      'author_name': widget.character?['author_name'] ?? '未知作者',
+      'author_id': widget.character?['author_id'] ?? 0,
+      'item_type': 'character_card',
+      'tags': _tagsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+      'like_count': widget.character?['like_count'] ?? 0,
+      'dialog_count': widget.character?['dialog_count'] ?? 0,
+      'hot_score': widget.character?['hot_score'] ?? 0,
+      'created_at': widget.character?['created_at'] ?? DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(), // 使用当前时间作为更新时间
+      'status': _status,
+      // 添加其他可能需要的字段（保持下划线命名）
+      'setting': _settingController.text,
+      'greeting': _greetingController.text,
+      'model_name': _modelName,
+      'temperature': _temperature,
+      'top_p': _topP,
+      'top_k': _topK,
+      'max_tokens': _maxTokens,
+      'memory_turns': _memoryTurns,
+      'search_depth': _searchDepth,
+      'world_background': _worldBackgroundController.text,
+      'rules': _rulesController.text,
+      'positive_dialog_examples': _positiveDialogExamplesController.text,
+      'negative_dialog_examples': _negativeDialogExamplesController.text,
+      'ui_settings': _uiSettings,
+      'setting_editable': _settingEditable,
+      'enhance_mode': _enhanceMode,
+    };
   }
 
   void _showToast(String message, {ToastType type = ToastType.info}) {
@@ -300,6 +368,8 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           prefixController: _prefixController,
           suffixController: _suffixController,
           enhanceMode: _enhanceMode,
+          resourceMappingController: _resourceMappingController,
+          imageCache: _imageCache,
           onMemoryTurnsChanged: (value) => setState(() => _memoryTurns = value),
           onSearchDepthChanged: (value) => setState(() => _searchDepth = value),
           onStatusChanged: (value) => setState(() => _status = value),
@@ -366,36 +436,80 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
                         ),
                       )
                     else
-                      GestureDetector(
-                        onTap: _submitForm,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 16.w, vertical: 6.h),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: AppTheme.buttonGradient,
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              transform: const GradientRotation(0.4),
-                            ),
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusMedium),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.buttonGradient.first
-                                    .withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 预览按钮（仅编辑模式显示）
+                          if (widget.isEdit) ...[
+                            GestureDetector(
+                              onTap: _previewCharacter,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 12.w, vertical: 6.h),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cardBackground,
+                                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                  border: Border.all(
+                                    color: AppTheme.primaryColor,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.visibility_outlined,
+                                      color: AppTheme.primaryColor,
+                                      size: 16.sp,
+                                    ),
+                                    SizedBox(width: 4.w),
+                                    Text(
+                                      '预览',
+                                      style: TextStyle(
+                                        color: AppTheme.primaryColor,
+                                        fontSize: AppTheme.bodySize,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
-                          ),
-                          child: Text(
-                            widget.isEdit ? '更新' : '保存',
-                            style: AppTheme.buttonTextStyle.copyWith(
-                              fontSize: AppTheme.bodySize,
+                            ),
+                            SizedBox(width: 8.w),
+                          ],
+                          // 更新/保存按钮
+                          GestureDetector(
+                            onTap: _submitForm,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 16.w, vertical: 6.h),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: AppTheme.buttonGradient,
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  transform: const GradientRotation(0.4),
+                                ),
+                                borderRadius:
+                                    BorderRadius.circular(AppTheme.radiusMedium),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.buttonGradient.first
+                                        .withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                widget.isEdit ? '更新' : '保存',
+                                style: AppTheme.buttonTextStyle.copyWith(
+                                  fontSize: AppTheme.bodySize,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
                   ],
                 ),

@@ -443,45 +443,52 @@ class _MyMaterialPageState extends State<MyMaterialPage>
 
   Widget _buildImageMaterialItem(Map<String, dynamic> material) {
     return Container(
+      margin: EdgeInsets.all(4.w),
       decoration: BoxDecoration(
         color: AppTheme.cardBackground,
+        borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.shadowColor.withOpacity(0.1),
-            blurRadius: 8.r,
-            offset: Offset(0, 2.h),
+            color: AppTheme.shadowColor.withOpacity(0.08),
+            blurRadius: 12.r,
+            offset: Offset(0, 4.h),
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          FutureBuilder<Uint8List>(
-            // 使用缓存方法替代直接请求
-            future: _getCachedImage(material['metadata']),
-            builder: (context, snapshot) {
-              Widget imageWidget;
-              if (!snapshot.hasData || snapshot.hasError) {
-                final random = material['id'].hashCode % 3;
-                double aspectRatio = 1.0;
-                if (random == 0) {
-                  aspectRatio = 3 / 4;
-                } else if (random == 1) {
-                  aspectRatio = 4 / 3;
-                }
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16.r),
+        child: Stack(
+          children: [
+            FutureBuilder<Uint8List>(
+              // 使用缓存方法替代直接请求
+              future: _getCachedImage(material['metadata']),
+              builder: (context, snapshot) {
+                Widget imageWidget;
+                if (!snapshot.hasData || snapshot.hasError) {
+                  final random = material['id'].hashCode % 3;
+                  double aspectRatio = 1.0;
+                  if (random == 0) {
+                    aspectRatio = 3 / 4;
+                  } else if (random == 1) {
+                    aspectRatio = 4 / 3;
+                  }
 
-                imageWidget = Stack(
-                  children: [
-                    AspectRatio(
-                      aspectRatio: aspectRatio,
-                      child: Shimmer.fromColors(
-                        baseColor: AppTheme.cardBackground,
-                        highlightColor:
-                            AppTheme.cardBackground.withOpacity(0.5),
-                        child: Container(
-                          color: AppTheme.cardBackground,
+                  imageWidget = Stack(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: aspectRatio,
+                        child: Shimmer.fromColors(
+                          baseColor: AppTheme.cardBackground,
+                          highlightColor:
+                              AppTheme.cardBackground.withOpacity(0.5),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: AppTheme.cardBackground,
+                              borderRadius: BorderRadius.circular(16.r),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
                     Positioned(
                       left: 0,
                       right: 0,
@@ -758,6 +765,7 @@ class _MyMaterialPageState extends State<MyMaterialPage>
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -1123,7 +1131,95 @@ class _MyMaterialPageState extends State<MyMaterialPage>
     );
   }
 
-  // 构建简单的文本分类器
+  // 构建现代化的分类选择器
+  Widget _buildModernCategorySelector() {
+    return Container(
+      height: 50.h,
+      child: Row(
+        children: _categories.map((category) {
+          final bool isSelected = _currentType == category['type'];
+          final int index = _categories.indexOf(category);
+
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => _changeCategory(category['type']),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: EdgeInsets.only(
+                  right: index < _categories.length - 1 ? 8.w : 0,
+                ),
+                decoration: BoxDecoration(
+                  gradient: isSelected
+                      ? LinearGradient(
+                          colors: AppTheme.buttonGradient,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: isSelected ? null : AppTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(12.r),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: AppTheme.primaryColor.withOpacity(0.3),
+                            blurRadius: 8.r,
+                            offset: Offset(0, 4.h),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: AppTheme.shadowColor.withOpacity(0.05),
+                            blurRadius: 4.r,
+                            offset: Offset(0, 2.h),
+                          ),
+                        ],
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getCategoryIcon(category['type']),
+                        size: 20.sp,
+                        color: isSelected ? Colors.white : AppTheme.textSecondary,
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        category['label'],
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          color: isSelected ? Colors.white : AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // 获取分类图标
+  IconData _getCategoryIcon(String type) {
+    switch (type) {
+      case 'image':
+        return Icons.image_outlined;
+      case 'template':
+        return Icons.description_outlined;
+      case 'prefix':
+        return Icons.format_quote_outlined;
+      case 'suffix':
+        return Icons.format_quote_outlined;
+      default:
+        return Icons.folder_outlined;
+    }
+  }
+
+  // 构建简单的文本分类器（保留作为备用）
   Widget _buildCategorySelector() {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
@@ -1186,69 +1282,116 @@ class _MyMaterialPageState extends State<MyMaterialPage>
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(
-                      Icons.arrow_back,
-                      color: AppTheme.textPrimary,
-                      size: 24.sp,
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: BoxConstraints(
-                      minWidth: 24.w,
-                      minHeight: 24.w,
-                    ),
-                  ),
-                  SizedBox(width: 16.w),
-                  Expanded(
-                    child: Text(
-                      '我的素材库',
-                      style: TextStyle(
-                        fontSize: AppTheme.headingSize,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ),
-                  FilledButton.icon(
-                    onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => EditMaterialPage(
-                            initialType: _currentType,
+            // 优化后的顶部导航栏
+            Container(
+              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 20.h),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).pop(),
+                          child: Container(
+                            width: 40.w,
+                            height: 40.w,
+                            decoration: BoxDecoration(
+                              color: AppTheme.cardBackground,
+                              borderRadius: BorderRadius.circular(12.r),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.shadowColor.withOpacity(0.1),
+                                  blurRadius: 8.r,
+                                  offset: Offset(0, 2.h),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.arrow_back_ios_new,
+                              color: AppTheme.textPrimary,
+                              size: 18.sp,
+                            ),
                           ),
                         ),
-                      );
-                      if (result == true) {
-                        _loadData(refresh: true);
-                      }
-                    },
-                    icon: Icon(Icons.add, size: 20.sp),
-                    label: Text(
-                      '创建',
-                      style: TextStyle(
-                        fontSize: AppTheme.bodySize,
-                      ),
+                        SizedBox(width: 16.w),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '我的素材库',
+                                style: TextStyle(
+                                  fontSize: 24.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              SizedBox(height: 4.h),
+                              Text(
+                                '管理您的创作素材',
+                                style: TextStyle(
+                                  fontSize: 14.sp,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditMaterialPage(
+                                  initialType: _currentType,
+                                ),
+                              ),
+                            );
+                            if (result == true) {
+                              _loadData(refresh: true);
+                            }
+                          },
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: AppTheme.buttonGradient,
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(12.r),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primaryColor.withOpacity(0.3),
+                                  blurRadius: 8.r,
+                                  offset: Offset(0, 4.h),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add, size: 18.sp, color: Colors.white),
+                                SizedBox(width: 6.w),
+                                Text(
+                                  '创建',
+                                  style: TextStyle(
+                                    fontSize: 14.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: AppTheme.textPrimary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusSmall),
-                      ),
-                    ),
-                  ),
-                ],
+                    SizedBox(height: 20.h),
+                    // 优化后的分类选择器
+                    _buildModernCategorySelector(),
+                  ],
+                ),
               ),
-            ),
-            // 使用简单的文本分类器替代TabBar
-            _buildCategorySelector(),
             Expanded(
               child: _buildMaterialList(_currentType),
             ),

@@ -31,6 +31,9 @@ class ChatBubble extends StatefulWidget {
   final Function(String msgId)? onMessageRegenerate;
   final String? createdAt;
   final List<dynamic>? keywords;
+  final Function(String groupId, String title, List<String> selectedOptions)? onOptionsChanged;
+  // 资源映射字符串，从会话数据解析后向下传递到 Markdown 渲染器
+  final String? resourceMapping;
 
   const ChatBubble({
     super.key,
@@ -53,6 +56,8 @@ class ChatBubble extends StatefulWidget {
     this.onMessageRegenerate,
     this.createdAt,
     this.keywords,
+    this.onOptionsChanged,
+    this.resourceMapping,
   });
 
   @override
@@ -330,10 +335,10 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
         decoration: BoxDecoration(
           color: widget.bubbleColor.withOpacity(widget.bubbleOpacity * 0.8),
           borderRadius: BorderRadius.circular(6.r),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.2),
+          border: widget.bubbleOpacity > 0 ? Border.all(
+            color: Colors.white.withOpacity(0.2 * widget.bubbleOpacity),
             width: 0.5,
-          ),
+          ) : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -366,10 +371,10 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
         decoration: BoxDecoration(
           color: widget.bubbleColor.withOpacity(widget.bubbleOpacity * 0.8),
           borderRadius: BorderRadius.circular(6.r),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.2),
+          border: widget.bubbleOpacity > 0 ? Border.all(
+            color: Colors.white.withOpacity(0.2 * widget.bubbleOpacity),
             width: 0.5,
-          ),
+          ) : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -837,7 +842,10 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
         formatter = StatusFormatter();
         break;
       case 'markdown':
-        formatter = MarkdownFormatter();
+        formatter = MarkdownFormatter(
+          onOptionsChanged: widget.onOptionsChanged,
+          resourceMapping: widget.resourceMapping,
+        );
         break;
       case 'custom':
         formatter = CustomFormatter();
@@ -889,13 +897,13 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
                 _isEditing ? widget.bubbleOpacity * 0.8 : widget.bubbleOpacity,
               ),
               borderRadius: BorderRadius.all(Radius.circular(10.r)),
-              boxShadow: [
+              boxShadow: widget.bubbleOpacity > 0 ? [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withOpacity(0.1 * widget.bubbleOpacity),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
-              ],
+              ] : null,
             ),
             padding: EdgeInsets.symmetric(
               horizontal: 12.w,

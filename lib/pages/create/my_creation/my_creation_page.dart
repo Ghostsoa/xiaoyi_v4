@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'dart:typed_data';
 import '../../../theme/app_theme.dart';
 import '../services/characte_service.dart';
 import '../services/novel_service.dart';
 import '../../../services/file_service.dart';
 import '../../../widgets/custom_toast.dart';
+import '../../../widgets/confirmation_dialog.dart';
 import '../character/create_character_page.dart';
 import '../novel/create_novel_page.dart';
 import '../../../pages/character_chat/pages/character_init_page.dart';
@@ -25,6 +27,7 @@ class _MyCreationPageState extends State<MyCreationPage> {
   final _characterService = CharacterService();
   final _novelService = NovelService();
   final ScrollController _scrollController = ScrollController();
+  final RefreshController _refreshController = RefreshController(initialRefresh: false);
   final Map<String, Uint8List> _imageCache = {}; // 图片缓存
 
   bool _isLoading = false;
@@ -47,6 +50,7 @@ class _MyCreationPageState extends State<MyCreationPage> {
   void dispose() {
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
+    _refreshController.dispose();
     super.dispose();
   }
 
@@ -222,9 +226,72 @@ class _MyCreationPageState extends State<MyCreationPage> {
     }
   }
 
+  /// 黑盒调试功能（占位实现）
+  void _showBlackBoxDebug(Map<String, dynamic> item) {
+    // TODO: 实现黑盒调试功能
+    final itemType = item.containsKey('name') ? '角色' : '小说';
+    final itemName = item['name'] ?? item['title'] ?? '未知';
+
+    _showToast('黑盒调试功能开发中：$itemType "$itemName"', type: ToastType.info);
+  }
+
   void _showToast(String message, {ToastType type = ToastType.info}) {
     if (!mounted) return;
     CustomToast.show(context, message: message, type: type);
+  }
+
+  // 下拉刷新 - 静默更新数据
+  void _onRefresh() async {
+    try {
+      // 重置分页状态
+      _currentPage = 1;
+      _hasMoreData = true;
+
+      // 静默加载数据，不显示loading状态
+      if (_selectedIndex == 0) {
+        final response = await _characterService.getCharacterList(
+          page: _currentPage,
+          pageSize: _pageSize,
+          status: _status,
+        );
+
+        if (response['code'] == 0) {
+          if (mounted) {
+            setState(() {
+              _characterList = List<Map<String, dynamic>>.from(response['data']['items']);
+              _total = response['data']['total'];
+              _hasMoreData = _characterList.length < _total;
+            });
+            // 预加载图片
+            _preloadImages(_characterList);
+          }
+        }
+      } else {
+        final response = await _novelService.getUserNovels(
+          page: _currentPage,
+          pageSize: _pageSize,
+          status: _status,
+        );
+
+        if (response['code'] == 0) {
+          if (mounted) {
+            setState(() {
+              _novelList = List<Map<String, dynamic>>.from(response['data']['novels'] ?? []);
+              _total = response['data']['total'] ?? 0;
+              _hasMoreData = _novelList.length < _total;
+            });
+          }
+        }
+      }
+
+      if (mounted) {
+        _refreshController.refreshCompleted();
+      }
+    } catch (e) {
+      if (mounted) {
+        _refreshController.refreshFailed();
+      }
+    }
   }
 
   @override
@@ -307,11 +374,42 @@ class _MyCreationPageState extends State<MyCreationPage> {
 
             // 内容区域
             Expanded(
-              child: _isLoading
-                  ? _buildSkeletonList()
-                  : _selectedIndex == 0
-                      ? _buildCharacterList()
-                      : _buildNovelList(),
+              child: SmartRefresher(
+                controller: _refreshController,
+                onRefresh: _onRefresh,
+                enablePullDown: true,
+                enablePullUp: false, // 禁用SmartRefresher的上拉加载，使用自定义滚动监听
+                header: CustomHeader(
+                  builder: (BuildContext context, RefreshStatus? mode) {
+                    Widget body;
+                    if (mode == RefreshStatus.idle) {
+                      body = Text('下拉刷新',
+                          style: TextStyle(color: Colors.grey, fontSize: 14.sp));
+                    } else if (mode == RefreshStatus.refreshing) {
+                      body = Text('加载中...',
+                          style: TextStyle(color: Colors.grey, fontSize: 14.sp)); // 显示加载中
+                    } else if (mode == RefreshStatus.failed) {
+                      body = Text('刷新失败',
+                          style: TextStyle(color: Colors.red, fontSize: 14.sp));
+                    } else if (mode == RefreshStatus.canRefresh) {
+                      body = Text('松开刷新',
+                          style: TextStyle(color: Colors.grey, fontSize: 14.sp));
+                    } else {
+                      body = Text('刷新完成',
+                          style: TextStyle(color: Colors.green, fontSize: 14.sp));
+                    }
+                    return Container(
+                      height: 55.h,
+                      child: Center(child: body),
+                    );
+                  },
+                ),
+                child: _isLoading
+                    ? _buildSkeletonList()
+                    : _selectedIndex == 0
+                        ? _buildCharacterList()
+                        : _buildNovelList(),
+              ),
             ),
           ],
         ),
@@ -384,12 +482,11 @@ class _MyCreationPageState extends State<MyCreationPage> {
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.symmetric(horizontal: 24.w),
-      itemCount:
-          _characterList.length + (_isLoadingMore || _hasMoreData ? 1 : 0),
+      itemCount: _characterList.length + (_hasMoreData ? 1 : 0),
       itemBuilder: (context, index) {
         // 显示加载更多的指示器
         if (index == _characterList.length) {
-          return _buildLoadMoreIndicator();
+          return _buildCustomLoadMoreIndicator();
         }
 
         final character = _characterList[index];
@@ -604,6 +701,31 @@ class _MyCreationPageState extends State<MyCreationPage> {
                     ),
                   ),
 
+                  // 黑盒调试按钮
+                  GestureDetector(
+                    onTap: () {
+                      _showBlackBoxDebug(character);
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.bug_report_outlined,
+                          size: 18.sp,
+                          color: const Color(0xFF9C27B0),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '调试',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF9C27B0),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   // 删除按钮
                   GestureDetector(
                     onTap: () {
@@ -689,32 +811,22 @@ class _MyCreationPageState extends State<MyCreationPage> {
     );
   }
 
-  Widget _buildLoadMoreIndicator() {
+  // 自定义加载更多指示器 - 纯文本
+  Widget _buildCustomLoadMoreIndicator() {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 16.h),
+      padding: EdgeInsets.symmetric(vertical: 20.h),
       alignment: Alignment.center,
-      child: _isLoadingMore
-          ? SizedBox(
-              width: 24.w,
-              height: 24.w,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.w,
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-              ),
-            )
-          : GestureDetector(
-              onTap: _hasMoreData ? _loadMoreData : null,
-              child: Text(
-                _hasMoreData ? '加载更多' : '没有更多数据了',
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  color: _hasMoreData
-                      ? AppTheme.primaryColor
-                      : AppTheme.textSecondary,
-                ),
-              ),
-            ),
+      child: Text(
+        _isLoadingMore
+            ? '加载中...'
+            : _hasMoreData
+                ? '上滑加载更多'
+                : '没有更多数据了',
+        style: TextStyle(
+          fontSize: 14.sp,
+          color: Colors.grey, // 使用固定灰色，与下拉刷新保持一致
+        ),
+      ),
     );
   }
 
@@ -782,11 +894,11 @@ class _MyCreationPageState extends State<MyCreationPage> {
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.symmetric(horizontal: 24.w),
-      itemCount: _novelList.length + (_isLoadingMore || _hasMoreData ? 1 : 0),
+      itemCount: _novelList.length + (_hasMoreData ? 1 : 0),
       itemBuilder: (context, index) {
         // 显示加载更多的指示器
         if (index == _novelList.length) {
-          return _buildLoadMoreIndicator();
+          return _buildCustomLoadMoreIndicator();
         }
 
         final novel = _novelList[index];
@@ -1002,6 +1114,31 @@ class _MyCreationPageState extends State<MyCreationPage> {
                     ),
                   ),
 
+                  // 黑盒调试按钮
+                  GestureDetector(
+                    onTap: () {
+                      _showBlackBoxDebug(novel);
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.bug_report_outlined,
+                          size: 18.sp,
+                          color: const Color(0xFF9C27B0),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '调试',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF9C27B0),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   // 删除按钮
                   GestureDetector(
                     onTap: () {
@@ -1209,34 +1346,18 @@ class _MyCreationPageState extends State<MyCreationPage> {
   }
 
   Future<void> _showDeleteConfirmDialog(Map<String, dynamic> character) async {
-    return showDialog<void>(
+    final bool? confirmed = await ConfirmationDialog.show(
       context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('确认删除'),
-          content: Text('确定要删除角色"${character['name']}"吗？此操作不可恢复。'),
-          actions: <Widget>[
-            TextButton(
-              child: Text('取消'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: Text(
-                '删除',
-                style: TextStyle(color: Colors.red),
-              ),
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await _deleteCharacter(character['id'].toString());
-              },
-            ),
-          ],
-        );
-      },
+      title: '确认删除',
+      content: '确定要删除角色"${character['name']}"吗？此操作不可恢复。',
+      confirmText: '删除',
+      cancelText: '取消',
+      isDangerous: true,
     );
+
+    if (confirmed == true) {
+      await _deleteCharacter(character['id'].toString());
+    }
   }
 
   Future<void> _deleteCharacter(String id) async {
@@ -1260,34 +1381,18 @@ class _MyCreationPageState extends State<MyCreationPage> {
   }
 
   Future<void> _showDeleteNovelConfirmDialog(Map<String, dynamic> novel) async {
-    return showDialog<void>(
+    final bool? confirmed = await ConfirmationDialog.show(
       context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('确认删除'),
-          content: Text('确定要删除小说"${novel['title']}"吗？此操作不可恢复。'),
-          actions: <Widget>[
-            TextButton(
-              child: Text('取消'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: Text(
-                '删除',
-                style: TextStyle(color: Colors.red),
-              ),
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await _deleteNovel(novel['id'].toString());
-              },
-            ),
-          ],
-        );
-      },
+      title: '确认删除',
+      content: '确定要删除小说"${novel['title']}"吗？此操作不可恢复。',
+      confirmText: '删除',
+      cancelText: '取消',
+      isDangerous: true,
     );
+
+    if (confirmed == true) {
+      await _deleteNovel(novel['id'].toString());
+    }
   }
 
   Future<void> _deleteNovel(String id) async {

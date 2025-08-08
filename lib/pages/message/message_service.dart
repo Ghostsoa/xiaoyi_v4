@@ -328,4 +328,122 @@ class MessageService {
       throw '取消置顶失败: $e';
     }
   }
+
+  /// 客服单轮对话（无上下文）
+  Future<Map<String, dynamic>> customerChat(String message) async {
+    try {
+      final response = await _httpClient.post(
+        '/customer/chat',
+        data: {
+          'message': message,
+        },
+        options: _httpClient.getNoCacheOptions(),
+      );
+
+      final data = response.data as Map<String, dynamic>?;
+      if (data == null) {
+        return {
+          'success': false,
+          'msg': '服务无响应',
+        };
+      }
+
+      final code = data['code'] as int?;
+      final msg = data['msg']?.toString() ?? '';
+
+      if (code == 0) {
+        final reply = (data['data'] as Map<String, dynamic>?)?['reply']?.toString() ?? '';
+        return {
+          'success': true,
+          'reply': reply,
+          'msg': msg.isNotEmpty ? msg : '对话成功',
+        };
+      }
+
+      // 未认证
+      if (code == 1006) {
+        return {
+          'success': false,
+          'msg': msg.isNotEmpty ? msg : '未找到用户信息',
+          'unauthorized': true,
+        };
+      }
+
+      // 服务器错误
+      if (code == 5000) {
+        return {
+          'success': false,
+          'msg': msg.isNotEmpty ? msg : 'AI服务暂时不可用',
+        };
+      }
+
+      // 其他错误
+      return {
+        'success': false,
+        'msg': msg.isNotEmpty ? msg : '请求失败',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'msg': '请求失败: $e',
+      };
+    }
+  }
+
+  /// 切换官方密钥（无需参数，用户ID由认证中间件获取）
+  Future<Map<String, dynamic>> customerToggleKey() async {
+    try {
+      final response = await _httpClient.post(
+        '/customer/toggle-key',
+        data: const {},
+        options: _httpClient.getNoCacheOptions(),
+      );
+
+      final data = response.data as Map<String, dynamic>?;
+      if (data == null) {
+        return {
+          'success': false,
+          'msg': '服务无响应',
+        };
+      }
+
+      final code = data['code'] as int?;
+      final msg = data['msg']?.toString() ?? '';
+
+      if (code == 0) {
+        final Map<String, dynamic> payload = (data['data'] as Map<String, dynamic>?) ?? {};
+        return {
+          'success': true,
+          'status': payload['status']?.toString(),
+          'message': payload['message']?.toString() ?? msg,
+          'msg': msg.isNotEmpty ? msg : '操作成功',
+        };
+      }
+
+      if (code == 1006) {
+        return {
+          'success': false,
+          'msg': msg.isNotEmpty ? msg : '未找到用户信息',
+          'unauthorized': true,
+        };
+      }
+
+      if (code == 5000) {
+        return {
+          'success': false,
+          'msg': msg.isNotEmpty ? msg : '操作失败，请稍后再试',
+        };
+      }
+
+      return {
+        'success': false,
+        'msg': msg.isNotEmpty ? msg : '请求失败',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'msg': '请求失败: $e',
+      };
+    }
+  }
 }

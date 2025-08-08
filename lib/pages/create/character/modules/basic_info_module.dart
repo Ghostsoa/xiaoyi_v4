@@ -791,9 +791,9 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
           );
         }
       } else {
-        // 显示用户友好的错误信息
-        _showToast('格式化出现错误，请重新尝试', type: ToastType.error);
-        // 记录详细错误信息，但不显示给用户
+        // 显示服务器返回的具体错误信息
+        final errorMsg = response['msg'] ?? '格式化出现错误，请重新尝试';
+        _showToast(errorMsg, type: ToastType.error);
         debugPrint('Markdown格式化错误: ${response['msg']}');
       }
     } catch (e) {

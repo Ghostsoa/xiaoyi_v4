@@ -11,6 +11,7 @@ import '../../../dao/user_dao.dart';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:async'; // 添加Timer导入
+import 'dart:math' as math; // 添加math导入
 import '../services/character_chat_stream_service.dart';
 import '../services/character_service.dart';
 import '../models/sse_response.dart';
@@ -18,6 +19,7 @@ import '../widgets/chat_bubble.dart';
 import 'character_panel_page.dart';
 import 'chat_settings_page.dart';
 import '../../../widgets/custom_toast.dart';
+import '../../../widgets/confirmation_dialog.dart';
 import 'ui_settings_page.dart';
 import '../../../pages/login/login_page.dart';
 import '../../../pages/home/pages/item_detail_page.dart';
@@ -91,6 +93,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
   // 添加输入框是否聚焦的状态
   bool _isInputFocused = false;
+
+  // 选项预制内容管理
+  Map<String, Map<String, dynamic>> _optionsPresetContent = {}; // 存储选项组的预制内容
 
   // 版本检查相关
   bool _hasNewVersion = false;
@@ -380,7 +385,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     // 添加输入监听
     _messageController.addListener(() {
       setState(() {
-        _currentInputText = _messageController.text;
+        _updateCurrentInputText();
       });
     });
 
@@ -676,7 +681,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   }
 
   Future<void> _handleSendMessage() async {
-    final message = _messageController.text.trim();
+    // 使用 _currentInputText，它已经包含了合并的内容
+    final message = _currentInputText.trim();
     if (message.isEmpty || _isSending) return;
 
     // 添加用户消息到列表开头
@@ -710,6 +716,10 @@ class _CharacterChatPageState extends State<CharacterChatPage>
           'createdAt': DateTime.now().toIso8601String(), // 添加当前时间作为创建时间
           'keywords': null, // AI消息还未生成，暂无关键词
         });
+
+        // 清空所有预制内容，避免跨消息污染
+        _optionsPresetContent.clear();
+        _updateCurrentInputText();
       });
 
       // 订阅消息流
@@ -863,6 +873,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         setState(() {
           _isSending = false;
           _shouldStopStream = false;
+          // 清空预制内容
+          _optionsPresetContent.clear();
         });
       }
     }
@@ -964,27 +976,16 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   // 添加重置会话的方法
   Future<void> _handleResetSession() async {
     // 显示确认对话框
-    final bool? confirm = await showDialog<bool>(
+    final bool? confirmed = await ConfirmationDialog.show(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('确认重置'),
-          content: const Text('确定要清空存档所有对话记录吗？此操作不可恢复。'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('取消'),
-              onPressed: () => Navigator.of(context).pop(false),
-            ),
-            TextButton(
-              child: Text('确定', style: TextStyle(color: Colors.red)),
-              onPressed: () => Navigator.of(context).pop(true),
-            ),
-          ],
-        );
-      },
+      title: '确认重置',
+      content: '确定要清空存档所有对话记录吗？此操作不可恢复。',
+      confirmText: '确定',
+      cancelText: '取消',
+      isDangerous: true,
     );
 
-    if (confirm != true) return;
+    if (confirmed != true) return;
 
     try {
       // 设置重置状态，显示加载指示器
@@ -1685,36 +1686,77 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     }
   }
 
-  /// 处理消息删除（包含幽灵消息处理）
+  /// 处理消息删除（包含幽灵消息处理和正常删除后的UI刷新）
   Future<void> _handleMessageDeleted(String? msgId) async {
-    // 只有在幽灵消息的情况下才会调用这个方法
-    // 因为ChatBubble只在检测到幽灵消息时才触发回调
+    debugPrint('[CharacterChatPage] 处理消息删除，msgId: $msgId, 模式: ${_isLocalMode ? "本地" : "在线"}');
 
-    debugPrint('[CharacterChatPage] 检测到幽灵消息删除，msgId: $msgId');
-
-    // 如果是本地模式，立即删除本地缓存并重新加载
     if (_isLocalMode && _activeArchiveId != null && msgId != null) {
+      // 本地模式：处理幽灵消息，删除本地缓存并重新加载
       await _handleGhostMessage(msgId, '删除');
+    } else {
+      // 在线模式：删除成功后刷新消息列表以更新UI缓存
+      debugPrint('[CharacterChatPage] 在线模式删除成功，刷新消息列表');
+      await _refreshMessages();
     }
-
-    // 幽灵消息不需要刷新，因为服务器上已经不存在了
-    // 本地缓存已经删除并重新加载，数据已经是最新的
   }
 
-  /// 处理消息撤销（包含幽灵消息处理和批量删除）
+  /// 处理消息撤销（包含幽灵消息处理和正常撤销后的UI刷新）
   Future<void> _handleMessageRevoked(String? msgId) async {
-    // 只有在幽灵消息的情况下才会调用这个方法
-    // 因为ChatBubble只在检测到幽灵消息时才触发回调
+    debugPrint('[CharacterChatPage] 处理消息撤销，msgId: $msgId, 模式: ${_isLocalMode ? "本地" : "在线"}');
 
-    debugPrint('[CharacterChatPage] 检测到幽灵消息撤销，msgId: $msgId');
+    // 先找到要撤销的消息，如果是用户消息则将内容放回输入框
+    await _restoreRevokedMessageToInput(msgId);
 
-    // 如果是本地模式，立即删除本地缓存并重新加载
     if (_isLocalMode && _activeArchiveId != null && msgId != null) {
+      // 本地模式：处理幽灵消息，删除本地缓存并重新加载
       await _handleGhostMessageRevoke(msgId);
+    } else {
+      // 在线模式：撤销成功后刷新消息列表以更新UI缓存
+      debugPrint('[CharacterChatPage] 在线模式撤销成功，刷新消息列表');
+      await _refreshMessages();
     }
+  }
 
-    // 幽灵消息不需要刷新，因为服务器上已经不存在了
-    // 本地缓存已经删除并重新加载，数据已经是最新的
+  /// 将撤销的用户消息内容恢复到输入框
+  Future<void> _restoreRevokedMessageToInput(String? msgId) async {
+    if (msgId == null) return;
+
+    try {
+      // 在当前消息列表中查找要撤销的消息
+      final messageIndex = _messages.indexWhere((msg) => msg['msgId'] == msgId);
+      if (messageIndex == -1) {
+        debugPrint('[CharacterChatPage] 未找到要撤销的消息: $msgId');
+        return;
+      }
+
+      final targetMessage = _messages[messageIndex];
+
+      // 撤销操作会删除该消息及之后的所有消息
+      // 我们需要找到被撤销的消息中最后一条用户消息
+      String? lastUserMessageContent;
+
+      // 从目标消息开始，向前查找（因为列表是倒序的，索引小的是更新的消息）
+      for (int i = messageIndex; i >= 0; i--) {
+        final message = _messages[i];
+        if (message['isUser'] == true) {
+          lastUserMessageContent = message['content'] as String?;
+          break; // 找到最后一条用户消息就停止
+        }
+      }
+
+      // 如果找到了用户消息，将其内容放回输入框
+      if (lastUserMessageContent != null && lastUserMessageContent.isNotEmpty) {
+        setState(() {
+          _messageController.text = lastUserMessageContent!;
+          _messageController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _messageController.text.length),
+          );
+        });
+        debugPrint('[CharacterChatPage] 已将撤销的用户消息恢复到输入框: ${lastUserMessageContent.substring(0, math.min(50, lastUserMessageContent.length))}...');
+      }
+    } catch (e) {
+      debugPrint('[CharacterChatPage] 恢复撤销消息到输入框失败: $e');
+    }
   }
 
   /// 处理幽灵消息（删除失败但本地有缓存）
@@ -1822,6 +1864,18 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   // 添加重新生成消息的方法
   Future<void> _handleRegenerateMessage(String msgId) async {
     if (_isSending) return;
+
+    // 显示确认对话框
+    final bool? confirmed = await ConfirmationDialog.show(
+      context: context,
+      title: '重新生成',
+      content: '确定要重新生成这条消息吗？当前内容将被覆盖，此操作不可恢复。',
+      confirmText: '重新生成',
+      cancelText: '取消',
+      isDangerous: true,
+    );
+
+    if (confirmed != true) return; // 用户取消了操作
 
     // 查找需要重新生成的消息
     final int messageIndex = _messages.indexWhere((m) => m['msgId'] == msgId);
@@ -2049,6 +2103,18 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
     if (_isUpdatingVersion) return; // 只检查正在更新状态
 
+    // 显示确认对话框
+    final bool? confirmed = await ConfirmationDialog.show(
+      context: context,
+      title: '同步最新版本',
+      content: '确定要同步到最新版本吗？同步后可能会影响当前的对话状态。',
+      confirmText: '同步',
+      cancelText: '取消',
+      isDangerous: false,
+    );
+
+    if (confirmed != true) return; // 用户取消了操作
+
     setState(() {
       _isUpdatingVersion = true;
     });
@@ -2211,6 +2277,84 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   void _clearInput() {
     _messageController.clear();
   }
+
+  // 更新当前输入文本（合并用户输入和预制内容）
+  void _updateCurrentInputText() {
+    String userInput = _messageController.text;
+    String presetContent = _getFormattedPresetContent();
+
+    if (presetContent.isNotEmpty) {
+      _currentInputText = userInput.isNotEmpty
+          ? '$userInput $presetContent'
+          : presetContent;
+    } else {
+      _currentInputText = userInput;
+    }
+  }
+
+  // 处理选项变化的回调
+  void _onOptionsChanged(String groupId, String title, List<String> selectedOptions) {
+    setState(() {
+      if (selectedOptions.isEmpty) {
+        // 如果没有选中的选项，移除这个组的预制内容
+        _optionsPresetContent.remove(groupId);
+        debugPrint('移除空选项组: $groupId');
+      } else {
+        // 更新这个组的预制内容
+        _optionsPresetContent[groupId] = {
+          'title': title,
+          'selectedOptions': selectedOptions,
+        };
+        debugPrint('更新选项组: $groupId -> $title: ${selectedOptions.join(", ")}');
+      }
+
+      // 智能更新当前输入文本
+      _updateCurrentInputText();
+    });
+
+    // 调试输出
+    debugPrint('=== 选项变化调试 ===');
+    debugPrint('组ID: $groupId');
+    debugPrint('标题: $title');
+    debugPrint('选中选项: ${selectedOptions.join(", ")}');
+    debugPrint('当前预制内容组数量: ${_optionsPresetContent.length}');
+    debugPrint('预制内容组详情: $_optionsPresetContent');
+    debugPrint('格式化预制内容: "${_getFormattedPresetContent()}"');
+    debugPrint('最终输入文本: "$_currentInputText"');
+    debugPrint('==================');
+  }
+
+  // 获取格式化的预制内容
+  String _getFormattedPresetContent() {
+    if (_optionsPresetContent.isEmpty) return '';
+
+    List<String> formattedParts = [];
+
+    // 创建一个临时的清理后的Map，移除空选项组
+    Map<String, Map<String, dynamic>> cleanedContent = {};
+
+    _optionsPresetContent.forEach((groupId, data) {
+      String title = data['title'];
+      List<String> options = List<String>.from(data['selectedOptions'] ?? []);
+
+      // 只保留有选项的组
+      if (options.isNotEmpty) {
+        cleanedContent[groupId] = data;
+        formattedParts.add('$title：${options.join("、")}');
+      }
+    });
+
+    // 如果发现有空组，清理掉它们
+    if (cleanedContent.length != _optionsPresetContent.length) {
+      debugPrint('发现并清理空选项组，原有${_optionsPresetContent.length}个，清理后${cleanedContent.length}个');
+      _optionsPresetContent.clear();
+      _optionsPresetContent.addAll(cleanedContent);
+    }
+
+    return formattedParts.join(' ');
+  }
+
+
 
   // 添加功能气泡UI组件
   Widget _buildFunctionBubble({
@@ -3286,8 +3430,10 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                   onMessageRegenerate: !message['isUser']
                                       ? _handleRegenerateMessage
                                       : null, // 只对AI消息添加重新生成功能
+                                  onOptionsChanged: _onOptionsChanged, // 传递选项变化回调
                                   createdAt: message['createdAt'], // 添加创建时间
                                   keywords: message['keywords'], // 传递关键词数组
+                                  resourceMapping: widget.sessionData['resourceMapping'] ?? widget.sessionData['resource_mapping'],
                                 );
                               },
                             ),

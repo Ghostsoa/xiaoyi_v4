@@ -73,6 +73,138 @@ class _SelectTextPageState extends State<SelectTextPage> {
     return '选择$type';
   }
 
+  // 切换源
+  void _changeSource(TextSelectSource source) {
+    if (_currentSource != source) {
+      setState(() {
+        _currentSource = source;
+        _loadData(refresh: true);
+      });
+    }
+  }
+
+  // 现代化的源选择器
+  Widget _buildModernSourceSelector() {
+    return Container(
+      height: 50.h,
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _changeSource(TextSelectSource.myMaterial),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: EdgeInsets.only(right: 8.w),
+                decoration: BoxDecoration(
+                  gradient: _currentSource == TextSelectSource.myMaterial
+                      ? LinearGradient(
+                          colors: AppTheme.buttonGradient,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: _currentSource == TextSelectSource.myMaterial ? null : AppTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(12.r),
+                  boxShadow: _currentSource == TextSelectSource.myMaterial
+                      ? [
+                          BoxShadow(
+                            color: AppTheme.primaryColor.withOpacity(0.3),
+                            blurRadius: 8.r,
+                            offset: Offset(0, 4.h),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: AppTheme.shadowColor.withOpacity(0.05),
+                            blurRadius: 4.r,
+                            offset: Offset(0, 2.h),
+                          ),
+                        ],
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.folder_outlined,
+                        size: 20.sp,
+                        color: _currentSource == TextSelectSource.myMaterial ? Colors.white : AppTheme.textSecondary,
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        '我的素材',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontWeight: _currentSource == TextSelectSource.myMaterial ? FontWeight.w600 : FontWeight.w500,
+                          color: _currentSource == TextSelectSource.myMaterial ? Colors.white : AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _changeSource(TextSelectSource.publicMaterial),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                decoration: BoxDecoration(
+                  gradient: _currentSource == TextSelectSource.publicMaterial
+                      ? LinearGradient(
+                          colors: AppTheme.buttonGradient,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: _currentSource == TextSelectSource.publicMaterial ? null : AppTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(12.r),
+                  boxShadow: _currentSource == TextSelectSource.publicMaterial
+                      ? [
+                          BoxShadow(
+                            color: AppTheme.primaryColor.withOpacity(0.3),
+                            blurRadius: 8.r,
+                            offset: Offset(0, 4.h),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: AppTheme.shadowColor.withOpacity(0.05),
+                            blurRadius: 4.r,
+                            offset: Offset(0, 2.h),
+                          ),
+                        ],
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.folder_shared_outlined,
+                        size: 20.sp,
+                        color: _currentSource == TextSelectSource.publicMaterial ? Colors.white : AppTheme.textSecondary,
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        '公开素材',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontWeight: _currentSource == TextSelectSource.publicMaterial ? FontWeight.w600 : FontWeight.w500,
+                          color: _currentSource == TextSelectSource.publicMaterial ? Colors.white : AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSourceSelector() {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 8.h),
@@ -410,43 +542,68 @@ class _SelectTextPageState extends State<SelectTextPage> {
       body: SafeArea(
         child: Column(
           children: [
+            // 优化后的顶部导航栏
             Container(
-              padding: EdgeInsets.fromLTRB(24.w, 8.h, 24.w, 8.h),
-              child: Row(
+              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 20.h),
+              child: Column(
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: Container(
-                      width: 32.w,
-                      height: 32.w,
-                      decoration: BoxDecoration(
-                        color: AppTheme.cardBackground,
-                        borderRadius: BorderRadius.circular(8.r),
-                      ),
-                      child: Icon(
-                        Icons.arrow_back_ios_new,
-                        color: AppTheme.textPrimary,
-                        size: 18.sp,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        _getTitle(),
-                        style: TextStyle(
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Container(
+                          width: 40.w,
+                          height: 40.w,
+                          decoration: BoxDecoration(
+                            color: AppTheme.cardBackground,
+                            borderRadius: BorderRadius.circular(12.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.shadowColor.withOpacity(0.1),
+                                blurRadius: 8.r,
+                                offset: Offset(0, 2.h),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.arrow_back_ios_new,
+                            color: AppTheme.textPrimary,
+                            size: 18.sp,
+                          ),
                         ),
                       ),
-                    ),
+                      SizedBox(width: 16.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _getTitle(),
+                              style: TextStyle(
+                                fontSize: 24.sp,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                            SizedBox(height: 4.h),
+                            Text(
+                              '从素材库中选择合适的文本',
+                              style: TextStyle(
+                                fontSize: 14.sp,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: 32.w),
+                  SizedBox(height: 20.h),
+                  // 优化后的源选择器
+                  _buildModernSourceSelector(),
                 ],
               ),
             ),
-            _buildSourceSelector(),
             Expanded(
               child: _buildMaterialList(),
             ),

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'dart:typed_data';
+import 'dart:math' as math;
 import '../../../../theme/app_theme.dart';
 import '../../../../widgets/custom_toast.dart';
 import '../../world/select_world_book_page.dart';
 import '../../material/select_text_page.dart';
+import '../../material/select_image_page.dart';
+import '../../../../services/file_service.dart';
+import '../../../../utils/resource_mapping_parser.dart';
 
 class AdvancedSettingsModule extends StatefulWidget {
   final int memoryTurns;
@@ -14,6 +19,8 @@ class AdvancedSettingsModule extends StatefulWidget {
   final TextEditingController prefixController;
   final TextEditingController suffixController;
   final String enhanceMode;
+  final TextEditingController resourceMappingController;
+  final Map<String, Uint8List> imageCache;
   final Function(int) onMemoryTurnsChanged;
   final Function(int) onSearchDepthChanged;
   final Function(String) onStatusChanged;
@@ -32,6 +39,8 @@ class AdvancedSettingsModule extends StatefulWidget {
     required this.prefixController,
     required this.suffixController,
     required this.enhanceMode,
+    required this.resourceMappingController,
+    required this.imageCache,
     required this.onMemoryTurnsChanged,
     required this.onSearchDepthChanged,
     required this.onStatusChanged,
@@ -46,6 +55,8 @@ class AdvancedSettingsModule extends StatefulWidget {
 }
 
 class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
+  final _fileService = FileService();
+
   void _showToast(String message, {ToastType type = ToastType.info}) {
     if (!mounted) return;
     CustomToast.show(context, message: message, type: type);
@@ -317,6 +328,179 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
     );
   }
 
+  /// 构建资源映射卡片
+  Widget _buildResourceCard(ResourceMapping resource) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBackground,
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        children: [
+          // 小图片
+          Container(
+            width: 40.w,
+            height: 40.w,
+            decoration: BoxDecoration(
+              color: AppTheme.cardBackground,
+              borderRadius: BorderRadius.circular(6.r),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6.r),
+              child: FutureBuilder(
+                future: widget.imageCache[resource.uri] != null
+                    ? Future.value(widget.imageCache[resource.uri])
+                    : _fileService.getFile(resource.uri).then((file) {
+                        return file.data;
+                      }),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData || snapshot.hasError) {
+                    return Icon(
+                      Icons.image_outlined,
+                      size: 20.sp,
+                      color: AppTheme.textSecondary,
+                    );
+                  }
+                  return Image.memory(
+                    snapshot.data!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                  );
+                },
+              ),
+            ),
+          ),
+          SizedBox(width: 12.w),
+          // 资源名称
+          Expanded(
+            child: Text(
+              resource.name,
+              style: AppTheme.bodyStyle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // 删除按钮
+          GestureDetector(
+            onTap: () => _removeResource(resource),
+            child: Container(
+              width: 32.w,
+              height: 32.w,
+              decoration: BoxDecoration(
+                color: AppTheme.error.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6.r),
+              ),
+              child: Icon(
+                Icons.delete_outline,
+                size: 18.sp,
+                color: AppTheme.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 添加资源
+  void _addResource() async {
+    // 限制最多 30 个资源映射
+    final existing = ResourceMappingParser.parseResourceMappings(
+      widget.resourceMappingController.text,
+    );
+    if (existing.length >= 30) {
+      _showToast('最多可添加30个资源映射', type: ToastType.warning);
+      return;
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SelectImagePage(
+          type: ImageSelectType.cover,
+          source: ImageSelectSource.myMaterial,
+        ),
+      ),
+    );
+
+    if (result != null && mounted) {
+      // 弹出对话框让用户输入资源名称
+      _showResourceNameDialog(result);
+    }
+  }
+
+  /// 显示资源名称输入对话框
+  void _showResourceNameDialog(String uri) {
+    final TextEditingController nameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('输入资源名称', style: AppTheme.titleStyle),
+        content: TextField(
+          controller: nameController,
+          decoration: InputDecoration(
+            hintText: '请输入资源名称',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+          ),
+          maxLength: 50,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              // 二次校验上限，防止并发或多入口绕过
+              final resources = ResourceMappingParser.parseResourceMappings(
+                widget.resourceMappingController.text,
+              );
+              if (resources.length >= 30) {
+                _showToast('最多可添加30个资源映射', type: ToastType.warning);
+                return;
+              }
+
+              final name = nameController.text.trim();
+              if (name.isNotEmpty && ResourceMappingParser.isValidResourceName(name)) {
+                final newText = ResourceMappingParser.addResource(
+                  widget.resourceMappingController.text,
+                  name,
+                  uri,
+                );
+                widget.resourceMappingController.text = newText;
+                Navigator.pop(context);
+                _showToast('已添加资源：$name', type: ToastType.success);
+                setState(() {}); // 刷新UI
+              } else {
+                _showToast('请输入有效的资源名称', type: ToastType.warning);
+              }
+            },
+            child: Text('确定', style: TextStyle(color: AppTheme.primaryColor)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 移除资源
+  void _removeResource(ResourceMapping resource) {
+    final newText = ResourceMappingParser.removeResource(
+      widget.resourceMappingController.text,
+      resource,
+    );
+    widget.resourceMappingController.text = newText;
+    _showToast('已移除资源：${resource.name}', type: ToastType.success);
+    setState(() {}); // 刷新UI
+  }
+
   @override
   Widget build(BuildContext context) {
     // 计算关键词总数
@@ -326,6 +510,12 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
         totalKeywords += (worldBook['keywords'] as List).length;
       }
     }
+
+    // 资源映射计数与上限
+    final currentResources = ResourceMappingParser.parseResourceMappings(
+      widget.resourceMappingController.text,
+    );
+    const int resourceLimit = 30;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -714,6 +904,132 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
               _buildEnhanceModeButton(
                   'partial', '回复UI增强', '对UI显示效果，内容进行增强\n平衡了UI显示与回复质量'),
               _buildEnhanceModeButton('fullpromax', '???', '???'),
+              SizedBox(height: 24.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '资源映射',
+                    style: AppTheme.secondaryStyle,
+                  ),
+                  Text(
+                    '${currentResources.length}/$resourceLimit',
+                    style: AppTheme.hintStyle,
+                  ),
+                ],
+              ),
+              SizedBox(height: 4.h),
+              RichText(
+                text: TextSpan(
+                  style: AppTheme.hintStyle,
+                  children: [
+                    const TextSpan(text: '为卡添加'),
+                    TextSpan(
+                      text: '图片资源',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const TextSpan(text: '，可在对话中通过名称引用显示'),
+                  ],
+                ),
+              ),
+              SizedBox(height: 8.h),
+              // 解析并显示现有资源
+              Builder(
+                builder: (context) {
+                  final resources = currentResources;
+
+                  final bool canAdd = resources.length < 30;
+
+                  // 智能高度：最多显示 3 个条目的高度，少于则按实际数量
+                  final int visibleCount = math.min(resources.length, 3);
+                  final double estimatedItemHeight = 72.h; // 估算单项高度(含间距)
+                  final double listHeight = visibleCount > 0
+                      ? visibleCount * estimatedItemHeight
+                      : 0;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (resources.isNotEmpty)
+                        SizedBox(
+                          height: listHeight,
+                          child: ListView.builder(
+                            itemCount: resources.length,
+                            shrinkWrap: true,
+                            physics: resources.length > 3
+                                ? const ClampingScrollPhysics()
+                                : const NeverScrollableScrollPhysics(),
+                            itemBuilder: (context, index) =>
+                                _buildResourceCard(resources[index]),
+                          ),
+                        ),
+                      if (resources.isNotEmpty) SizedBox(height: 8.h),
+                      // 添加资源按钮（达到上限禁用）
+                      GestureDetector(
+                        onTap: canAdd
+                            ? _addResource
+                            : () => _showToast('最多可添加30个资源映射',
+                                type: ToastType.warning),
+                        child: Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(vertical: 12.h),
+                          decoration: BoxDecoration(
+                            gradient: canAdd
+                                ? LinearGradient(
+                                    colors: AppTheme.buttonGradient,
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    transform: const GradientRotation(0.4),
+                                  )
+                                : null,
+                            color:
+                                canAdd ? null : AppTheme.cardBackground,
+                            borderRadius: BorderRadius.circular(8.r),
+                            boxShadow: canAdd
+                                ? [
+                                    BoxShadow(
+                                      color: AppTheme.buttonGradient.first
+                                          .withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ]
+                                : [],
+                            border: canAdd
+                                ? null
+                                : Border.all(color: AppTheme.border),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_photo_alternate,
+                                size: 20.sp,
+                                color: canAdd
+                                    ? Colors.white
+                                    : AppTheme.textSecondary,
+                              ),
+                              SizedBox(width: 8.w),
+                              Text(
+                                canAdd ? '从素材库选择' : '已达上限 (30)',
+                                style: TextStyle(
+                                  color: canAdd
+                                      ? Colors.white
+                                      : AppTheme.textSecondary,
+                                  fontSize: AppTheme.bodySize,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
               SizedBox(height: 24.h),
               Text(
                 '发布状态',

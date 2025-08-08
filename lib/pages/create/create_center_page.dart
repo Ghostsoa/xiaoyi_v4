@@ -24,9 +24,7 @@ class CreateCenterPage extends StatefulWidget {
   State<CreateCenterPage> createState() => _CreateCenterPageState();
 }
 
-class _CreateCenterPageState extends State<CreateCenterPage>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+class _CreateCenterPageState extends State<CreateCenterPage> {
   final AuthorService _authorService = AuthorService();
 
   // 创作数据统计
@@ -38,10 +36,6 @@ class _CreateCenterPageState extends State<CreateCenterPage>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
     _loadStatistics();
   }
 
@@ -62,11 +56,7 @@ class _CreateCenterPageState extends State<CreateCenterPage>
     }
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  // dispose 未重写：无状态资源需要释放
 
   @override
   Widget build(BuildContext context) {
@@ -367,7 +357,14 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                                   builder: (context) =>
                                       const CreateCharacterPage(),
                                 ),
-                              );
+                              ).then((result) {
+                                // 如果创建成功，可以在这里处理回调
+                                // 由于这是创建中心页面，不需要刷新列表
+                                // 但可以显示成功提示
+                                if (result == true) {
+                                  // 可以添加成功提示或其他处理
+                                }
+                              });
                             },
                             behavior: HitTestBehavior.opaque,
                             child: Row(
@@ -684,7 +681,11 @@ class _CreateCenterPageState extends State<CreateCenterPage>
 
             // 公共素材库
             SliverToBoxAdapter(
-              child: GestureDetector(
+              child: _buildListRow(
+                icon: Icons.folder_shared,
+                iconColor: Colors.blue,
+                title: '公共素材库',
+                subtitle: '浏览公共创作素材',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -693,54 +694,16 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                     ),
                   );
                 },
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(24.w, 16.h, 24.w, 16.h),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.folder_shared,
-                        color: Colors.blue,
-                        size: 24.sp,
-                      ),
-                      SizedBox(width: 16.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '公共素材库',
-                              style: TextStyle(
-                                fontSize: AppTheme.captionSize,
-                                fontWeight: FontWeight.w500,
-                                color: textPrimary,
-                              ),
-                            ),
-                            SizedBox(height: 4.h),
-                            Text(
-                              '浏览公共创作素材',
-                              style: TextStyle(
-                                fontSize: AppTheme.smallSize,
-                                color: textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        color: textSecondary.withOpacity(0.5),
-                        size: 16.sp,
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ),
 
             // 我的素材库
             SliverToBoxAdapter(
-              child: GestureDetector(
+              child: _buildListRow(
+                icon: Icons.folder,
+                iconColor: Colors.cyan,
+                title: '我的素材库',
+                subtitle: '管理你的创作素材',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -749,48 +712,8 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                     ),
                   );
                 },
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 24.h),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.folder,
-                        color: Colors.cyan,
-                        size: 24.sp,
-                      ),
-                      SizedBox(width: 16.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '我的素材库',
-                              style: TextStyle(
-                                fontSize: AppTheme.captionSize,
-                                fontWeight: FontWeight.w500,
-                                color: textPrimary,
-                              ),
-                            ),
-                            SizedBox(height: 4.h),
-                            Text(
-                              '管理你的创作素材',
-                              style: TextStyle(
-                                fontSize: AppTheme.smallSize,
-                                color: textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        color: textSecondary.withOpacity(0.5),
-                        size: 16.sp,
-                      ),
-                    ],
-                  ),
-                ),
+                topPadding: 0,
+                bottomPadding: 24.h,
               ),
             ),
 
@@ -811,7 +734,11 @@ class _CreateCenterPageState extends State<CreateCenterPage>
 
             // 公共世界书
             SliverToBoxAdapter(
-              child: GestureDetector(
+              child: _buildListRow(
+                icon: Icons.public,
+                iconColor: Colors.indigo,
+                title: '公共世界书',
+                subtitle: '浏览公共世界观设定',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -819,54 +746,16 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                         builder: (context) => const PublicWorldBookPage()),
                   );
                 },
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(24.w, 16.h, 24.w, 16.h),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.public,
-                        color: Colors.indigo,
-                        size: 24.sp,
-                      ),
-                      SizedBox(width: 16.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '公共世界书',
-                              style: TextStyle(
-                                fontSize: AppTheme.captionSize,
-                                fontWeight: FontWeight.w500,
-                                color: textPrimary,
-                              ),
-                            ),
-                            SizedBox(height: 4.h),
-                            Text(
-                              '浏览公共世界观设定',
-                              style: TextStyle(
-                                fontSize: AppTheme.smallSize,
-                                color: textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        color: textSecondary.withOpacity(0.5),
-                        size: 16.sp,
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ),
 
             // 我的世界书
             SliverToBoxAdapter(
-              child: GestureDetector(
+              child: _buildListRow(
+                icon: Icons.public,
+                iconColor: Colors.teal,
+                title: '我的世界书',
+                subtitle: '创建你的世界观设定',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -874,48 +763,8 @@ class _CreateCenterPageState extends State<CreateCenterPage>
                         builder: (context) => const MyWorldBookPage()),
                   );
                 },
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 24.h),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.public,
-                        color: Colors.teal,
-                        size: 24.sp,
-                      ),
-                      SizedBox(width: 16.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '我的世界书',
-                              style: TextStyle(
-                                fontSize: AppTheme.captionSize,
-                                fontWeight: FontWeight.w500,
-                                color: textPrimary,
-                              ),
-                            ),
-                            SizedBox(height: 4.h),
-                            Text(
-                              '创建你的世界观设定',
-                              style: TextStyle(
-                                fontSize: AppTheme.smallSize,
-                                color: textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        color: textSecondary.withOpacity(0.5),
-                        size: 16.sp,
-                      ),
-                    ],
-                  ),
-                ),
+                topPadding: 0,
+                bottomPadding: 24.h,
               ),
             ),
           ],
@@ -1187,6 +1036,73 @@ class _CreateCenterPageState extends State<CreateCenterPage>
         type: ToastType.error,
       );
     }
+  }
+
+  // 统一的列表行组件（图标 + 标题 + 副标题 + 右箭头 + 水波纹反馈）
+  Widget _buildListRow({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    double? topPadding,
+    double? bottomPadding,
+  }) {
+    final Color textPrimary = AppTheme.textPrimary;
+    final Color textSecondary = AppTheme.textSecondary;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        24.w,
+        (topPadding ?? 16.h),
+        24.w,
+        (bottomPadding ?? 16.h),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 4.h),
+            child: Row(
+              children: [
+                Icon(icon, color: iconColor, size: 24.sp),
+                SizedBox(width: 16.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: AppTheme.captionSize,
+                          fontWeight: FontWeight.w600,
+                          color: textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: AppTheme.smallSize,
+                          color: textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: textSecondary.withOpacity(0.5),
+                  size: 16.sp,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildUnclaimedDuration(Color textPrimary, Color textSecondary) {

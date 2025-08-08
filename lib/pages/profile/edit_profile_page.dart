@@ -429,8 +429,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       if (value == null || value.trim().isEmpty) {
                         return '用户名不能为空';
                       }
-                      if (value.length < 3) {
-                        return '用户名不能少于3个字符';
+                      if (value.length < 2) {
+                        return '用户名不能少于2个字符';
                       }
                       if (value.length > 20) {
                         return '用户名不能超过20个字符';

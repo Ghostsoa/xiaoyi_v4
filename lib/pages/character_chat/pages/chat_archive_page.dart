@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/custom_toast.dart';
 import '../../../widgets/cache_pull_dialog.dart';
+import '../../../widgets/confirmation_dialog.dart';
 import '../services/character_service.dart';
 import '../../../services/message_cache_service.dart';
 import '../../../services/session_data_service.dart';
@@ -420,27 +421,19 @@ class _ChatArchivePageState extends State<ChatArchivePage>
   }
 
   /// 显示清空缓存确认对话框
-  void _showClearCacheConfirmDialog(String archiveId, String archiveName) {
-    showDialog(
+  Future<void> _showClearCacheConfirmDialog(String archiveId, String archiveName) async {
+    final bool? confirmed = await ConfirmationDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('清空本地缓存'),
-        content: Text('确定要清空存档"$archiveName"的本地缓存吗？\n\n清空后该存档将恢复为在线模式，需要重新拉取缓存才能使用本地模式。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _clearArchiveCache(archiveId, archiveName);
-            },
-            child: Text('清空', style: TextStyle(color: Colors.orange)),
-          ),
-        ],
-      ),
+      title: '清空本地缓存',
+      content: '确定要清空存档"$archiveName"的本地缓存吗？\n\n清空后该存档将恢复为在线模式，需要重新拉取缓存才能使用本地模式。',
+      confirmText: '清空',
+      cancelText: '取消',
+      isDangerous: false,
     );
+
+    if (confirmed == true) {
+      _clearArchiveCache(archiveId, archiveName);
+    }
   }
 
   /// 清空指定存档的本地缓存
@@ -768,44 +761,19 @@ class _ChatArchivePageState extends State<ChatArchivePage>
     );
   }
 
-  void _showDeleteConfirmDialog(String saveSlotId, String saveName) {
-    showDialog(
+  Future<void> _showDeleteConfirmDialog(String saveSlotId, String saveName) async {
+    final bool? confirmed = await ConfirmationDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.cardBackground,
-        title: Text(
-          '删除存档',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 18.sp,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        content: Text(
-          '确定要删除存档"$saveName"吗？此操作不可恢复。',
-          style: TextStyle(color: AppTheme.textPrimary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              '取消',
-              style: TextStyle(color: AppTheme.textSecondary),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              _deleteSaveSlot(saveSlotId);
-              Navigator.pop(context);
-            },
-            child: Text(
-              '删除',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
+      title: '删除存档',
+      content: '确定要删除存档"$saveName"吗？此操作不可恢复。',
+      confirmText: '删除',
+      cancelText: '取消',
+      isDangerous: true,
     );
+
+    if (confirmed == true) {
+      _deleteSaveSlot(saveSlotId);
+    }
   }
 
   String _formatDateTime(String dateTimeStr) {

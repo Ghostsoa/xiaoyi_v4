@@ -189,27 +189,41 @@ class SessionDataService {
   /// 批量插入或更新角色会话
   Future<void> insertOrUpdateCharacterSessions(List<SessionModel> sessions) async {
     await initDatabase();
-    
+
+    // 读取本地已有的置顶状态，避免被API数据覆盖
+    final List<int> ids = sessions.map((s) => s.id).toList(growable: false);
+    final Map<int, Map<String, Object?>> localPinned = await _loadLocalPinnedState(
+      'character_sessions',
+      ids,
+    );
+
     final batch = _database!.batch();
-    
+
     for (final session in sessions) {
       final data = session.toDbJson();
       if (data['extra_data'] != null) {
         data['extra_data'] = jsonEncode(data['extra_data']);
       }
-      
+
+      // 用本地置顶字段覆盖API构造的数据
+      final pinnedRow = localPinned[session.id];
+      if (pinnedRow != null) {
+        data['is_pinned'] = pinnedRow['is_pinned'] ?? data['is_pinned'];
+        data['pinned_at'] = pinnedRow['pinned_at'];
+      }
+
       batch.insert(
         'character_sessions',
         data,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
-    
+
     await batch.commit(noResult: true);
-    
+
     // 通知UI更新
     _notifyCharacterSessionsUpdate();
-    
+
     debugPrint('[SessionDataService] 批量更新角色会话: ${sessions.length} 条');
   }
 
@@ -217,12 +231,26 @@ class SessionDataService {
   Future<void> insertOrUpdateNovelSessions(List<SessionModel> sessions) async {
     await initDatabase();
     
+    // 读取本地已有的置顶状态，避免被API数据覆盖
+    final List<int> ids = sessions.map((s) => s.id).toList(growable: false);
+    final Map<int, Map<String, Object?>> localPinned = await _loadLocalPinnedState(
+      'novel_sessions',
+      ids,
+    );
+
     final batch = _database!.batch();
     
     for (final session in sessions) {
       final data = session.toDbJson();
       if (data['extra_data'] != null) {
         data['extra_data'] = jsonEncode(data['extra_data']);
+      }
+
+      // 用本地置顶字段覆盖API构造的数据
+      final pinnedRow = localPinned[session.id];
+      if (pinnedRow != null) {
+        data['is_pinned'] = pinnedRow['is_pinned'] ?? data['is_pinned'];
+        data['pinned_at'] = pinnedRow['pinned_at'];
       }
       
       batch.insert(
@@ -238,6 +266,31 @@ class SessionDataService {
     _notifyNovelSessionsUpdate();
     
     debugPrint('[SessionDataService] 批量更新小说会话: ${sessions.length} 条');
+  }
+
+  /// 读取本地已有置顶状态（id -> {is_pinned, pinned_at}）
+  Future<Map<int, Map<String, Object?>>> _loadLocalPinnedState(
+    String table,
+    List<int> ids,
+  ) async {
+    if (ids.isEmpty) return <int, Map<String, Object?>>{};
+
+    // 构造 WHERE IN 子句
+    final String placeholders = List.filled(ids.length, '?').join(',');
+    final List<Map<String, Object?>> rows = await _database!.rawQuery(
+      'SELECT id, is_pinned, pinned_at FROM ' + table + ' WHERE id IN (' + placeholders + ')',
+      ids,
+    );
+
+    final Map<int, Map<String, Object?>> result = <int, Map<String, Object?>>{};
+    for (final row in rows) {
+      final int id = (row['id'] as int);
+      result[id] = <String, Object?>{
+        'is_pinned': row['is_pinned'],
+        'pinned_at': row['pinned_at'],
+      };
+    }
+    return result;
   }
 
   /// 更新单个角色会话

@@ -267,52 +267,116 @@ class _EditMaterialPageState extends State<EditMaterialPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.background,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          widget.material != null ? '编辑素材' : '创建素材',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: AppTheme.titleSize,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        leading: IconButton(
-          icon: Icon(Icons.close, color: AppTheme.textPrimary, size: 24.sp),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          if (_isLoading)
-            Center(
-              child: SizedBox(
-                width: 24.w,
-                height: 24.w,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.w,
-                  valueColor:
-                      AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                ),
-              ),
-            )
-          else
-            TextButton(
-              onPressed: _save,
-              child: Text(
-                '保存',
-                style: TextStyle(
-                  color: AppTheme.primaryColor,
-                  fontSize: AppTheme.bodySize,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          SizedBox(width: 16.w),
-        ],
-      ),
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: Column(
+          children: [
+            // 优化后的顶部导航栏
+            Container(
+              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 20.h),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        width: 40.w,
+                        height: 40.w,
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardBackground,
+                          borderRadius: BorderRadius.circular(12.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.shadowColor.withOpacity(0.1),
+                              blurRadius: 8.r,
+                              offset: Offset(0, 2.h),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.close,
+                          color: AppTheme.textPrimary,
+                          size: 18.sp,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.material != null ? '编辑素材' : '创建素材',
+                            style: TextStyle(
+                              fontSize: 24.sp,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          SizedBox(height: 4.h),
+                          Text(
+                            widget.material != null ? '修改素材信息' : '添加新的创作素材',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_isLoading)
+                      Container(
+                        width: 40.w,
+                        height: 40.w,
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardBackground,
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                        child: Center(
+                          child: SizedBox(
+                            width: 20.w,
+                            height: 20.w,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.w,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      GestureDetector(
+                        onTap: _save,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: AppTheme.buttonGradient,
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryColor.withOpacity(0.3),
+                                blurRadius: 8.r,
+                                offset: Offset(0, 4.h),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            '保存',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            // 内容区域
+            Expanded(
+              child: SingleChildScrollView(
           padding: EdgeInsets.all(24.w),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -508,6 +572,9 @@ class _EditMaterialPageState extends State<EditMaterialPage> {
           ),
         ),
       ),
+      ],
+    ),
+    ),
     );
   }
 }

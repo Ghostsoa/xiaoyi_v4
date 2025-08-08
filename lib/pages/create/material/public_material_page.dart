@@ -758,7 +758,95 @@ class _PublicMaterialPageState extends State<PublicMaterialPage> {
     );
   }
 
-  // 构建简单的文本分类器
+  // 构建现代化的分类选择器
+  Widget _buildModernCategorySelector() {
+    return Container(
+      height: 50.h,
+      child: Row(
+        children: _categories.map((category) {
+          final bool isSelected = _currentType == category['type'];
+          final int index = _categories.indexOf(category);
+
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => _changeCategory(category['type']),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: EdgeInsets.only(
+                  right: index < _categories.length - 1 ? 8.w : 0,
+                ),
+                decoration: BoxDecoration(
+                  gradient: isSelected
+                      ? LinearGradient(
+                          colors: AppTheme.buttonGradient,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: isSelected ? null : AppTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(12.r),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: AppTheme.primaryColor.withOpacity(0.3),
+                            blurRadius: 8.r,
+                            offset: Offset(0, 4.h),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: AppTheme.shadowColor.withOpacity(0.05),
+                            blurRadius: 4.r,
+                            offset: Offset(0, 2.h),
+                          ),
+                        ],
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getCategoryIcon(category['type']),
+                        size: 20.sp,
+                        color: isSelected ? Colors.white : AppTheme.textSecondary,
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        category['label'],
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          color: isSelected ? Colors.white : AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // 获取分类图标
+  IconData _getCategoryIcon(String type) {
+    switch (type) {
+      case 'image':
+        return Icons.image_outlined;
+      case 'template':
+        return Icons.description_outlined;
+      case 'prefix':
+        return Icons.format_quote_outlined;
+      case 'suffix':
+        return Icons.format_quote_outlined;
+      default:
+        return Icons.folder_outlined;
+    }
+  }
+
+  // 构建简单的文本分类器（保留作为备用）
   Widget _buildCategorySelector() {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
@@ -809,39 +897,68 @@ class _PublicMaterialPageState extends State<PublicMaterialPage> {
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(
-                      Icons.arrow_back,
-                      color: AppTheme.textPrimary,
-                      size: 24.sp,
+            // 优化后的顶部导航栏
+            Container(
+              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 20.h),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).pop(),
+                          child: Container(
+                            width: 40.w,
+                            height: 40.w,
+                            decoration: BoxDecoration(
+                              color: AppTheme.cardBackground,
+                              borderRadius: BorderRadius.circular(12.r),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.shadowColor.withOpacity(0.1),
+                                  blurRadius: 8.r,
+                                  offset: Offset(0, 2.h),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.arrow_back_ios_new,
+                              color: AppTheme.textPrimary,
+                              size: 18.sp,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 16.w),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '公共素材库',
+                                style: TextStyle(
+                                  fontSize: 24.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              SizedBox(height: 4.h),
+                              Text(
+                                '发现更多创作素材',
+                                style: TextStyle(
+                                  fontSize: 14.sp,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    padding: EdgeInsets.zero,
-                    constraints: BoxConstraints(
-                      minWidth: 24.w,
-                      minHeight: 24.w,
-                    ),
-                  ),
-                  SizedBox(width: 16.w),
-                  Expanded(
-                    child: Text(
-                      '公共素材库',
-                      style: TextStyle(
-                        fontSize: AppTheme.headingSize,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ),
-                ],
+                    SizedBox(height: 20.h),
+                    // 优化后的分类选择器
+                    _buildModernCategorySelector(),
+                  ],
+                ),
               ),
-            ),
-            // 使用简单的文本分类器替代TabBar
-            _buildCategorySelector(),
             Expanded(
               child: _buildMaterialList(_currentType),
             ),
