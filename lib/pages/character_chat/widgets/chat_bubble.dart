@@ -9,6 +9,7 @@ import 'formatters/custom_formatter.dart';
 import 'status_bar.dart';
 import 'package:flutter/services.dart';
 import '../../../widgets/custom_toast.dart';
+import '../../../widgets/confirmation_dialog.dart';
 import '../services/character_service.dart';
 
 class ChatBubble extends StatefulWidget {
@@ -145,22 +146,15 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
       return;
     }
 
-    final bool? confirmed = await showDialog<bool>(
+    final bool? confirmed = await ConfirmationDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: const Text('确定要删除这条消息吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text('删除', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+      title: '确认删除',
+      content: '确定要删除这条消息吗？此操作不可恢复。',
+      confirmText: '删除',
+      cancelText: '取消',
+      isDangerous: true,
+      showRememberOption: true,
+      rememberKey: 'delete_message',
     );
 
     if (confirmed != true) return;

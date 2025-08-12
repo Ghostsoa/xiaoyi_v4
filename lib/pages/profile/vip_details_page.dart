@@ -47,14 +47,14 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
         ModelQuota(
           modelName: 'gemini-2.5-pro',
           description: '高性能AI大语言模型',
-          dailyLimit: 100,
+          dailyLimit: 200,
           usedQuota: 0,
           remainQuota: 0,
         ),
         ModelQuota(
           modelName: 'gemini-2.5-flash',
           description: '响应速度更快的AI模型',
-          dailyLimit: 250,
+          dailyLimit: 500,
           usedQuota: 0,
           remainQuota: 0,
         ),
@@ -68,14 +68,14 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
         ModelQuota(
           modelName: 'gemini-2.0-flash',
           description: '稳定性更高的AI模型',
-          dailyLimit: 250,
+          dailyLimit: 500,
           usedQuota: 0,
           remainQuota: 0,
         ),
         ModelQuota(
           modelName: 'gemini-2.0-flash-exp',
           description: '实验性AI模型，更多新功能',
-          dailyLimit: 250,
+          dailyLimit: 500,
           usedQuota: 0,
           remainQuota: 0,
         ),
@@ -89,26 +89,47 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
         widget.vipExpireAt != null &&
         widget.vipExpireAt!.isNotEmpty) {
       try {
-        // 解析UTC时间
+        // 解析服务器UTC时间
         final expireDate = DateTime.parse(widget.vipExpireAt!);
-        final now = DateTime.now().toUtc(); // 使用UTC时间进行比较
+        final now = DateTime.now();
+
+        // 计算剩余时间：直接用UTC时间比较
         final difference = expireDate.difference(now);
 
-        // 计算剩余天数，精确到1位小数
-        final totalHours = difference.inHours;
-        final days = totalHours ~/ 24; // 整天数
-        final remainingHours = totalHours % 24; // 剩余小时数
-        final decimalDay = remainingHours / 24.0; // 转换为小数天
-        final totalDays = days + decimalDay; // 总天数，包含小数部分
+        debugPrint('原始到期时间: ${widget.vipExpireAt}');
+        debugPrint('解析到期时间(UTC): $expireDate');
+        debugPrint('当前时间: $now');
+        debugPrint('时间差(小时): ${difference.inHours}');
+        debugPrint('时间差(分钟): ${difference.inMinutes}');
 
-        if (totalDays > 0) {
-          // 显示1位小数
-          _formattedExpireTime = '剩余 ${totalDays.toStringAsFixed(1)} 天';
+        if (difference.inSeconds > 0) {
+          // 计算剩余天数，使用更简单的方式
+          final totalDays = difference.inHours / 24.0;
+          debugPrint('计算天数: ${difference.inHours} / 24 = $totalDays');
 
-          // 如果小数部分是0，则显示整数
-          if (totalDays == totalDays.truncateToDouble()) {
-            _formattedExpireTime = '剩余 ${totalDays.toInt()} 天';
+          // 计算剩余天数显示，不足0.1天时显示0.1天
+          double displayDays = totalDays;
+          if (totalDays > 0 && totalDays < 0.1) {
+            displayDays = 0.1;
           }
+          debugPrint('显示天数: $displayDays');
+
+          // 格式化到期时间为 YYYY-MM-DD HH:mm（显示本地时间，需要加8小时）
+          final localExpireDate = expireDate.add(const Duration(hours: 8));
+          final year = localExpireDate.year;
+          final month = localExpireDate.month.toString().padLeft(2, '0');
+          final day = localExpireDate.day.toString().padLeft(2, '0');
+          final hour = localExpireDate.hour.toString().padLeft(2, '0');
+          final minute = localExpireDate.minute.toString().padLeft(2, '0');
+
+          // 显示剩余天数和到期时间（分两行）
+          String remainingDaysStr;
+          if (displayDays == displayDays.truncateToDouble()) {
+            remainingDaysStr = '剩余天数：${displayDays.toInt()}天';
+          } else {
+            remainingDaysStr = '剩余天数：${displayDays.toStringAsFixed(1)}天';
+          }
+          _formattedExpireTime = '$remainingDaysStr\n有效期：$year-$month-$day $hour:$minute';
         } else {
           _formattedExpireTime = '已过期';
         }
@@ -378,6 +399,53 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
     );
   }
 
+  // 构建格式化的到期时间显示，数值部分加粗
+  Widget _buildFormattedExpireTime() {
+    final lines = _formattedExpireTime.split('\n');
+    if (lines.length != 2) {
+      return Text(
+        _formattedExpireTime,
+        style: TextStyle(
+          fontSize: 14.sp,
+          color: Colors.white,
+          height: 1.3,
+        ),
+      );
+    }
+
+    // 解析第一行：剩余天数：X.X天
+    final firstLine = lines[0];
+    final remainingMatch = RegExp(r'剩余天数：(.+)天').firstMatch(firstLine);
+
+    // 解析第二行：有效期：YYYY-MM-DD HH:mm
+    final secondLine = lines[1];
+    final expireMatch = RegExp(r'有效期：(.+)').firstMatch(secondLine);
+
+    return RichText(
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(
+        style: TextStyle(
+          fontSize: 14.sp,
+          color: Colors.white,
+          height: 1.3,
+        ),
+        children: [
+          TextSpan(text: '剩余天数：'),
+          TextSpan(
+            text: remainingMatch?.group(1) ?? '',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          TextSpan(text: '天\n有效期：'),
+          TextSpan(
+            text: expireMatch?.group(1) ?? '',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildVipStatusCard() {
     return Container(
       width: double.infinity,
@@ -440,26 +508,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
           ),
           if (widget.isVip) ...[
             SizedBox(height: 16.h),
-            Row(
-              children: [
-                Text(
-                  '有效期:',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                ),
-                SizedBox(width: 8.w),
-                Text(
-                  _formattedExpireTime,
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
+            _buildFormattedExpireTime(),
           ],
         ],
       ),

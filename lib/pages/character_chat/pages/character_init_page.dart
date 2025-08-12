@@ -11,10 +11,12 @@ import '../../../theme/app_theme.dart';
 
 class CharacterInitPage extends StatefulWidget {
   final Map<String, dynamic> characterData;
+  final bool isDebug;
 
   const CharacterInitPage({
     super.key,
     required this.characterData,
+    this.isDebug = false,
   });
 
   @override
@@ -195,6 +197,7 @@ class _CharacterInitPageState extends State<CharacterInitPage>
         _initFields == null || _interactiveFields.isEmpty
             ? {}
             : _initFieldValues,
+        isDebug: widget.isDebug,
       );
 
       if (mounted) {

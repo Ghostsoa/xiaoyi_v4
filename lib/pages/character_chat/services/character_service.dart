@@ -8,15 +8,22 @@ class CharacterService {
   /// 创建角色卡会话
   Future<Map<String, dynamic>> createCharacterSession(
     int characterId,
-    Map<String, String> initFields,
-  ) async {
+    Map<String, String> initFields, {
+    bool isDebug = false,
+  }) async {
     try {
+      final Map<String, dynamic> data = {
+        'characterId': characterId,
+        'initFields': initFields,
+      };
+
+      if (isDebug) {
+        data['debug'] = 'debug';
+      }
+
       final response = await _httpClient.post(
         '/sessions/character',
-        data: {
-          'characterId': characterId,
-          'initFields': initFields,
-        },
+        data: data,
       );
 
       if (response.data['code'] == 0) {

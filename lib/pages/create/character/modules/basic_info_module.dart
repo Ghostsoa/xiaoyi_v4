@@ -7,7 +7,6 @@ import '../../material/select_image_page.dart';
 import '../../../../widgets/custom_toast.dart';
 import '../../services/characte_service.dart';
 import 'markdown_preview_dialog.dart';
-import '../../../../widgets/markdown_renderer.dart';
 import 'package:shimmer/shimmer.dart';
 
 class BasicInfoModule extends StatefulWidget {
@@ -467,7 +466,42 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
         _buildTagInput(),
         SizedBox(height: 16.h),
 
-        // 图片选择部分
+        // 图片选择部分 - 警告独立板块
+        Container(
+          margin: EdgeInsets.only(bottom: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+          decoration: BoxDecoration(
+            color: AppTheme.error.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8.r),
+            border: Border.all(
+              color: AppTheme.error.withOpacity(0.6),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.report_gmailerrorred,
+                color: AppTheme.error,
+                size: 18.sp,
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Text(
+                  '重要提示：严禁使用真人图片，禁止侵犯肖像权。',
+                  style: TextStyle(
+                    color: AppTheme.error,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
         Row(
           children: [
             // 封面图片

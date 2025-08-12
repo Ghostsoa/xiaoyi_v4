@@ -49,8 +49,17 @@ class MessageService {
       if (response.data['code'] == 0) {
         final apiData = response.data['data'];
 
+        // 添加调试信息，忽略list字段内容
+        final debugData = Map<String, dynamic>.from(apiData);
+        if (debugData['list'] is List) {
+          debugData['list'] = '[${(debugData['list'] as List).length} items]';
+        }
+        debugPrint('[MessageService] API响应数据: $debugData');
+
         // 转换API数据为SessionModel
         final apiResponse = SessionListResponse.fromApiJson(apiData, false);
+
+        debugPrint('[MessageService] 解析后会话数量: ${apiResponse.sessions.length}, 总数: ${apiResponse.total}');
 
         // 同步到本地数据库
         await _sessionDataService.syncCharacterSessionsWithApi(apiResponse.sessions);
@@ -106,8 +115,17 @@ class MessageService {
       if (response.data['code'] == 0) {
         final apiData = response.data['data'];
 
+        // 添加调试信息，忽略sessions字段内容
+        final debugData = Map<String, dynamic>.from(apiData);
+        if (debugData['sessions'] is List) {
+          debugData['sessions'] = '[${(debugData['sessions'] as List).length} items]';
+        }
+        debugPrint('[MessageService] 小说API响应数据: $debugData');
+
         // 转换API数据为SessionModel
         final apiResponse = SessionListResponse.fromApiJson(apiData, true);
+
+        debugPrint('[MessageService] 解析后小说会话数量: ${apiResponse.sessions.length}, 总数: ${apiResponse.total}');
 
         // 同步到本地数据库
         await _sessionDataService.syncNovelSessionsWithApi(apiResponse.sessions);

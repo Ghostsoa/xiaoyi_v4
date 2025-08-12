@@ -96,7 +96,13 @@ class CharacterSessionListState extends State<CharacterSessionList> {
     });
 
     try {
-      // 优先从本地数据库加载
+      // 先从API获取第一页数据，确定分页参数
+      final apiResult = await _messageService.syncCharacterSessionsFromApi(
+        page: _currentPage,
+        pageSize: 10,
+      );
+
+      // 然后从本地数据库快速显示
       final result = await _messageService.getCharacterSessions(
         page: _currentPage,
         pageSize: 10,
@@ -111,8 +117,9 @@ class CharacterSessionListState extends State<CharacterSessionList> {
             debugPrint('获取本地会话列表返回数据格式错误: $result');
           }
 
-          final int total = result['total'] is int ? result['total'] : 0;
-          _hasMore = _sessions.length < total;
+          // 分页参数以API为准
+          final int total = apiResult['total'] is int ? apiResult['total'] : 0;
+          _hasMore = _currentPage * 10 < total;
           _isLoading = false;
         });
 
@@ -120,9 +127,6 @@ class CharacterSessionListState extends State<CharacterSessionList> {
         for (var session in _sessions) {
           _loadAvatar(session['cover_uri']);
         }
-
-        // 静默同步API数据
-        _syncWithApiInBackground();
       }
     } catch (e) {
       if (mounted) {
@@ -130,28 +134,11 @@ class CharacterSessionListState extends State<CharacterSessionList> {
           _isLoading = false;
           _sessions = [];
         });
-        debugPrint('加载本地会话列表失败: $e');
+        debugPrint('加载会话列表失败: $e');
       }
     }
   }
 
-  /// 后台静默同步API数据
-  Future<void> _syncWithApiInBackground() async {
-    if (_isSyncing) return;
-
-    _isSyncing = true;
-    try {
-      await _messageService.syncCharacterSessionsFromApi(
-        page: 1,
-        pageSize: 1000, // 获取所有数据进行同步
-      );
-      debugPrint('[CharacterSessionList] 后台同步完成');
-    } catch (e) {
-      debugPrint('[CharacterSessionList] 后台同步失败: $e');
-    } finally {
-      _isSyncing = false;
-    }
-  }
 
   Future<void> _loadMoreSessions() async {
     if (_isLoadingMore || !_hasMore) return;
@@ -159,8 +146,17 @@ class CharacterSessionListState extends State<CharacterSessionList> {
     setState(() => _isLoadingMore = true);
 
     try {
+      final nextPage = _currentPage + 1;
+
+      // 先从API同步下一页数据到本地
+      await _messageService.syncCharacterSessionsFromApi(
+        page: nextPage,
+        pageSize: 10,
+      );
+
+      // 然后从本地获取这一页的数据（经过本地处理，包含置顶等状态）
       final result = await _messageService.getCharacterSessions(
-        page: _currentPage + 1,
+        page: nextPage,
         pageSize: 10,
       );
 
@@ -169,19 +165,31 @@ class CharacterSessionListState extends State<CharacterSessionList> {
         if (result['list'] is List) {
           newSessions = List<Map<String, dynamic>>.from(result['list']);
         } else {
-          debugPrint('加载更多会话返回数据格式错误: $result');
+          debugPrint('获取本地数据格式错误: $result');
         }
 
-        setState(() {
-          _sessions.addAll(newSessions);
-          _currentPage++;
-          final int total = result['total'] is int ? result['total'] : 0;
-          _hasMore = _sessions.length < total;
-          _isLoadingMore = false;
-        });
+        debugPrint('[CharacterSessionList] 加载第${nextPage}页，新增${newSessions.length}条数据');
 
-        for (var session in newSessions) {
-          _loadAvatar(session['cover_uri']);
+        if (newSessions.isNotEmpty) {
+          final oldLength = _sessions.length;
+          setState(() {
+            _sessions.addAll(newSessions); // 累加到现有列表
+            _currentPage = nextPage;
+            // 分页参数以API为准，但使用本地total（应该和API一致）
+            final int total = result['total'] is int ? result['total'] : 0;
+            _hasMore = _currentPage * 10 < total;
+            _isLoadingMore = false;
+          });
+
+          debugPrint('[CharacterSessionList] 数据累加成功：从${oldLength}条增加到${_sessions.length}条');
+          debugPrint('[CharacterSessionList] 新增数据ID: ${newSessions.map((s) => s['id']).toList()}');
+
+          for (var session in newSessions) {
+            _loadAvatar(session['cover_uri']);
+          }
+        } else {
+          setState(() => _isLoadingMore = false);
+          debugPrint('[CharacterSessionList] 没有新数据');
         }
       }
     } catch (e) {
@@ -195,13 +203,13 @@ class CharacterSessionListState extends State<CharacterSessionList> {
   Future<void> onRefresh() async {
     _currentPage = 1;
     try {
-      // 手动刷新时，强制从API同步最新数据
-      await _messageService.syncCharacterSessionsFromApi(
-        page: 1,
-        pageSize: 1000, // 获取所有数据
+      // 先从API同步第一页数据，获取准确的分页信息
+      final apiResult = await _messageService.syncCharacterSessionsFromApi(
+        page: _currentPage,
+        pageSize: 10,
       );
 
-      // 然后从本地数据库重新加载第一页
+      // 然后从本地数据库快速显示
       final result = await _messageService.getCharacterSessions(
         page: _currentPage,
         pageSize: 10,
@@ -216,8 +224,9 @@ class CharacterSessionListState extends State<CharacterSessionList> {
             debugPrint('刷新会话列表返回数据格式错误: $result');
           }
 
-          final int total = result['total'] is int ? result['total'] : 0;
-          _hasMore = _sessions.length < total;
+          // 分页参数以API为准
+          final int total = apiResult['total'] is int ? apiResult['total'] : 0;
+          _hasMore = _currentPage * 10 < total;
         });
 
         for (var session in _sessions) {
@@ -242,25 +251,40 @@ class CharacterSessionListState extends State<CharacterSessionList> {
     }
 
     try {
-      final result = await _messageService.getCharacterSessions(
-        page: _currentPage + 1,
+      final nextPage = _currentPage + 1;
+
+      // 先从API同步下一页数据
+      final apiResult = await _messageService.syncCharacterSessionsFromApi(
+        page: nextPage,
         pageSize: 10,
       );
 
+      // 调试信息，忽略list字段内容
+      final debugResult = Map<String, dynamic>.from(apiResult);
+      if (debugResult['list'] is List) {
+        debugResult['list'] = '[${(debugResult['list'] as List).length} items]';
+      }
+      debugPrint('[CharacterSessionList] 分页加载结果: 页码=$nextPage, 数据=$debugResult');
+
       if (mounted) {
+        // 从API结果中直接获取新数据
         List<Map<String, dynamic>> newSessions = [];
-        if (result['list'] is List) {
-          newSessions = List<Map<String, dynamic>>.from(result['list']);
+        if (apiResult['list'] is List) {
+          newSessions = List<Map<String, dynamic>>.from(apiResult['list']);
         } else {
-          debugPrint('加载更多会话返回数据格式错误: $result');
+          debugPrint('API返回数据格式错误: $apiResult');
         }
+
+        debugPrint('[CharacterSessionList] 解析到新会话数量: ${newSessions.length}');
 
         if (newSessions.isNotEmpty) {
           setState(() {
-            _sessions.addAll(newSessions);
-            _currentPage++;
-            final int total = (result['total'] is int ? result['total'] : 0);
-            _hasMore = _sessions.length < total;
+            _sessions.addAll(newSessions); // 累加到现有列表
+            _currentPage = nextPage;
+            // 分页参数以API为准
+            final int total = apiResult['total'] is int ? apiResult['total'] : 0;
+            _hasMore = _currentPage * 10 < total;
+            debugPrint('[CharacterSessionList] 更新状态: 当前页=$_currentPage, 总会话=${_sessions.length}, 总数=$total, 还有更多=$_hasMore');
           });
 
           for (var session in newSessions) {
@@ -338,6 +362,51 @@ class CharacterSessionListState extends State<CharacterSessionList> {
     } catch (e) {
       return defaultValue;
     }
+  }
+
+  /// 解析会话名称，分离调试版前缀
+  Map<String, String> _parseSessionName(String sessionName) {
+    if (sessionName.startsWith('(调试版)')) {
+      return {
+        'prefix': '(调试版)',
+        'name': sessionName.substring(5).trim(),
+      };
+    }
+    return {
+      'prefix': '',
+      'name': sessionName,
+    };
+  }
+
+  /// 构建调试版标签
+  Widget _buildDebugTag() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: AppTheme.buttonGradient,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          transform: const GradientRotation(0.4),
+        ),
+        borderRadius: BorderRadius.circular(4.r),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.buttonGradient.first.withOpacity(0.3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        '调试版',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 10.sp,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
   }
 
   @override
@@ -541,6 +610,11 @@ class CharacterSessionListState extends State<CharacterSessionList> {
       sessionName = '未命名会话';
     }
 
+    // 解析会话名称，分离调试版前缀
+    final parsedName = _parseSessionName(sessionName);
+    final bool isDebugVersion = parsedName['prefix']!.isNotEmpty;
+    final String displayName = parsedName['name']!;
+
     String lastMessage = '';
     try {
       lastMessage = session['last_message'] ?? '开始对话';
@@ -701,7 +775,7 @@ class CharacterSessionListState extends State<CharacterSessionList> {
                             children: [
                               Flexible(
                                 child: Text(
-                                  sessionName,
+                                  displayName,
                                   style: AppTheme.titleStyle.copyWith(
                                     fontSize: 15.sp,
                                     fontWeight: FontWeight.w500,
@@ -710,6 +784,11 @@ class CharacterSessionListState extends State<CharacterSessionList> {
                                   maxLines: 1,
                                 ),
                               ),
+                              // 🔥 调试版标签
+                              if (isDebugVersion) ...[
+                                SizedBox(width: 4.w),
+                                _buildDebugTag(),
+                              ],
                               // 🔥 置顶图标
                               if ((session['is_pinned'] as int? ?? 0) == 1) ...[
                                 SizedBox(width: 4.w),

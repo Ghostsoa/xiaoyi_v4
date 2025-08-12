@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../dao/user_dao.dart';
 import '../pages/login/login_page.dart';
 import '../services/network_monitor_service.dart';
@@ -48,9 +49,23 @@ class HttpClient {
   /// 异步初始化完成标记
   final Completer<void> _initCompleter = Completer<void>();
 
+  /// 获取应用版本号
+  Future<String> _getAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      return '${packageInfo.version}+${packageInfo.buildNumber}';
+    } catch (e) {
+      debugPrint('获取版本号失败: $e');
+      return '1.0.0+1'; // 默认版本号
+    }
+  }
+
   /// 初始化客户端
   Future<void> _initClient() async {
     try {
+      // 获取应用版本号
+      final appVersion = await _getAppVersion();
+
       // 创建Dio实例，先使用空的baseUrl，后续会更新
       _dio = Dio(BaseOptions(
         baseUrl: '', // 初始化时不设置baseUrl，等待获取节点
@@ -59,6 +74,9 @@ class HttpClient {
         sendTimeout: const Duration(seconds: 15),
         contentType: 'application/json',
         responseType: ResponseType.json,
+        headers: {
+          'X-App-Version': appVersion,
+        },
       ));
 
       // 添加缓存拦截器

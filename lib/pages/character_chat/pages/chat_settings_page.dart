@@ -37,6 +37,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
   double _userBubbleOpacity = 0.8;
   Color _userTextColor = Colors.white;
   double _fontSize = 14.0;
+  Map<String, Map<String, dynamic>> _customTagStyles = {};
 
   @override
   void initState() {
@@ -55,6 +56,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
       _userBubbleOpacity = settings['userBubbleOpacity'];
       _userTextColor = _hexToColor(settings['userTextColor']);
       _fontSize = settings['fontSize'] ?? 14.0;
+      _customTagStyles = settings['customTagStyles'] ?? {};
     });
   }
 
@@ -87,6 +89,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
         'userBubbleOpacity': _userBubbleOpacity,
         'userTextColor': _colorToHex(_userTextColor),
         'fontSize': _fontSize,
+        'customTagStyles': _customTagStyles,
       });
 
       if (mounted) {
@@ -312,6 +315,18 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                   ),
                 ],
               ),
+              SizedBox(height: 16.h),
+              _buildSectionWithAction(
+                title: '自定义标签样式',
+                icon: Icons.style,
+                color: Colors.orange,
+                actionIcon: Icons.refresh,
+                actionLabel: '重置',
+                onActionPressed: _resetCustomTagStyles,
+                children: [
+                  _buildCustomTagStylesList(),
+                ],
+              ),
             ],
           ),
         ),
@@ -344,6 +359,72 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                   color: AppTheme.textPrimary,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.cardBackground,
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border(left: BorderSide(color: color, width: 4)),
+          ),
+          child: Column(
+            children: children,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionWithAction({
+    required String title,
+    required List<Widget> children,
+    required Color color,
+    required IconData icon,
+    required IconData actionIcon,
+    required String actionLabel,
+    required VoidCallback onActionPressed,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(left: 8.w, bottom: 12.h),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: color,
+                size: 20.sp,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                title,
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const Spacer(),
+              // 重置按钮
+              TextButton.icon(
+                onPressed: onActionPressed,
+                icon: Icon(actionIcon, size: 16.sp, color: color),
+                label: Text(
+                  actionLabel,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),
             ],
@@ -436,7 +517,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
             label: valueDisplay ?? '${(value * 100).toStringAsFixed(0)}%',
             onChanged: onChanged,
             activeColor: AppTheme.primaryColor,
-            inactiveColor: AppTheme.textSecondary.withOpacity(0.3),
+            inactiveColor: AppTheme.textSecondary.withValues(alpha: 0.3),
           ),
         ),
         SizedBox(height: 8.h),
@@ -488,7 +569,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                   color: color,
                   borderRadius: BorderRadius.circular(16.r),
                   border: Border.all(
-                    color: AppTheme.textSecondary.withOpacity(0.3),
+                    color: AppTheme.textSecondary.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -498,5 +579,203 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
         ),
       ),
     );
+  }
+
+  /// 构建自定义标签样式列表
+  Widget _buildCustomTagStylesList() {
+    final supportedTags = ChatSettingsDao.getSupportedTags();
+
+    return Column(
+      children: supportedTags.map((tagName) {
+        final style = _customTagStyles[tagName] ?? {
+          'backgroundColor': '0xFF6C7B7F',
+          'opacity': 0.15,
+          'textColor': '0xFF2C2C2C',
+        };
+
+        return _buildCustomTagStyleItem(tagName, style);
+      }).toList(),
+    );
+  }
+
+  /// 构建单个自定义标签样式项
+  Widget _buildCustomTagStyleItem(String tagName, Map<String, dynamic> style) {
+    final displayName = ChatSettingsDao.getTagDisplayName(tagName);
+    final backgroundColor = Color(int.parse(style['backgroundColor'].toString().replaceAll('0x', ''), radix: 16));
+    final opacity = (style['opacity'] as num).toDouble();
+    final textColor = Color(int.parse(style['textColor'].toString().replaceAll('0x', ''), radix: 16));
+
+    return ExpansionTile(
+      title: Text(
+        displayName,
+        style: TextStyle(
+          color: AppTheme.textPrimary,
+          fontSize: 15.sp,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      subtitle: Text(
+        '背景: ${_colorToHex(backgroundColor)} | 透明度: ${(opacity * 100).toInt()}% | 文字: ${_colorToHex(textColor)}',
+        style: TextStyle(
+          color: AppTheme.textSecondary,
+          fontSize: 12.sp,
+        ),
+      ),
+      leading: Container(
+        width: 24.w,
+        height: 24.h,
+        decoration: BoxDecoration(
+          color: backgroundColor.withValues(alpha: opacity),
+          borderRadius: BorderRadius.circular(4.r),
+          border: Border.all(
+            color: backgroundColor.withValues(alpha: 0.5),
+            width: 1,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            'T',
+            style: TextStyle(
+              color: textColor,
+              fontSize: 10.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+          child: Column(
+            children: [
+              // 背景颜色设置
+              _buildColorPickerItem(
+                title: '背景颜色',
+                subtitle: '设置$displayName的背景颜色',
+                color: backgroundColor,
+                onTap: () {
+                  _showColorPicker(backgroundColor, (color) {
+                    setState(() {
+                      _customTagStyles[tagName] = {
+                        ...style,
+                        'backgroundColor': '0x${(color.a.toInt() << 24 | color.r.toInt() << 16 | color.g.toInt() << 8 | color.b.toInt()).toRadixString(16).padLeft(8, '0')}',
+                      };
+                    });
+                  });
+                },
+              ),
+              // 透明度设置
+              _buildSliderItem(
+                title: '背景透明度',
+                subtitle: '调整$displayName的背景透明度',
+                value: opacity,
+                min: 0.0,
+                max: 1.0,
+                onChanged: (value) {
+                  setState(() {
+                    _customTagStyles[tagName] = {
+                      ...style,
+                      'opacity': value,
+                    };
+                  });
+                },
+              ),
+              // 文字颜色设置
+              _buildColorPickerItem(
+                title: '文字颜色',
+                subtitle: '设置$displayName的文字颜色',
+                color: textColor,
+                onTap: () {
+                  _showColorPicker(textColor, (color) {
+                    setState(() {
+                      _customTagStyles[tagName] = {
+                        ...style,
+                        'textColor': '0x${(color.a.toInt() << 24 | color.r.toInt() << 16 | color.g.toInt() << 8 | color.b.toInt()).toRadixString(16).padLeft(8, '0')}',
+                      };
+                    });
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 重置所有标签样式为默认值
+  Future<void> _resetCustomTagStyles() async {
+    // 显示确认对话框
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+          title: Text(
+            '重置标签样式',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          content: Text(
+            '确定要将所有标签样式重置为默认的简洁配色吗？此操作不可撤销。',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 14.sp,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                '取消',
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 14.sp,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6.r),
+                ),
+              ),
+              child: Text(
+                '重置',
+                style: TextStyle(fontSize: 14.sp),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        // 清空自定义样式，使用默认值
+        _customTagStyles.clear();
+      });
+
+      // 保存设置
+      await _saveSettings();
+
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '标签样式已重置为默认配色',
+          type: ToastType.success,
+        );
+      }
+    }
   }
 }

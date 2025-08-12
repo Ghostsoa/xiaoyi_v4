@@ -364,7 +364,8 @@ class SessionDataService {
   /// 通知角色会话更新
   Future<void> _notifyCharacterSessionsUpdate() async {
     try {
-      final response = await getLocalCharacterSessions(page: 1, pageSize: 1000);
+      // 只获取前100条用于UI更新，避免内存压力
+      final response = await getLocalCharacterSessions(page: 1, pageSize: 100);
       _characterSessionsController.add(response.sessions);
     } catch (e) {
       debugPrint('[SessionDataService] 通知角色会话更新失败: $e');
@@ -374,7 +375,8 @@ class SessionDataService {
   /// 通知小说会话更新
   Future<void> _notifyNovelSessionsUpdate() async {
     try {
-      final response = await getLocalNovelSessions(page: 1, pageSize: 1000);
+      // 只获取前100条用于UI更新，避免内存压力
+      final response = await getLocalNovelSessions(page: 1, pageSize: 100);
       _novelSessionsController.add(response.sessions);
     } catch (e) {
       debugPrint('[SessionDataService] 通知小说会话更新失败: $e');
@@ -399,7 +401,6 @@ class SessionDataService {
     }
 
     final sessionsToUpdate = <SessionModel>[];
-    final sessionsToDelete = <int>[];
 
     // 检测需要更新的会话
     for (final apiSession in apiSessions) {
@@ -409,25 +410,14 @@ class SessionDataService {
           _isApiSessionNewer(apiSession.updatedAt, localUpdatedAt)) {
         sessionsToUpdate.add(apiSession);
       }
-
-      // 从本地映射中移除，剩下的就是需要删除的
-      localSessionMap.remove(apiSession.id);
     }
 
-    // 删除本地存在但API中不存在的会话
-    sessionsToDelete.addAll(localSessionMap.keys);
-
-    // 执行更新
+    // 只执行更新，不删除其他页的数据
     if (sessionsToUpdate.isNotEmpty) {
       await insertOrUpdateCharacterSessions(sessionsToUpdate);
     }
 
-    // 执行删除
-    for (final sessionId in sessionsToDelete) {
-      await deleteCharacterSession(sessionId);
-    }
-
-    debugPrint('[SessionDataService] 角色会话同步完成: 更新${sessionsToUpdate.length}条, 删除${sessionsToDelete.length}条');
+    debugPrint('[SessionDataService] 角色会话同步完成: 更新${sessionsToUpdate.length}条');
 
     return sessionsToUpdate;
   }
@@ -450,7 +440,6 @@ class SessionDataService {
     }
 
     final sessionsToUpdate = <SessionModel>[];
-    final sessionsToDelete = <int>[];
 
     // 检测需要更新的会话
     for (final apiSession in apiSessions) {
@@ -460,25 +449,14 @@ class SessionDataService {
           _isApiSessionNewer(apiSession.updatedAt, localUpdatedAt)) {
         sessionsToUpdate.add(apiSession);
       }
-
-      // 从本地映射中移除，剩下的就是需要删除的
-      localSessionMap.remove(apiSession.id);
     }
 
-    // 删除本地存在但API中不存在的会话
-    sessionsToDelete.addAll(localSessionMap.keys);
-
-    // 执行更新
+    // 只执行更新，不删除其他页的数据
     if (sessionsToUpdate.isNotEmpty) {
       await insertOrUpdateNovelSessions(sessionsToUpdate);
     }
 
-    // 执行删除
-    for (final sessionId in sessionsToDelete) {
-      await deleteNovelSession(sessionId);
-    }
-
-    debugPrint('[SessionDataService] 小说会话同步完成: 更新${sessionsToUpdate.length}条, 删除${sessionsToDelete.length}条');
+    debugPrint('[SessionDataService] 小说会话同步完成: 更新${sessionsToUpdate.length}条');
 
     return sessionsToUpdate;
   }

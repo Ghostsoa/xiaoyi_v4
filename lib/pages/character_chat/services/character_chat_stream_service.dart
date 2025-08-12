@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../../dao/user_dao.dart';
 import '../models/sse_response.dart';
 import '../../../services/network_monitor_service.dart';
@@ -10,9 +11,20 @@ import '../../../services/network_monitor_service.dart';
 class CharacterChatStreamService {
   final UserDao _userDao = UserDao();
   final NetworkMonitorService _networkMonitor = NetworkMonitorService();
-  
+
   // 请求超时配置
-  static const Duration _requestTimeout = Duration(seconds: 90); // 请求超时时间
+  static const Duration _requestTimeout = Duration(minutes: 5); // 请求超时时间
+
+  // 获取应用版本号
+  Future<String> _getAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      return '${packageInfo.version}+${packageInfo.buildNumber}';
+    } catch (e) {
+      debugPrint('获取版本号失败: $e');
+      return '1.0.0+1'; // 默认版本号
+    }
+  }
 
   /// 发送对话消息并获取流式响应
   /// [sessionId] 会话ID
@@ -22,7 +34,7 @@ class CharacterChatStreamService {
       // 获取授权令牌
       final token = await _userDao.getToken();
       if (token == null) {
-        yield* Stream.error('未登录或token已失效');
+        yield* Stream.error('令牌失效');
         return;
       }
 
@@ -34,11 +46,15 @@ class CharacterChatStreamService {
       final uri = Uri.parse('$baseUrl/sessions/character/$sessionId/chat');
       final request = http.Request('POST', uri);
 
+      // 获取应用版本号
+      final appVersion = await _getAppVersion();
+
       // 设置请求头
       request.headers.addAll({
         'Content-Type': 'application/json; charset=utf-8',
         'Accept': 'text/event-stream',
         'Authorization': 'Bearer $token',
+        'X-App-Version': appVersion,
       });
 
       // 设置请求体
@@ -155,11 +171,15 @@ class CharacterChatStreamService {
       final uri = Uri.parse('$baseUrl/sessions/character/$sessionId/regenerate');
       final request = http.Request('POST', uri);
 
+      // 获取应用版本号
+      final appVersion = await _getAppVersion();
+
       // 设置请求头
       request.headers.addAll({
         'Content-Type': 'application/json; charset=utf-8',
         'Accept': 'text/event-stream',
         'Authorization': 'Bearer $token',
+        'X-App-Version': appVersion,
       });
 
       // 设置请求体

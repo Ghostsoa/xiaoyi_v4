@@ -39,17 +39,15 @@ class _PlayTimePermissionPageState extends State<PlayTimePermissionPage> {
         final now = DateTime.now();
         final difference = expireDate.difference(now);
 
-        // 计算剩余时间（天）
-        final remainingDays = difference.inHours / 24.0;
+        if (difference.inSeconds > 0) {
+          // 格式化到期时间为 YYYY-MM-DD HH:mm
+          final year = expireDate.year;
+          final month = expireDate.month.toString().padLeft(2, '0');
+          final day = expireDate.day.toString().padLeft(2, '0');
+          final hour = expireDate.hour.toString().padLeft(2, '0');
+          final minute = expireDate.minute.toString().padLeft(2, '0');
 
-        if (remainingDays > 0) {
-          // 如果是整数天，不显示小数部分
-          if (remainingDays == remainingDays.roundToDouble()) {
-            _formattedExpireTime = '剩余 ${remainingDays.toInt()} 天';
-          } else {
-            // 否则保留1位小数
-            _formattedExpireTime = '剩余 ${remainingDays.toStringAsFixed(1)} 天';
-          }
+          _formattedExpireTime = '$year-$month-$day $hour:$minute 到期';
         } else {
           _formattedExpireTime = '已过期';
         }

@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
 import 'dart:convert';
 
 class ChatSettingsDao {
@@ -16,6 +17,7 @@ class ChatSettingsDao {
   static const String _keyUserBubbleOpacity = 'chat_user_bubble_opacity';
   static const String _keyUserTextColor = 'chat_user_text_color';
   static const String _keyFontSize = 'chat_font_size';
+  static const String _keyCustomTagStyles = 'custom_tag_styles';
 
   // UI设置相关的key
   static const String _keyUiMode = 'ui_mode';
@@ -153,6 +155,9 @@ class ChatSettingsDao {
     if (settings.containsKey('fontSize')) {
       await saveFontSize(settings['fontSize']);
     }
+    if (settings.containsKey('customTagStyles')) {
+      await saveCustomTagStyles(settings['customTagStyles']);
+    }
   }
 
   // 获取所有设置
@@ -166,6 +171,7 @@ class ChatSettingsDao {
       'userBubbleOpacity': await getUserBubbleOpacity(),
       'userTextColor': await getUserTextColor(),
       'fontSize': await getFontSize(),
+      'customTagStyles': await getCustomTagStyles(),
     };
   }
 
@@ -211,5 +217,92 @@ class ChatSettingsDao {
   Future<bool> getCodeBlockFormat() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_keyCodeBlockFormat) ?? false;
+  }
+
+  // 自定义标签样式相关方法
+
+  /// 获取支持的标签列表
+  static List<String> getSupportedTags() {
+    return [
+      'role', 'message', 'topic', 'feed', 'chat-list', 'chat-conversation',
+      'status_on', 'status_off', 'archive', 'options_h', 'options_v', 'notebook'
+    ];
+  }
+
+  /// 获取标签显示名称
+  static String getTagDisplayName(String tagName) {
+    const Map<String, String> displayNames = {
+      'role': '角色标签',
+      'message': '消息标签',
+      'topic': '话题标签',
+      'feed': '信息流标签',
+      'chat-list': '聊天列表标签',
+      'chat-conversation': '对话界面标签',
+      'status_on': '状态开启标签',
+      'status_off': '状态关闭标签',
+      'archive': '归档标签',
+      'options_h': '水平选项标签',
+      'options_v': '垂直选项标签',
+      'notebook': '笔记本标签',
+    };
+    return displayNames[tagName] ?? tagName;
+  }
+
+  /// 获取标签默认颜色（统一简洁配色）
+  static Color getTagDefaultColor(String tagName) {
+    // 所有标签使用统一的简洁灰色
+    return const Color(0xFF6C7B7F);
+  }
+
+  /// 保存自定义标签样式
+  Future<void> saveCustomTagStyles(Map<String, Map<String, dynamic>> styles) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyCustomTagStyles, json.encode(styles));
+  }
+
+  /// 获取自定义标签样式
+  Future<Map<String, Map<String, dynamic>>> getCustomTagStyles() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? jsonString = prefs.getString(_keyCustomTagStyles);
+
+    if (jsonString == null) {
+      // 返回默认样式
+      return _createDefaultTagStyles();
+    }
+
+    try {
+      final Map<String, dynamic> decoded = json.decode(jsonString);
+      final Map<String, Map<String, dynamic>> styles = {};
+
+      decoded.forEach((key, value) {
+        styles[key] = Map<String, dynamic>.from(value);
+      });
+
+      // 确保所有支持的标签都有样式
+      final defaultStyles = _createDefaultTagStyles();
+      defaultStyles.forEach((key, value) {
+        if (!styles.containsKey(key)) {
+          styles[key] = value;
+        }
+      });
+
+      return styles;
+    } catch (e) {
+      // 如果解析失败，返回默认样式
+      return _createDefaultTagStyles();
+    }
+  }
+
+  /// 创建默认标签样式（统一简洁配色）
+  Map<String, Map<String, dynamic>> _createDefaultTagStyles() {
+    final Map<String, Map<String, dynamic>> styles = {};
+    for (String tagName in getSupportedTags()) {
+      styles[tagName] = {
+        'backgroundColor': '0xFF6C7B7F', // 统一的简洁灰色
+        'opacity': 0.15, // 适中的透明度
+        'textColor': '0xFF2C2C2C', // 深灰色文字，确保可读性
+      };
+    }
+    return styles;
   }
 }

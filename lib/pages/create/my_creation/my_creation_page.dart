@@ -228,11 +228,25 @@ class _MyCreationPageState extends State<MyCreationPage> {
 
   /// 黑盒调试功能（占位实现）
   void _showBlackBoxDebug(Map<String, dynamic> item) {
-    // TODO: 实现黑盒调试功能
-    final itemType = item.containsKey('name') ? '角色' : '小说';
-    final itemName = item['name'] ?? item['title'] ?? '未知';
-
-    _showToast('黑盒调试功能开发中：$itemType "$itemName"', type: ToastType.info);
+    // 仅支持角色卡进入调试
+    if (item.containsKey('name')) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CharacterInitPage(
+            characterData: {
+              'id': item['id'],
+              'item_id': item['id'],
+              'cover_uri': item['coverUri'],
+              'init_fields': item['initFields'],
+            },
+            isDebug: true,
+          ),
+        ),
+      );
+    } else {
+      _showToast('当前仅支持角色卡调试', type: ToastType.info);
+    }
   }
 
   void _showToast(String message, {ToastType type = ToastType.info}) {

@@ -364,17 +364,14 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       ),
     );
 
-    // 🔥 监听滚动位置变化
-    _itemPositionsListener.itemPositions.addListener(_onScrollPositionChanged);
-
     _inspirationAnimationController.addListener(() {
       if (mounted) {
         setState(() {});
       }
     });
 
-    // 改进滚动监听 - 使用ItemPositionsListener
-    _itemPositionsListener.itemPositions.addListener(_onScroll);
+    // 统一滚动监听 - 合并分页加载和回到底部按钮逻辑
+    _itemPositionsListener.itemPositions.addListener(_onScrollUnified);
 
     // 初始化刷新动画控制器
     _refreshAnimationController = AnimationController(
@@ -552,18 +549,58 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
 
 
-  // 修改滚动监听方法
-  void _onScroll() {
-    // 使用ItemPositionsListener检查是否滚动到底部
+  // 统一滚动监听方法 - 处理分页加载和回到底部按钮
+  void _onScrollUnified() {
+    if (!mounted) return;
+
     final positions = _itemPositionsListener.itemPositions.value;
-    if (positions.isNotEmpty) {
-      // 检查最后一个item是否可见（因为reverse=true，最后一个item在顶部）
-      final maxIndex = positions.map((pos) => pos.index).reduce((a, b) => a > b ? a : b);
+    if (positions.isEmpty || _messages.isEmpty) return;
+
+    try {
+      // 获取所有可见位置的索引
+      final visibleIndices = positions.map((pos) => pos.index).toList();
+
+      // 验证索引范围
+      final validIndices = visibleIndices.where((index) =>
+        index >= 0 && index < _messages.length).toList();
+
+      if (validIndices.isEmpty) return;
+
+      // 1. 处理分页加载逻辑
+      final maxIndex = validIndices.reduce((a, b) => a > b ? a : b);
       if (maxIndex >= _messages.length - 3 && // 提前3个item开始加载
           _currentPage < _totalPages &&
           !_isLoadingHistory) {
         _currentPage++;
         _loadMoreMessages();
+      }
+
+      // 2. 处理"回到底部"按钮显示逻辑
+      // 检查是否在底部（索引0是最新消息，因为列表是反转的）
+      final isAtBottom = validIndices.contains(0);
+
+      // 如果不在底部且有足够的消息，显示"回到底部"按钮
+      final shouldShow = !isAtBottom && _messages.length > 5;
+
+      if (shouldShow != _showBackToBottomButton) {
+        setState(() {
+          _showBackToBottomButton = shouldShow;
+        });
+
+        if (shouldShow) {
+          _backToBottomAnimationController.forward();
+        } else {
+          _backToBottomAnimationController.reverse();
+        }
+      }
+    } catch (e) {
+      debugPrint('滚动监听处理错误: $e');
+      // 发生错误时重置按钮状态
+      if (_showBackToBottomButton) {
+        setState(() {
+          _showBackToBottomButton = false;
+        });
+        _backToBottomAnimationController.reverse();
       }
     }
   }
@@ -1175,31 +1212,52 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     }
   }
 
-  /// 🔥 监听滚动位置变化，控制"回到底部"按钮显示
-  void _onScrollPositionChanged() {
-    if (!mounted) return;
-
-    final positions = _itemPositionsListener.itemPositions.value;
-    if (positions.isEmpty) return;
-
-    // 检查是否在底部（索引0是最新消息，因为列表是反转的）
-    final isAtBottom = positions.any((position) => position.index == 0);
-
-    // 如果不在底部且有足够的消息，显示"回到底部"按钮
-    final shouldShow = !isAtBottom && _messages.length > 5;
-
-    if (shouldShow != _showBackToBottomButton) {
-      setState(() {
-        _showBackToBottomButton = shouldShow;
-      });
-
-      if (shouldShow) {
-        _backToBottomAnimationController.forward();
-      } else {
-        _backToBottomAnimationController.reverse();
-      }
+  /// 解析角色名称，分离调试版前缀
+  Map<String, String> _parseCharacterName(String characterName) {
+    if (characterName.startsWith('(调试版)')) {
+      return {
+        'prefix': '(调试版)',
+        'name': characterName.substring(5).trim(),
+      };
     }
+    return {
+      'prefix': '',
+      'name': characterName,
+    };
   }
+
+  /// 构建调试版标签
+  Widget _buildDebugTag() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: AppTheme.buttonGradient,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          transform: const GradientRotation(0.4),
+        ),
+        borderRadius: BorderRadius.circular(4.r),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.buttonGradient.first.withOpacity(0.3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        '调试版',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 10.sp,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+
 
   /// 构建搜索结果界面（模仿灵感功能样式）
   Widget _buildSearchInterface() {
@@ -1865,7 +1923,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   Future<void> _handleRegenerateMessage(String msgId) async {
     if (_isSending) return;
 
-    // 显示确认对话框
+    // 显示确认对话框，带有"今后不再提醒"选项
     final bool? confirmed = await ConfirmationDialog.show(
       context: context,
       title: '重新生成',
@@ -1873,6 +1931,8 @@ class _CharacterChatPageState extends State<CharacterChatPage>
       confirmText: '重新生成',
       cancelText: '取消',
       isDangerous: true,
+      showRememberOption: true,
+      rememberKey: 'regenerate_message',
     );
 
     if (confirmed != true) return; // 用户取消了操作
@@ -2060,19 +2120,41 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     );
   }
 
-  // 添加简单的滚动到底部方法
+  // 改进的滚动到底部方法，添加边界检查和错误处理
   void _scrollToBottom({bool immediate = false}) {
-    if (_messages.isNotEmpty) {
-      if (immediate) {
-        // 立即跳转，无动画，用于重置等需要快速响应的场景
-        _itemScrollController.jumpTo(index: 0);
-      } else {
-        // 使用更快的动画，提供更流畅的体验
-        _itemScrollController.scrollTo(
-          index: 0,
-          duration: Duration(milliseconds: 150), // 从300ms减少到150ms
-          curve: Curves.easeOutCubic, // 更自然的缓动曲线
-        );
+    if (!mounted || _messages.isEmpty) return;
+
+    try {
+      // 确保索引在有效范围内
+      if (_messages.length > 0) {
+        if (immediate) {
+          // 立即跳转，无动画，用于重置等需要快速响应的场景
+          _itemScrollController.jumpTo(index: 0);
+        } else {
+          // 使用更快的动画，提供更流畅的体验
+          _itemScrollController.scrollTo(
+            index: 0,
+            duration: Duration(milliseconds: 150), // 从300ms减少到150ms
+            curve: Curves.easeOutCubic, // 更自然的缓动曲线
+          );
+        }
+
+        // 滚动后隐藏"回到底部"按钮
+        if (_showBackToBottomButton) {
+          setState(() {
+            _showBackToBottomButton = false;
+          });
+          _backToBottomAnimationController.reverse();
+        }
+      }
+    } catch (e) {
+      debugPrint('滚动到底部失败: $e');
+      // 发生错误时也要隐藏按钮
+      if (_showBackToBottomButton) {
+        setState(() {
+          _showBackToBottomButton = false;
+        });
+        _backToBottomAnimationController.reverse();
       }
     }
   }
@@ -3099,15 +3181,48 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text(
-                                    widget.characterData['name'] ?? '对话',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16.sp,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Builder(
+                                          builder: (context) {
+                                            final characterName = widget.characterData['name'] ?? '对话';
+                                            final parsedName = _parseCharacterName(characterName);
+                                            final bool isDebugVersion = parsedName['prefix']!.isNotEmpty;
+                                            final String displayName = parsedName['name']!;
+
+                                            return Text(
+                                              displayName,
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 16.sp,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                      // 🔥 调试版标签
+                                      Builder(
+                                        builder: (context) {
+                                          final characterName = widget.characterData['name'] ?? '对话';
+                                          final parsedName = _parseCharacterName(characterName);
+                                          final bool isDebugVersion = parsedName['prefix']!.isNotEmpty;
+
+                                          if (isDebugVersion) {
+                                            return Row(
+                                              children: [
+                                                SizedBox(width: 6.w),
+                                                _buildDebugTag(),
+                                              ],
+                                            );
+                                          }
+                                          return SizedBox.shrink();
+                                        },
+                                      ),
+                                    ],
                                   ),
                                   if (widget.characterData['author_name'] !=
                                       null)
@@ -3757,69 +3872,49 @@ class _CharacterChatPageState extends State<CharacterChatPage>
             ],
           ),
 
-          // 🔥 "回到底部"悬浮按钮 - 长细条状设计
+          // 🔥 "回到底部"悬浮按钮 - 右下角长条形毛玻璃设计
           if (_showBackToBottomButton)
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: 100.h, // 在输入框上方
-              child: Center(
-                child: FadeTransition(
-                  opacity: _backToBottomAnimation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: Offset(0, 1),
-                      end: Offset(0, 0),
-                    ).animate(_backToBottomAnimation),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          _scrollToBottom();
-                          // 点击后隐藏按钮
-                          setState(() {
-                            _showBackToBottomButton = false;
-                          });
-                          _backToBottomAnimationController.reverse();
-                        },
-                        borderRadius: BorderRadius.circular(20.r),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.7),
-                            borderRadius: BorderRadius.circular(20.r),
-                            border: Border.all(
-                              color: AppTheme.primaryColor.withOpacity(0.5),
-                              width: 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.keyboard_arrow_down,
-                                color: Colors.white,
-                                size: 16.sp,
-                              ),
-                              SizedBox(width: 6.w),
-                              Text(
-                                '回到底部',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13.sp,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
+              right: 16.w,
+              bottom: 80.h, // 降低位置，更接近输入框
+              child: FadeTransition(
+                opacity: _backToBottomAnimation,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      _scrollToBottom();
+                      // _scrollToBottom() 方法内部已经处理了按钮隐藏逻辑
+                    },
+                    borderRadius: BorderRadius.circular(12.r),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.3), // 毛玻璃效果
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(
+                          color: AppTheme.primaryColor.withOpacity(0.6),
+                          width: 1,
                         ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Colors.white,
+                            size: 14.sp,
+                          ),
+                          SizedBox(width: 3.w),
+                          Text(
+                            '回到底部',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

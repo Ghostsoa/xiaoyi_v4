@@ -7,6 +7,7 @@ import '../../widgets/custom_toast.dart';
 import '../login/login_page.dart';
 import 'terms_page.dart';
 import 'privacy_policy_page.dart';
+import 'age_confirmation_page.dart';
 import 'register_service.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -29,6 +30,7 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _agreeToTerms = false;
+  bool _confirmAge = false;
   bool _isGettingCode = false;
   bool _isRegistering = false;
   int _countdownSeconds = 0;
@@ -54,6 +56,22 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() {
       _obscureConfirmPassword = !_obscureConfirmPassword;
     });
+  }
+
+  // 跳转到年龄确认页面
+  void _navigateToAgeConfirmation() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AgeConfirmationPage(),
+      ),
+    );
+
+    if (result == true) {
+      setState(() {
+        _confirmAge = true;
+      });
+    }
   }
 
   // 获取验证码
@@ -133,7 +151,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   void _register() async {
-    if (_formKey.currentState!.validate() && _agreeToTerms) {
+    if (_formKey.currentState!.validate() && _agreeToTerms && _confirmAge) {
       // 验证验证码
       if (_verificationCodeController.text.isEmpty) {
         CustomToast.show(
@@ -205,6 +223,12 @@ class _RegisterPageState extends State<RegisterPage> {
       CustomToast.show(
         context,
         message: '请同意服务条款和隐私政策',
+        type: ToastType.warning,
+      );
+    } else if (!_confirmAge) {
+      CustomToast.show(
+        context,
+        message: '请确认您已年满18周岁',
         type: ToastType.warning,
       );
     }
@@ -510,6 +534,43 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                             ),
                           ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16.h),
+
+                  // 年龄确认
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 24.w,
+                        height: 24.w,
+                        child: Checkbox(
+                          value: _confirmAge,
+                          onChanged: (value) {
+                            if (value == true) {
+                              // 如果要勾选，跳转到年龄确认页面
+                              _navigateToAgeConfirmation();
+                            } else {
+                              // 如果要取消勾选，直接取消
+                              setState(() {
+                                _confirmAge = false;
+                              });
+                            }
+                          },
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusXSmall),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: Text(
+                          '我已阅读18+年龄限制',
+                          style: AppTheme.secondaryStyle,
                         ),
                       ),
                     ],

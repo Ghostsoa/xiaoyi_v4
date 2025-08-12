@@ -141,9 +141,10 @@ class NovelSessionListState extends State<NovelSessionList> {
 
     _isSyncing = true;
     try {
+      // 只同步第一页数据，不要大量同步
       await _messageService.syncNovelSessionsFromApi(
         page: 1,
-        pageSize: 1000, // 获取所有数据进行同步
+        pageSize: 10,
       );
       debugPrint('[NovelSessionList] 后台同步完成');
     } catch (e) {
@@ -159,6 +160,17 @@ class NovelSessionListState extends State<NovelSessionList> {
     setState(() => _isLoadingMore = true);
 
     try {
+      // 先尝试同步下一页的数据
+      try {
+        await _messageService.syncNovelSessionsFromApi(
+          page: _currentPage + 1,
+          pageSize: 10,
+        );
+      } catch (e) {
+        debugPrint('[NovelSessionList] 同步下一页数据失败: $e');
+        // 同步失败也继续从本地加载
+      }
+
       final result = await _messageService.getNovelSessions(
         page: _currentPage + 1,
         pageSize: 10,
@@ -195,13 +207,7 @@ class NovelSessionListState extends State<NovelSessionList> {
   Future<void> onRefresh() async {
     _currentPage = 1;
     try {
-      // 手动刷新时，强制从API同步最新数据
-      await _messageService.syncNovelSessionsFromApi(
-        page: 1,
-        pageSize: 1000, // 获取所有数据
-      );
-
-      // 然后从本地数据库重新加载第一页
+      // 先从本地数据库重新加载第一页，快速响应
       final result = await _messageService.getNovelSessions(
         page: _currentPage,
         pageSize: 10,
@@ -228,6 +234,9 @@ class NovelSessionListState extends State<NovelSessionList> {
       if (_hasMore) {
         _refreshController.loadComplete();
       }
+
+      // 后台静默同步第一页数据
+      _syncWithApiInBackground();
     } catch (e) {
       _refreshController.refreshFailed();
       debugPrint('[NovelSessionList] 刷新失败: $e');
@@ -241,6 +250,17 @@ class NovelSessionListState extends State<NovelSessionList> {
     }
 
     try {
+      // 先尝试同步下一页的数据
+      try {
+        await _messageService.syncNovelSessionsFromApi(
+          page: _currentPage + 1,
+          pageSize: 10,
+        );
+      } catch (e) {
+        debugPrint('[NovelSessionList] 同步下一页数据失败: $e');
+        // 同步失败也继续从本地加载
+      }
+
       final result = await _messageService.getNovelSessions(
         page: _currentPage + 1,
         pageSize: 10,
@@ -337,6 +357,51 @@ class NovelSessionListState extends State<NovelSessionList> {
     } catch (e) {
       return defaultValue;
     }
+  }
+
+  /// 解析小说标题，分离调试版前缀
+  Map<String, String> _parseNovelTitle(String title) {
+    if (title.startsWith('(调试版)')) {
+      return {
+        'prefix': '(调试版)',
+        'title': title.substring(5).trim(),
+      };
+    }
+    return {
+      'prefix': '',
+      'title': title,
+    };
+  }
+
+  /// 构建调试版标签
+  Widget _buildDebugTag() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: AppTheme.buttonGradient,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          transform: const GradientRotation(0.4),
+        ),
+        borderRadius: BorderRadius.circular(4.r),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.buttonGradient.first.withOpacity(0.3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        '调试版',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 10.sp,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
   }
 
   @override
@@ -511,6 +576,11 @@ class NovelSessionListState extends State<NovelSessionList> {
       title = '未命名小说';
     }
 
+    // 解析小说标题，分离调试版前缀
+    final parsedTitle = _parseNovelTitle(title);
+    final bool isDebugVersion = parsedTitle['prefix']!.isNotEmpty;
+    final String displayTitle = parsedTitle['title']!;
+
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 10.h),
       child: GestureDetector(
@@ -684,7 +754,7 @@ class NovelSessionListState extends State<NovelSessionList> {
                             children: [
                               Flexible(
                                 child: Text(
-                                  title,
+                                  displayTitle,
                                   style: TextStyle(
                                     fontSize: 15.sp,
                                     fontWeight: FontWeight.w500,
@@ -701,6 +771,11 @@ class NovelSessionListState extends State<NovelSessionList> {
                                   maxLines: 1,
                                 ),
                               ),
+                              // 🔥 调试版标签
+                              if (isDebugVersion) ...[
+                                SizedBox(width: 4.w),
+                                _buildDebugTag(),
+                              ],
                               // 🔥 置顶图标
                               if ((session['is_pinned'] as int? ?? 0) == 1) ...[
                                 SizedBox(width: 4.w),
