@@ -112,9 +112,8 @@ class ProfilePageState extends State<ProfilePage> {
           _playTime = (assets['assets']['play_time'] ?? 0).toDouble();
           _playTimeExpireAt = assets['assets']['play_time_expire_at'];
 
-          // 修改判断时长是否激活的逻辑 - 需要检查是否已经过期，并考虑时差
-          _isPlayTimeActive =
-              _playTime > 0 || (_isPlayTimeNotExpired(_playTimeExpireAt));
+          // 修改判断时长是否激活的逻辑 - 只有未过期且有剩余时长才算激活
+          _isPlayTimeActive = _playTime > 0 && _isPlayTimeNotExpired(_playTimeExpireAt);
 
           _isVip = assets['assets']['vip'] ?? false;
           _vipExpireAt = assets['assets']['vip_expire_at'];
@@ -176,9 +175,8 @@ class ProfilePageState extends State<ProfilePage> {
           _playTime = (assets['assets']['play_time'] ?? 0).toDouble();
           _playTimeExpireAt = assets['assets']['play_time_expire_at'];
 
-          // 使用相同的逻辑判断是否激活
-          _isPlayTimeActive =
-              _playTime > 0 || (_isPlayTimeNotExpired(_playTimeExpireAt));
+          // 使用相同的逻辑判断是否激活 - 只有未过期且有剩余时长才算激活
+          _isPlayTimeActive = _playTime > 0 && _isPlayTimeNotExpired(_playTimeExpireAt);
 
           _isVip = assets['assets']['vip'] ?? false;
           _vipExpireAt = assets['assets']['vip_expire_at'];
