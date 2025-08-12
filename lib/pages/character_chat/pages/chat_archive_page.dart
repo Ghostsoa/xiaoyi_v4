@@ -78,7 +78,7 @@ class _ChatArchivePageState extends State<ChatArchivePage>
       final sessionId = int.parse(widget.sessionId);
       final sessionResponse = await _sessionDataService.getLocalCharacterSessions(
         page: 1,
-        pageSize: 1000
+        pageSize: 200
       );
 
       final session = sessionResponse.sessions.firstWhere(
@@ -329,7 +329,7 @@ class _ChatArchivePageState extends State<ChatArchivePage>
       // 获取当前会话数据
       final sessionResponse = await _sessionDataService.getLocalCharacterSessions(
         page: 1,
-        pageSize: 1000
+        pageSize: 200
       );
 
       final session = sessionResponse.sessions.firstWhere(

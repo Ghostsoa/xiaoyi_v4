@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:ui';
 import 'dart:typed_data';
 import 'base_formatter.dart';
@@ -208,68 +209,112 @@ class MarkdownFormatter extends BaseFormatter {
 
         if (tableData.isNotEmpty) {
           widgets.add(Container(
-            margin: const EdgeInsets.symmetric(vertical: 12.0),
+            margin: EdgeInsets.symmetric(vertical: 12.h),
             decoration: BoxDecoration(
-              color: baseStyle.color?.withOpacity(0.05) ??
-                  Colors.grey.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(8.0),
-              border: Border.all(
-                color: baseStyle.color?.withOpacity(0.1) ??
-                    Colors.grey.withOpacity(0.1),
-                width: 0.5,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  baseStyle.color?.withOpacity(0.1) ??
+                      Colors.grey.withOpacity(0.1),
+                  baseStyle.color?.withOpacity(0.05) ??
+                      Colors.grey.withOpacity(0.05),
+                ],
               ),
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Table(
-                defaultColumnWidth: const IntrinsicColumnWidth(),
-                border: TableBorder(
-                  horizontalInside: BorderSide(
-                    color: baseStyle.color?.withOpacity(0.1) ??
-                        Colors.grey.withOpacity(0.1),
-                    width: 0.5,
-                  ),
-                  verticalInside: BorderSide(
-                    color: baseStyle.color?.withOpacity(0.1) ??
-                        Colors.grey.withOpacity(0.1),
-                    width: 0.5,
-                  ),
+              borderRadius: BorderRadius.circular(16.r),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10.r,
+                  offset: Offset(0, 2.h),
                 ),
-                children: [
-                  // 表头
-                  if (tableData.isNotEmpty)
-                    TableRow(
-                      decoration: BoxDecoration(
-                        color: baseStyle.color?.withOpacity(0.1) ??
-                            Colors.grey.withOpacity(0.1),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16.r),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: baseStyle.color?.withOpacity(0.1) ??
+                          Colors.white.withOpacity(0.1),
+                      width: 0.5,
+                    ),
+                    borderRadius: BorderRadius.circular(16.r),
+                  ),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTableTheme(
+                      data: DataTableThemeData(
+                        dividerThickness: 0,
+                        horizontalMargin: 12.w,
+                        columnSpacing: 16.w,
+                        headingRowColor: WidgetStateProperty.all(
+                          Colors.black.withOpacity(0.05),
+                        ),
+                        dataRowColor: WidgetStateProperty.resolveWith((states) {
+                          return Colors.transparent;
+                        }),
+                        decoration: const BoxDecoration(),
                       ),
-                      children: tableData[0]
-                          .map((cell) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8.0, vertical: 6.0),
-                                child: Text(
-                                  cell,
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          dividerColor: Colors.grey.withOpacity(0.2),
+                        ),
+                        child: DataTable(
+                          columnSpacing: 16.w,
+                          horizontalMargin: 12.w,
+                          headingRowHeight: 44.h,
+                          dataRowMinHeight: 36.h,
+                          headingRowColor: WidgetStateProperty.all(
+                            Colors.black.withOpacity(0.05),
+                          ),
+                          dividerThickness: 0,
+                          border: TableBorder(
+                            horizontalInside: BorderSide(
+                              color: Colors.grey.withOpacity(0.2),
+                              width: 0.5,
+                            ),
+                            verticalInside: BorderSide(
+                              color: Colors.grey.withOpacity(0.2),
+                              width: 0.5,
+                            ),
+                          ),
+                      columns: tableData[0]
+                          .map((header) => DataColumn(
+                                label: Text(
+                                  header,
                                   style: baseStyle.copyWith(
-                                      fontWeight: FontWeight.w600),
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.5,
+                                  ),
                                 ),
                               ))
                           .toList(),
+                      rows: tableData.skip(1).map((row) {
+                        return DataRow(
+                          cells: row
+                              .map((cell) => DataCell(
+                                    Text(
+                                      cell,
+                                      style: baseStyle.copyWith(
+                                        height: 1.4,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ))
+                              .toList(),
+                        );
+                      }).toList(),
+                        ),
+                      ),
                     ),
-                  // 数据行
-                  ...tableData.skip(1).map((row) => TableRow(
-                        children: row
-                            .map((cell) => Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8.0, vertical: 6.0),
-                                  child: Text(cell, style: baseStyle),
-                                ))
-                            .toList(),
-                      )),
-                ],
+                  ),
+                ),
               ),
             ),
           ));
-
           i = currentLine - 1;
           continue;
         }
@@ -768,64 +813,109 @@ class MarkdownFormatter extends BaseFormatter {
 
         if (tableData.isNotEmpty) {
           widgets.add(Container(
-            margin: EdgeInsets.symmetric(vertical: isInCustomTag ? 4.0 : 12.0),
+            margin: EdgeInsets.symmetric(vertical: isInCustomTag ? 4.h : 12.h),
             decoration: BoxDecoration(
-              color: baseStyle.color?.withOpacity(0.05) ??
-                  Colors.grey.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(8.0),
-              border: Border.all(
-                color: baseStyle.color?.withOpacity(0.1) ??
-                    Colors.grey.withOpacity(0.1),
-                width: 0.5,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  baseStyle.color?.withOpacity(0.1) ??
+                      Colors.grey.withOpacity(0.1),
+                  baseStyle.color?.withOpacity(0.05) ??
+                      Colors.grey.withOpacity(0.05),
+                ],
               ),
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Table(
-                defaultColumnWidth: const IntrinsicColumnWidth(),
-                border: TableBorder(
-                  horizontalInside: BorderSide(
-                    color: baseStyle.color?.withOpacity(0.1) ??
-                        Colors.grey.withOpacity(0.1),
-                    width: 0.5,
-                  ),
-                  verticalInside: BorderSide(
-                    color: baseStyle.color?.withOpacity(0.1) ??
-                        Colors.grey.withOpacity(0.1),
-                    width: 0.5,
-                  ),
+              borderRadius: BorderRadius.circular(16.r),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10.r,
+                  offset: Offset(0, 2.h),
                 ),
-                children: [
-                  // 表头
-                  if (tableData.isNotEmpty)
-                    TableRow(
-                      decoration: BoxDecoration(
-                        color: baseStyle.color?.withOpacity(0.1) ??
-                            Colors.grey.withOpacity(0.1),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16.r),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: baseStyle.color?.withOpacity(0.1) ??
+                          Colors.white.withOpacity(0.1),
+                      width: 0.5,
+                    ),
+                    borderRadius: BorderRadius.circular(16.r),
+                  ),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTableTheme(
+                      data: DataTableThemeData(
+                        dividerThickness: 0,
+                        horizontalMargin: 12.w,
+                        columnSpacing: 16.w,
+                        headingRowColor: WidgetStateProperty.all(
+                          Colors.black.withOpacity(0.05),
+                        ),
+                        dataRowColor: WidgetStateProperty.resolveWith((states) {
+                          return Colors.transparent;
+                        }),
+                        decoration: const BoxDecoration(),
                       ),
-                      children: tableData[0]
-                          .map((cell) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8.0, vertical: 6.0),
-                                child: Text(
-                                  cell,
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          dividerColor: Colors.grey.withOpacity(0.2),
+                        ),
+                        child: DataTable(
+                          columnSpacing: 16.w,
+                          horizontalMargin: 12.w,
+                          headingRowHeight: 44.h,
+                          dataRowMinHeight: 36.h,
+                          headingRowColor: WidgetStateProperty.all(
+                            Colors.black.withOpacity(0.05),
+                          ),
+                          dividerThickness: 0,
+                          border: TableBorder(
+                            horizontalInside: BorderSide(
+                              color: Colors.grey.withOpacity(0.2),
+                              width: 0.5,
+                            ),
+                            verticalInside: BorderSide(
+                              color: Colors.grey.withOpacity(0.2),
+                              width: 0.5,
+                            ),
+                          ),
+                      columns: tableData[0]
+                          .map((header) => DataColumn(
+                                label: Text(
+                                  header,
                                   style: baseStyle.copyWith(
-                                      fontWeight: FontWeight.w600),
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.5,
+                                  ),
                                 ),
                               ))
                           .toList(),
+                      rows: tableData.skip(1).map((row) {
+                        return DataRow(
+                          cells: row
+                              .map((cell) => DataCell(
+                                    Text(
+                                      cell,
+                                      style: baseStyle.copyWith(
+                                        height: 1.4,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ))
+                              .toList(),
+                        );
+                      }).toList(),
+                        ),
+                      ),
                     ),
-                  // 数据行
-                  ...tableData.skip(1).map((row) => TableRow(
-                        children: row
-                            .map((cell) => Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8.0, vertical: 6.0),
-                                  child: Text(cell, style: baseStyle),
-                                ))
-                            .toList(),
-                      )),
-                ],
+                  ),
+                ),
               ),
             ),
           ));
