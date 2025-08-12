@@ -69,7 +69,42 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
   }
 
   String _colorToHex(Color color) {
-    return '#${color.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+    return '#${((color.a * 255).toInt() << 24 | (color.r * 255).toInt() << 16 | (color.g * 255).toInt() << 8 | (color.b * 255).toInt()).toRadixString(16).padLeft(8, '0').substring(2)}';
+  }
+
+  Color _parseColorFromString(String colorString) {
+    try {
+      debugPrint('[ColorParser] 解析颜色字符串: $colorString');
+
+      // 移除可能的前缀
+      String cleanString = colorString;
+      if (cleanString.startsWith('0x') || cleanString.startsWith('0X')) {
+        cleanString = cleanString.substring(2);
+      } else if (cleanString.startsWith('#')) {
+        cleanString = cleanString.substring(1);
+      }
+
+      // 确保是8位十六进制数（包含alpha通道）
+      if (cleanString.length == 6) {
+        cleanString = 'FF$cleanString';
+      }
+
+      debugPrint('[ColorParser] 清理后的字符串: $cleanString');
+      final color = Color(int.parse(cleanString, radix: 16));
+      debugPrint('[ColorParser] 解析结果: $color');
+      return color;
+    } catch (e) {
+      debugPrint('[ColorParser] 解析颜色失败: $colorString, 错误: $e');
+      return AppTheme.cardBackground; // 返回默认颜色
+    }
+  }
+
+  Map<String, dynamic> _getDefaultStyleForTag(String tagName) {
+    return {
+      'backgroundColor': '0xFF9E9E9E', // 统一的灰色背景
+      'opacity': 0.15, // 适中的透明度
+      'textColor': '0xFF212121', // 统一的深灰色/黑色文字
+    };
   }
 
   Future<void> _saveSettings() async {
@@ -120,6 +155,10 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
   }
 
   void _showColorPicker(Color currentColor, Function(Color) onColorChanged) {
+    // 确保传入的颜色是不透明的
+    final opaqueCurrentColor = currentColor.withAlpha(255);
+    debugPrint('[ColorPicker] 传入颜色: $currentColor -> $opaqueCurrentColor');
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -138,8 +177,13 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
           ),
           content: SingleChildScrollView(
             child: ColorPicker(
-              pickerColor: currentColor,
-              onColorChanged: onColorChanged,
+              pickerColor: opaqueCurrentColor, // 使用不透明的颜色
+              onColorChanged: (color) {
+                // 强制设置 alpha 为 255（不透明）
+                final opaqueColor = color.withAlpha(255);
+                debugPrint('[ColorPicker] 选择颜色: $color -> $opaqueColor');
+                onColorChanged(opaqueColor);
+              },
               pickerAreaHeightPercent: 0.8,
               enableAlpha: false,
               displayThumbColor: true,
@@ -587,11 +631,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
 
     return Column(
       children: supportedTags.map((tagName) {
-        final style = _customTagStyles[tagName] ?? {
-          'backgroundColor': '0xFF6C7B7F',
-          'opacity': 0.15,
-          'textColor': '0xFF2C2C2C',
-        };
+        final style = _customTagStyles[tagName] ?? _getDefaultStyleForTag(tagName);
 
         return _buildCustomTagStyleItem(tagName, style);
       }).toList(),
@@ -601,9 +641,9 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
   /// 构建单个自定义标签样式项
   Widget _buildCustomTagStyleItem(String tagName, Map<String, dynamic> style) {
     final displayName = ChatSettingsDao.getTagDisplayName(tagName);
-    final backgroundColor = Color(int.parse(style['backgroundColor'].toString().replaceAll('0x', ''), radix: 16));
+    final backgroundColor = _parseColorFromString(style['backgroundColor'].toString());
     final opacity = (style['opacity'] as num).toDouble();
-    final textColor = Color(int.parse(style['textColor'].toString().replaceAll('0x', ''), radix: 16));
+    final textColor = _parseColorFromString(style['textColor'].toString());
 
     return ExpansionTile(
       title: Text(
@@ -655,10 +695,12 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                 color: backgroundColor,
                 onTap: () {
                   _showColorPicker(backgroundColor, (color) {
+                    final colorString = '0x${((color.a * 255).toInt() << 24 | (color.r * 255).toInt() << 16 | (color.g * 255).toInt() << 8 | (color.b * 255).toInt()).toRadixString(16).padLeft(8, '0')}';
+                    debugPrint('[ColorPicker] 选择背景颜色: $color -> $colorString');
                     setState(() {
                       _customTagStyles[tagName] = {
                         ...style,
-                        'backgroundColor': '0x${(color.a.toInt() << 24 | color.r.toInt() << 16 | color.g.toInt() << 8 | color.b.toInt()).toRadixString(16).padLeft(8, '0')}',
+                        'backgroundColor': colorString,
                       };
                     });
                   });
@@ -687,10 +729,12 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                 color: textColor,
                 onTap: () {
                   _showColorPicker(textColor, (color) {
+                    final colorString = '0x${((color.a * 255).toInt() << 24 | (color.r * 255).toInt() << 16 | (color.g * 255).toInt() << 8 | (color.b * 255).toInt()).toRadixString(16).padLeft(8, '0')}';
+                    debugPrint('[ColorPicker] 选择文字颜色: $color -> $colorString');
                     setState(() {
                       _customTagStyles[tagName] = {
                         ...style,
-                        'textColor': '0x${(color.a.toInt() << 24 | color.r.toInt() << 16 | color.g.toInt() << 8 | color.b.toInt()).toRadixString(16).padLeft(8, '0')}',
+                        'textColor': colorString,
                       };
                     });
                   });

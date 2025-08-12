@@ -293,14 +293,16 @@ class ChatSettingsDao {
     }
   }
 
-  /// 创建默认标签样式（统一简洁配色）
+  /// 创建默认标签样式（统一灰色配色，用户自定义）
   Map<String, Map<String, dynamic>> _createDefaultTagStyles() {
     final Map<String, Map<String, dynamic>> styles = {};
-    for (String tagName in getSupportedTags()) {
+    final supportedTags = getSupportedTags();
+
+    for (String tagName in supportedTags) {
       styles[tagName] = {
-        'backgroundColor': '0xFF6C7B7F', // 统一的简洁灰色
+        'backgroundColor': '0xFF9E9E9E', // 统一的灰色背景
         'opacity': 0.15, // 适中的透明度
-        'textColor': '0xFF2C2C2C', // 深灰色文字，确保可读性
+        'textColor': '0xFF212121', // 统一的深灰色/黑色文字
       };
     }
     return styles;

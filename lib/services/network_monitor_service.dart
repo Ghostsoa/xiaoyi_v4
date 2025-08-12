@@ -48,8 +48,10 @@ class EndpointInfo {
 class NetworkMonitorService {
   /// 默认API节点列表
   static final List<EndpointInfo> defaultEndpoints = [
-    EndpointInfo(url: 'https://hk2.xiaoyi.ink', name: '香港线路', isDefault: true),
-    EndpointInfo(url: 'https://jp2.xiaoyi.icu', name: '日本线路', isDefault: true),
+    EndpointInfo(url: 'https://hk2.xiaoyi.ink', name: '香港线路（旧）', isDefault: true),
+    EndpointInfo(url: 'https://hk.xiaoyi.ink', name: '香港线路（新）', isDefault: true),
+    EndpointInfo(url: 'https://jp2.xiaoyi.icu', name: '日本线路（旧）', isDefault: true),
+    EndpointInfo(url: 'https://jp.xl9.xyz', name: '日本线路（新）', isDefault: true),
     EndpointInfo(url: 'https://mg.xl9.xyz', name: '美国线路', isDefault: true),
   ];
 
