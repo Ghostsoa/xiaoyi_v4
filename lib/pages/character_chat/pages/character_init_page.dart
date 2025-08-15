@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/character_service.dart';
 import '../../../services/file_service.dart';
 import 'dart:typed_data';
-import 'dart:ui'; // Added for ImageFilter
+ 
 import 'dart:async'; // Added for Timer
 import 'package:shimmer/shimmer.dart';
 import 'character_chat_page.dart';
@@ -273,42 +273,44 @@ class _CharacterInitPageState extends State<CharacterInitPage>
                   padding: EdgeInsets.only(bottom: 16.h),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12.r),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12.r),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.2),
-                            width: 1,
-                          ),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.25),
+                          width: 1,
                         ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              _initFieldValues[key] = option;
-                              _nextPage();
-                            },
-                            splashColor: Colors.white.withOpacity(0.1),
-                            highlightColor: Colors.white.withOpacity(0.2),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 24.w,
-                                vertical: 20.h,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  option,
-                                  style: TextStyle(
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white,
-                                  ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 12,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            _initFieldValues[key] = option;
+                            _nextPage();
+                          },
+                          splashColor: Colors.white.withOpacity(0.1),
+                          highlightColor: Colors.white.withOpacity(0.2),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 24.w,
+                              vertical: 20.h,
+                            ),
+                            child: Center(
+                              child: Text(
+                                option,
+                                style: TextStyle(
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
@@ -346,18 +348,23 @@ class _CharacterInitPageState extends State<CharacterInitPage>
             SizedBox(height: 32.h),
             ClipRRect(
               borderRadius: BorderRadius.circular(16.r),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(16.r),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
-                      width: 1,
-                    ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(16.r),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.25),
+                    width: 1,
                   ),
-                  child: TextField(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: TextField(
                     controller: controller,
                     focusNode: focusNode,
                     autofocus: true,
@@ -384,16 +391,13 @@ class _CharacterInitPageState extends State<CharacterInitPage>
                         _nextPage();
                       }
                     },
-                  ),
                 ),
               ),
             ),
             SizedBox(height: 32.h),
             ClipRRect(
               borderRadius: BorderRadius.circular(12.r),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                child: Material(
+              child: Material(
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: () {
@@ -411,12 +415,19 @@ class _CharacterInitPageState extends State<CharacterInitPage>
                         vertical: 16.h,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
+                        color: Colors.white.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(12.r),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withOpacity(0.25),
                           width: 1,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 12,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
                       child: Text(
                         '确认并继续',
@@ -429,7 +440,6 @@ class _CharacterInitPageState extends State<CharacterInitPage>
                     ),
                   ),
                 ),
-              ),
             ),
           ],
         ),
@@ -442,22 +452,27 @@ class _CharacterInitPageState extends State<CharacterInitPage>
       opacity: _fadeAnimation,
       child: SlideTransition(
         position: _slideAnimation,
-        child: Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16.r),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16.r),
               child: Container(
                 width: double.infinity,
                 margin: EdgeInsets.symmetric(horizontal: 24.w),
                 padding: EdgeInsets.all(24.w),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Colors.white.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(16.r),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withOpacity(0.25),
                     width: 1,
                   ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -540,7 +555,6 @@ class _CharacterInitPageState extends State<CharacterInitPage>
               ),
             ),
           ),
-        ),
       ),
     );
   }

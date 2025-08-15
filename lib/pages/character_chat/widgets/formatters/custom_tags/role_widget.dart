@@ -94,21 +94,14 @@ class RoleWidgetStateful extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16.0),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
               child: Container(
                 padding: const EdgeInsets.all(8.0),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      backgroundColor.withOpacity((opacity * 1.2).clamp(0.0, 1.0)),
-                      backgroundColor.withOpacity((opacity * 0.8).clamp(0.0, 1.0)),
-                    ],
-                  ),
+                  color: backgroundColor.withOpacity((opacity * 0.4).clamp(0.0, 1.0)),
                   borderRadius: BorderRadius.circular(16.0),
                   border: Border.all(
-                    color: backgroundColor.withOpacity((opacity * 2).clamp(0.0, 1.0)),
+                    color: backgroundColor.withOpacity((opacity * 1.2).clamp(0.0, 1.0)),
                     width: 0.5,
                   ),
                   boxShadow: [

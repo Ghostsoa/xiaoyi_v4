@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:ui';
-import 'dart:typed_data';
 import 'base_formatter.dart';
-import '../../../../services/file_service.dart';
-import '../../../../utils/resource_mapping_parser.dart';
 import 'custom_tags/custom_tag_parser.dart';
 
 class MarkdownFormatter extends BaseFormatter {
@@ -211,11 +208,18 @@ class MarkdownFormatter extends BaseFormatter {
           widgets.add(Container(
             margin: EdgeInsets.symmetric(vertical: 12.h),
             decoration: BoxDecoration(
-              color: Colors.grey[50],
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  (baseStyle.color ?? Colors.black).withOpacity(0.08),
+                  (baseStyle.color ?? Colors.black).withOpacity(0.04),
+                ],
+              ),
               borderRadius: BorderRadius.circular(6.r),
               border: Border.all(
-                color: Colors.grey[300]!,
-                width: 1,
+                color: (baseStyle.color ?? Colors.black).withOpacity(0.12),
+                width: 0.5,
               ),
             ),
             child: ClipRRect(
@@ -226,11 +230,11 @@ class MarkdownFormatter extends BaseFormatter {
                   defaultColumnWidth: const IntrinsicColumnWidth(),
                   border: TableBorder(
                     horizontalInside: BorderSide(
-                      color: Colors.grey[400]!,
+                      color: (baseStyle.color ?? Colors.black).withOpacity(0.12),
                       width: 0.5,
                     ),
                     verticalInside: BorderSide(
-                      color: Colors.grey[400]!,
+                      color: (baseStyle.color ?? Colors.black).withOpacity(0.12),
                       width: 0.5,
                     ),
                   ),
@@ -239,7 +243,8 @@ class MarkdownFormatter extends BaseFormatter {
                     if (tableData.isNotEmpty)
                       TableRow(
                         decoration: BoxDecoration(
-                          color: Colors.grey[200],
+                          color: (baseStyle.color ?? Colors.black)
+                              .withOpacity(0.06),
                         ),
                         children: tableData[0]
                           .map((cell) => Padding(
@@ -773,11 +778,18 @@ class MarkdownFormatter extends BaseFormatter {
           widgets.add(Container(
             margin: EdgeInsets.symmetric(vertical: isInCustomTag ? 4.h : 12.h),
             decoration: BoxDecoration(
-              color: Colors.grey[50],
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  (baseStyle.color ?? Colors.black).withOpacity(0.08),
+                  (baseStyle.color ?? Colors.black).withOpacity(0.04),
+                ],
+              ),
               borderRadius: BorderRadius.circular(6.r),
               border: Border.all(
-                color: Colors.grey[300]!,
-                width: 1,
+                color: (baseStyle.color ?? Colors.black).withOpacity(0.12),
+                width: 0.5,
               ),
             ),
             child: ClipRRect(
@@ -788,11 +800,11 @@ class MarkdownFormatter extends BaseFormatter {
                   defaultColumnWidth: const IntrinsicColumnWidth(),
                   border: TableBorder(
                     horizontalInside: BorderSide(
-                      color: Colors.grey[400]!,
+                      color: (baseStyle.color ?? Colors.black).withOpacity(0.12),
                       width: 0.5,
                     ),
                     verticalInside: BorderSide(
-                      color: Colors.grey[400]!,
+                      color: (baseStyle.color ?? Colors.black).withOpacity(0.12),
                       width: 0.5,
                     ),
                   ),
@@ -801,7 +813,8 @@ class MarkdownFormatter extends BaseFormatter {
                     if (tableData.isNotEmpty)
                       TableRow(
                         decoration: BoxDecoration(
-                          color: Colors.grey[200],
+                          color: (baseStyle.color ?? Colors.black)
+                              .withOpacity(0.06),
                         ),
                         children: tableData[0]
                           .map((cell) => Padding(

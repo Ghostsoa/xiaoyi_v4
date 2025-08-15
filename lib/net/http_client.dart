@@ -346,6 +346,22 @@ class HttpClient {
 
   /// 错误处理
   Response _handleError(DioException e) {
+    // 统一中文提示文案
+    String uiMsg;
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        uiMsg = '请求超时（15秒），请检查网络后重试';
+        break;
+      case DioExceptionType.connectionError:
+        uiMsg = '网络连接失败，请检查网络';
+        break;
+      default:
+        uiMsg = e.message ?? '网络连接失败';
+        break;
+    }
+
     if (e.response != null) {
       // 在返回错误响应前，检查是否是令牌失效
       if (e.response?.data is Map<String, dynamic>) {
@@ -355,17 +371,34 @@ class HttpClient {
           _handleTokenExpired();
         }
       }
-      // 返回服务器原始响应
+
+      // 覆盖为中文的超时/网络提示
+      final bool isTimeoutOrConn = e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError;
+
+      if (isTimeoutOrConn) {
+        if (e.response!.data is Map<String, dynamic>) {
+          final map = Map<String, dynamic>.from(e.response!.data);
+          map['code'] ??= -1;
+          map['msg'] = uiMsg;
+          e.response!.data = map;
+        } else {
+          e.response!.data = {'code': -1, 'msg': uiMsg};
+        }
+      }
+
       return e.response!;
     } else {
-      // 如果没有响应对象，创建一个包含错误信息的响应
+      // 如果没有响应对象，创建一个包含中文错误信息的响应
       return Response(
         requestOptions: e.requestOptions,
         statusCode: HttpStatus.serviceUnavailable,
         statusMessage: '网络连接失败',
         data: {
           'code': -1,
-          'msg': e.message ?? '网络连接失败',
+          'msg': uiMsg,
         },
       );
     }

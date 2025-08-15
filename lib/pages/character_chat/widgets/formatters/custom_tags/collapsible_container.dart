@@ -161,24 +161,17 @@ class _CollapsibleContainerState extends State<CollapsibleContainer>
   /// 构建容器装饰
   BoxDecoration _buildContainerDecoration(Color backgroundColor, double opacity) {
     return BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          backgroundColor.withOpacity((opacity * 0.8).clamp(0.0, 1.0)),
-          backgroundColor.withOpacity((opacity * 0.4).clamp(0.0, 1.0)),
-        ],
-      ),
+      color: backgroundColor.withOpacity((opacity * 0.3).clamp(0.0, 1.0)),
       borderRadius: BorderRadius.circular(12.0),
       border: Border.all(
-        color: backgroundColor.withOpacity((opacity * 1.5).clamp(0.0, 1.0)),
-        width: 0.5,
+        color: backgroundColor.withOpacity((opacity * 1.2).clamp(0.0, 1.0)),
+        width: 0.8,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.05),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
+          color: Colors.black.withOpacity(0.06),
+          blurRadius: 12,
+          offset: const Offset(0, 3),
         ),
       ],
     );

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../../services/file_service.dart';
 import '../../../services/message_cache_service.dart';
@@ -16,6 +15,7 @@ import '../services/character_chat_stream_service.dart';
 import '../services/character_service.dart';
 import '../models/sse_response.dart';
 import '../widgets/chat_bubble.dart';
+import '../widgets/chat_input_area.dart';
 import 'character_panel_page.dart';
 import 'chat_settings_page.dart';
 import '../../../widgets/custom_toast.dart';
@@ -2066,59 +2066,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     }
   }
 
-  Widget _buildExpandedFunctionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool isLoading = false, // 添加加载状态参数
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: isLoading ? null : onTap, // 加载时禁用点击
-        borderRadius: BorderRadius.circular(8.r),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 36.w,
-              height: 36.h,
-              decoration: BoxDecoration(
-                color: isLoading
-                    ? Colors.white.withOpacity(0.3) // 加载时更明显的背景
-                    : Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(8.r),
-              ),
-              alignment: Alignment.center,
-              child: isLoading
-                  ? SizedBox(
-                      width: 16.w,
-                      height: 16.h,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.w,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : Icon(icon, color: Colors.white, size: 22.sp),
-            ),
-            SizedBox(height: 2.h), // 减小图标和文字间的间距
-            Text(
-              label,
-              style: TextStyle(
-                color: isLoading
-                    ? Colors.white.withOpacity(0.6) // 加载时文字变淡
-                    : Colors.white,
-                fontSize: 11.sp, // 减小字体大小
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   // 改进的滚动到底部方法，添加边界检查和错误处理
   void _scrollToBottom({bool immediate = false}) {
@@ -2299,66 +2246,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     }
   }
 
-  // 添加括号功能方法
-  void _insertBrackets() {
-    final TextEditingController controller = _messageController;
-    final TextSelection selection = controller.selection;
-    final String currentText = controller.text;
-
-    String newText;
-    TextSelection newSelection;
-
-    // 如果有选中文本，则在两侧添加括号
-    if (selection.start != selection.end) {
-      final String selectedText =
-          currentText.substring(selection.start, selection.end);
-      newText = currentText.replaceRange(
-          selection.start, selection.end, '($selectedText)');
-      newSelection = TextSelection.collapsed(offset: selection.end + 2);
-    } else {
-      // 如果没有选中文本，则插入空括号，并将光标放在括号中间
-      newText = currentText.replaceRange(selection.start, selection.end, '()');
-      newSelection = TextSelection.collapsed(offset: selection.start + 1);
-    }
-
-    controller.value = controller.value.copyWith(
-      text: newText,
-      selection: newSelection,
-    );
-  }
-
-  // 添加插入中文引号功能方法
-  void _insertQuotes() {
-    final TextEditingController controller = _messageController;
-    final TextSelection selection = controller.selection;
-    final String currentText = controller.text;
-
-    String newText;
-    TextSelection newSelection;
-
-    // 如果有选中文本，则在两侧添加引号
-    if (selection.start != selection.end) {
-      final String selectedText =
-          currentText.substring(selection.start, selection.end);
-      newText = currentText.replaceRange(
-          selection.start, selection.end, '"$selectedText"');
-      newSelection = TextSelection.collapsed(offset: selection.end + 2);
-    } else {
-      // 如果没有选中文本，则插入空引号，并将光标放在引号中间
-      newText = currentText.replaceRange(selection.start, selection.end, '“”');
-      newSelection = TextSelection.collapsed(offset: selection.start + 1);
-    }
-
-    controller.value = controller.value.copyWith(
-      text: newText,
-      selection: newSelection,
-    );
-  }
-
-  // 添加清空输入框方法
-  void _clearInput() {
-    _messageController.clear();
-  }
+  
 
   // 更新当前输入文本（合并用户输入和预制内容）
   void _updateCurrentInputText() {
@@ -2437,50 +2325,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   }
 
 
-
-  // 添加功能气泡UI组件
-  Widget _buildFunctionBubble({
-    Widget? icon,
-    required String label,
-    required VoidCallback onTap,
-    Key? key,
-    bool isHighlighted = false, // 添加高亮参数
-  }) {
-    return Container(
-      key: key,
-      margin: EdgeInsets.only(right: 8.w),
-      child: Material(
-        color: isHighlighted
-            ? AppTheme.primaryColor // 高亮时使用主题色
-            : Colors.white.withOpacity(0.2), // 正常时使用半透明白色
-        borderRadius: BorderRadius.circular(16.r),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16.r),
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (icon != null) ...[
-                  icon,
-                  SizedBox(width: 4.w),
-                ],
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.sp,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   // 加载常用记录
   Future<void> _loadCommonPhrases() async {
     try {
@@ -2501,88 +2345,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     }
   }
 
-  // 保存常用记录
-  Future<void> _saveCommonPhrases() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final phrasesJson =
-          jsonEncode(_commonPhrases.map((p) => p.toJson()).toList());
-      await prefs.setString('common_phrases', phrasesJson);
-    } catch (e) {
-      debugPrint('保存常用记录失败: $e');
-      if (mounted) {
-        CustomToast.show(context, message: '保存失败: $e', type: ToastType.error);
-      }
-    }
-  }
-
-  // 添加常用记录
-  Future<void> _addCommonPhrase(String name, String content) async {
-    if (name.trim().isEmpty || content.trim().isEmpty) {
-      if (mounted) {
-        CustomToast.show(context, message: '名称和内容不能为空', type: ToastType.error);
-      }
-      return;
-    }
-
-    final newPhrase = CommonPhrase(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: name.trim(),
-      content: content.trim(),
-    );
-
-    setState(() {
-      _commonPhrases.add(newPhrase);
-    });
-
-    await _saveCommonPhrases();
-
-    if (mounted) {
-      CustomToast.show(context, message: '添加成功', type: ToastType.success);
-    }
-  }
-
-  // 删除常用记录
-  Future<void> _deleteCommonPhrase(String id) async {
-    setState(() {
-      _commonPhrases.removeWhere((phrase) => phrase.id == id);
-    });
-
-    await _saveCommonPhrases();
-  }
-
-  // 使用常用记录
-  void _useCommonPhrase(String content) {
-    final TextEditingController controller = _messageController;
-    final TextSelection selection = controller.selection;
-    final String currentText = controller.text;
-
-    // 在光标位置插入内容
-    final int start = selection.start;
-    final int end = selection.end;
-
-    if (start < 0 || end < 0) {
-      // 如果没有有效的光标位置，则追加到末尾
-      controller.text = currentText + content;
-      controller.selection =
-          TextSelection.collapsed(offset: controller.text.length);
-    } else {
-      // 在光标位置插入内容
-      final newText = currentText.replaceRange(start, end, content);
-      controller.text = newText;
-      controller.selection =
-          TextSelection.collapsed(offset: start + content.length);
-    }
-
-    _hidePhrasesList();
-  }
-
-  // 显示常用记录列表
-  void _showPhrasesList() {
-    setState(() {
-      _isShowingPhrases = true;
-    });
-  }
+ 
 
   // 隐藏常用记录列表
   void _hidePhrasesList() {
@@ -2600,190 +2363,6 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     }
   }
 
-  // 构建常用记录列表UI
-  Widget _buildPhrasesList() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(8.r),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 标题栏
-          Row(
-            children: [
-              Text(
-                '快捷语',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Spacer(),
-              // 返回按钮
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _hidePhrasesList,
-                  borderRadius: BorderRadius.circular(12.r),
-                  child: Padding(
-                    padding: EdgeInsets.all(4.w),
-                    child: Icon(
-                      Icons.arrow_back,
-                      color: Colors.white,
-                      size: 16.sp,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 8.h),
-          // 列表内容
-          _commonPhrases.isEmpty
-              ? Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12.h),
-                  child: Center(
-                    child: Text(
-                      '暂无快捷语',
-                      style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
-                          fontSize: 12.sp),
-                    ),
-                  ),
-                )
-              : Container(
-                  constraints: BoxConstraints(maxHeight: 150.h),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    itemCount: _commonPhrases.length > 10
-                        ? 10
-                        : _commonPhrases.length, // 最多显示10条
-                    itemBuilder: (context, index) {
-                      final phrase = _commonPhrases[index];
-                      return Container(
-                        margin: EdgeInsets.only(bottom: 4.h),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4.r),
-                        ),
-                        child: InkWell(
-                          onTap: () => _useCommonPhrase(phrase.content),
-                          borderRadius: BorderRadius.circular(4.r),
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 8.w, vertical: 6.h),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    phrase.name,
-                                    style: TextStyle(
-                                        color: Colors.white, fontSize: 12.sp),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                SizedBox(width: 8.w),
-                                Material(
-                                  color: Colors.red.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(12.r),
-                                  child: InkWell(
-                                    onTap: () => _deleteCommonPhrase(phrase.id),
-                                    borderRadius: BorderRadius.circular(12.r),
-                                    child: Container(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 8.w,
-                                        vertical: 4.h,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.delete_outline,
-                                            color: Colors.white,
-                                            size: 12.sp,
-                                          ),
-                                          SizedBox(width: 4.w),
-                                          Text(
-                                            '删除',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10.sp,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
-
-  // 显示添加常用记录对话框
-  void _showAddPhraseDialog() {
-    _phraseNameController.clear();
-    _phraseContentController.clear();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('添加快捷语'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _phraseNameController,
-              decoration: InputDecoration(
-                labelText: '备注',
-                hintText: '输入一个简短的备注',
-              ),
-            ),
-            SizedBox(height: 16.h),
-            TextField(
-              controller: _phraseContentController,
-              decoration: InputDecoration(
-                labelText: '内容',
-                hintText: '输入要保存的内容',
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              _addCommonPhrase(
-                _phraseNameController.text,
-                _phraseContentController.text,
-              );
-              Navigator.pop(context);
-            },
-            child: Text('保存'),
-          ),
-        ],
-      ),
-    );
-  }
 
   // 添加跳转到存档页面的方法
   void _navigateToChatArchive() async {
@@ -2869,237 +2448,11 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     return cleaned.trim();
   }
 
-  // 获取灵感建议
-  Future<void> _getInspirationSuggestions() async {
-    if (_isLoadingInspiration) return;
+  
 
-    setState(() {
-      _isLoadingInspiration = true;
-      _isShowingInspiration = true;
-      _inspirationSuggestions.clear();
-    });
+  
 
-    // 确保动画控制器处于正确状态
-    _inspirationAnimationController.reset();
-    _inspirationAnimationController.forward();
-
-    try {
-      final result = await _characterService.getInspirationSuggestions(
-        widget.sessionData['id'],
-      );
-
-      if (mounted) {
-        // 解析灵感数据
-        final inspirationJson = result['inspiration'];
-        debugPrint('原始灵感数据: $inspirationJson');
-
-        if (inspirationJson != null && inspirationJson is String) {
-          try {
-            // 🔥 关键修复：预处理JSON字符串，去除可能的markdown包裹
-            String cleanedJson = _cleanJsonString(inspirationJson);
-            debugPrint('清理后的JSON字符串: $cleanedJson');
-
-            final inspirationData = jsonDecode(cleanedJson);
-            debugPrint('解析后的灵感数据: $inspirationData');
-
-            final suggestions = inspirationData['suggestions'] as List<dynamic>?;
-            debugPrint('建议列表: $suggestions');
-
-            if (suggestions != null) {
-              setState(() {
-                _inspirationSuggestions = suggestions
-                    .map((item) => {
-                          'content': (item['content'] ?? '').toString().trim(),
-                        })
-                    .where((item) => (item['content'] as String).isNotEmpty)
-                    .toList();
-              });
-              debugPrint('最终建议列表: $_inspirationSuggestions');
-            }
-          } catch (e) {
-            debugPrint('解析灵感数据失败: $e');
-            if (mounted) {
-              CustomToast.show(context, message: '解析灵感数据失败', type: ToastType.error);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('获取灵感建议失败: $e');
-      if (mounted) {
-        CustomToast.show(context, message: e.toString(), type: ToastType.error);
-        _hideInspirationSuggestions();
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingInspiration = false;
-        });
-        // 确保动画保持显示状态
-        if (_inspirationAnimationController.status != AnimationStatus.completed) {
-          _inspirationAnimationController.forward();
-        }
-      }
-    }
-  }
-
-  // 隐藏灵感建议
-  void _hideInspirationSuggestions() {
-    if (mounted) {
-      setState(() {
-        _isShowingInspiration = false;
-        _inspirationSuggestions.clear();
-        _isLoadingInspiration = false;
-      });
-      // 重置动画到初始状态
-      _inspirationAnimationController.reset();
-    }
-  }
-
-  // 使用灵感建议
-  void _useInspirationSuggestion(String content) {
-    _messageController.text = content;
-    _messageController.selection = TextSelection.fromPosition(
-      TextPosition(offset: content.length),
-    );
-    _hideInspirationSuggestions();
-  }
-
-  // 构建灵感建议列表UI
-  Widget _buildInspirationList() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(8.r),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 标题栏
-          Row(
-            children: [
-              Icon(
-                Icons.lightbulb,
-                color: Colors.amber,
-                size: 16.sp,
-              ),
-              SizedBox(width: 8.w),
-              Text(
-                _isLoadingInspiration ? '灵感涌现中...' : '灵感建议',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Spacer(),
-              // 关闭按钮
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _hideInspirationSuggestions,
-                  borderRadius: BorderRadius.circular(12.r),
-                  child: Padding(
-                    padding: EdgeInsets.all(4.w),
-                    child: Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 16.sp,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 8.h),
-          // 列表内容
-          if (_isLoadingInspiration)
-            _buildLoadingText()
-          else if (_inspirationSuggestions.isEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 12.h),
-              child: Center(
-                child: Text(
-                  '暂无灵感建议',
-                  style: TextStyle(
-                      color: Colors.white.withOpacity(0.7), fontSize: 12.sp),
-                ),
-              ),
-            )
-          else
-            Container(
-              constraints: BoxConstraints(maxHeight: 200.h),
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                itemCount: _inspirationSuggestions.length,
-                itemBuilder: (context, index) {
-                  final suggestion = _inspirationSuggestions[index];
-                  final content = suggestion['content'] ?? '';
-                  debugPrint('渲染建议 $index: $content');
-
-                  return Container(
-                    margin: EdgeInsets.only(bottom: 8.h),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(8.r),
-                      border: Border.all(
-                        color: Colors.amber.withOpacity(0.6),
-                        width: 1,
-                      ),
-                    ),
-                    child: InkWell(
-                      onTap: () {
-                        debugPrint('点击建议: $content');
-                        _useInspirationSuggestion(content);
-                      },
-                      borderRadius: BorderRadius.circular(8.r),
-                      child: Container(
-                        padding: EdgeInsets.all(12.w),
-                        child: Text(
-                          content,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13.sp,
-                            height: 1.4,
-                            fontWeight: FontWeight.normal,
-                          ),
-                          maxLines: null,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // 构建加载文本流光效果
-  Widget _buildLoadingText() {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 20.h),
-      child: Center(
-        child: Shimmer.fromColors(
-          baseColor: Colors.grey[300]!,
-          highlightColor: Colors.amber,
-          period: const Duration(milliseconds: 1500),
-          child: Text(
-            '灵感涌现中...',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+ 
 
   @override
   Widget build(BuildContext context) {
@@ -3578,294 +2931,122 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 功能气泡区域 (仅在输入框聚焦时显示)
-                    if (_isInputFocused)
-                      FadeTransition(
-                        opacity: _bubbleOpacityAnimation,
-                        child: _isShowingPhrases
-                            ? _buildPhrasesList() // 显示常用记录列表
-                            : Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 16.w, vertical: 8.h),
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    children: [
-                                    // 搜索功能气泡（只在本地模式显示）
-                                    if (_isLocalMode)
-                                      _buildFunctionBubble(
-                                        icon: Icon(_isSearchMode ? Icons.close : Icons.search,
-                                            color: Colors.white, size: 14.sp),
-                                        label: _isSearchMode ? '取消' : '搜索',
-                                        onTap: _toggleSearchMode,
-                                        isHighlighted: _isSearchMode, // 搜索模式时高亮
-                                      ),
-                                    // 括号功能气泡
-                                    _buildFunctionBubble(
-                                      icon: null,
-                                      label: '()',
-                                      onTap: _insertBrackets,
-                                    ),
-                                    // 引号功能气泡
-                                    _buildFunctionBubble(
-                                      icon: null,
-                                      label: '“”',
-                                      onTap: _insertQuotes,
-                                    ),
-                                    // 清空功能气泡
-                                    _buildFunctionBubble(
-                                      icon: Icon(Icons.backspace_outlined,
-                                          color: Colors.white, size: 14.sp),
-                                      label: '清空输入框',
-                                      onTap: _clearInput,
-                                    ),
-                                    // 常用记录气泡
-                                    _buildFunctionBubble(
-                                      key: _commonPhrasesKey,
-                                      icon: Icon(Icons.history,
-                                          color: Colors.white, size: 14.sp),
-                                      label: '快捷语',
-                                      onTap: _showPhrasesList,
-                                    ),
-                                    // 添加常用记录气泡 - 只显示图标
-                                    Container(
-                                      margin: EdgeInsets.only(right: 8.w),
-                                      child: Material(
-                                        color: Colors.white.withOpacity(0.2),
-                                        shape: CircleBorder(),
-                                        child: InkWell(
-                                          onTap: _showAddPhraseDialog,
-                                          customBorder: CircleBorder(),
-                                          child: Padding(
-                                            padding: EdgeInsets.all(8.w),
-                                            child: Icon(
-                                              Icons.add,
-                                              color: Colors.white,
-                                              size: 16.sp,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                      ),
-
-                    // 灵感建议区域
-                    if (_isShowingInspiration)
-                      FadeTransition(
-                        opacity: _inspirationOpacityAnimation,
-                        child: _buildInspirationList(),
-                      ),
-
-                    // 搜索结果区域
-                    if (_isSearchMode) _buildSearchInterface(),
-
-                    // 输入框区域
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16.w,
-                        vertical: 8.h,
-                      ),
-                      child: Row(
-                        children: [
-                          // 汉堡按钮
-                          Container(
-                            width: 36.w,
-                            height: 36.w,
-                            margin: EdgeInsets.only(right: 8.w),
-                            alignment: Alignment.center,
-                            child: GestureDetector(
-                              onTap: _handleMenuToggle,
-                              child: AnimatedIcon(
-                                icon: AnimatedIcons.menu_close,
-                                progress: _menuAnimationController,
-                                color: Colors.white,
-                                size: 24.sp,
-                              ),
+                    // 新的输入区域组件（包含功能气泡、输入框、展开功能区，并统一“快捷语/灵感/搜索”展示面板）
+                    ChatInputArea(
+                      messageController: _messageController,
+                      focusNode: _focusNode,
+                      isLocalMode: _isLocalMode,
+                      isSending: _isSending,
+                      isResetting: _isResetting,
+                      isSearchMode: _isSearchMode,
+                      currentInputText: _currentInputText,
+                      searchResults: _searchResults,
+                      onTapSearchResult: _jumpToSearchResult,
+                      onMenuToggle: _handleMenuToggle,
+                      onSendTap: _handleSendMessage,
+                      onStopGenerationTap: _handleStopGeneration,
+                      onToggleSearchMode: _toggleSearchMode,
+                      onInlineSearch: _performInlineSearch,
+                      onOpenCharacterPanel: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => CharacterPanelPage(
+                              characterData: widget.sessionData,
                             ),
                           ),
-                          // 输入框
-                          Expanded(
-                            child: Container(
-                              constraints: BoxConstraints(
-                                minHeight: 36.h,
-                                maxHeight: 120.h,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(18.r),
-                              ),
-                              child: TextField(
-                                controller: _messageController,
-                                focusNode: _focusNode,
-                                style: TextStyle(
-                                  color: AppTheme.textPrimary,
-                                  fontSize: 14.sp,
-                                ),
-                                maxLines: null,
-                                decoration: InputDecoration(
-                                  hintText: _isSearchMode ? '输入关键词搜索...' : '发送消息...',
-                                  hintStyle: TextStyle(
-                                    color:
-                                        AppTheme.textSecondary.withOpacity(0.6),
-                                    fontSize: 14.sp,
-                                  ),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 16.w,
-                                    vertical: 8.h,
-                                  ),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                ),
-                                onChanged: _isSearchMode ? _performInlineSearch : null,
-                              ),
+                        );
+                      },
+                      onOpenChatSettings: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => ChatSettingsPage(
+                              sessionData: widget.sessionData,
+                              backgroundOpacity: _backgroundOpacity,
+                              onSettingsChanged: () {
+                                _loadSettings();
+                              },
                             ),
                           ),
-                          // 发送/灵感按钮
-                          Container(
-                            width: 36.w,
-                            height: 36.w,
-                            margin: EdgeInsets.only(left: 8.w),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: _isSearchMode
-                                    ? () {
-                                        // 搜索模式：执行搜索
-                                        final keyword = _messageController.text.trim();
-                                        if (keyword.isNotEmpty) {
-                                          _performInlineSearch(keyword);
-                                        }
-                                      }
-                                    : _isSending
-                                        ? _handleStopGeneration
-                                        : _currentInputText.trim().isNotEmpty
-                                            ? _handleSendMessage
-                                            : _getInspirationSuggestions,
-                                borderRadius: BorderRadius.circular(18.r),
-                                child: Icon(
-                                  _isSearchMode
-                                      ? Icons.search // 搜索模式显示搜索图标
-                                      : _isSending
-                                          ? Icons.stop_rounded
-                                          : _currentInputText.trim().isNotEmpty
-                                              ? Icons.send
-                                              : Icons.lightbulb,
-                                  color: _isSearchMode
-                                      ? AppTheme.primaryColor // 搜索模式主题色图标
-                                      : _isSending
-                                          ? Colors.red.withOpacity(0.8)
-                                          : _currentInputText.trim().isNotEmpty
-                                              ? AppTheme.primaryColor
-                                              : Colors.amber, // 灯泡常亮为琥珀色
-                                  size: 24.sp,
-                                ),
-                              ),
+                        );
+                      },
+                      onOpenUiSettings: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => UiSettingsPage(
+                              backgroundOpacity: _backgroundOpacity,
+                              onSettingsChanged: () {
+                                _loadFormatMode();
+                                setState(() {});
+                              },
                             ),
                           ),
-                        ],
-                      ),
+                        );
+                      },
+                      onResetSession: _handleResetSession,
+                      onOpenArchive: _navigateToChatArchive,
+                      fetchInspirationSuggestions: () async {
+                        final result = await _characterService.getInspirationSuggestions(
+                          widget.sessionData['id'],
+                        );
+                        final inspirationJson = result['inspiration'];
+                        if (inspirationJson is String) {
+                          try {
+                            final cleaned = _cleanJsonString(inspirationJson);
+                            final data = jsonDecode(cleaned);
+                            final suggestions = (data['suggestions'] as List<dynamic>?)
+                                    ?.map((e) => (e['content'] ?? '').toString().trim())
+                                    .where((s) => s.isNotEmpty)
+                                    .toList() ??
+                                <String>[];
+                            return suggestions;
+                          } catch (_) {
+                            return <String>[];
+                          }
+                        }
+                        return <String>[];
+                      },
+                      fetchMemories: ({String? cursor, int limit = 20}) async {
+                        final data = await _characterService.getMemories(
+                          widget.sessionData['id'],
+                          cursor: cursor,
+                          limit: limit,
+                        );
+                        return data;
+                      },
+                      createMemory: ({required String saveSlotId, required String title, required String content}) async {
+                        await _characterService.createMemory(
+                          widget.sessionData['id'],
+                          saveSlotId: saveSlotId,
+                          title: title,
+                          content: content,
+                        );
+                      },
+                      updateMemory: ({required String saveSlotId, required String memoryId, String? title, String? content}) async {
+                        await _characterService.updateMemory(
+                          widget.sessionData['id'],
+                          saveSlotId: saveSlotId,
+                          memoryId: memoryId,
+                          title: title,
+                          content: content,
+                        );
+                      },
+                      deleteMemory: ({required String saveSlotId, required String memoryId}) async {
+                        await _characterService.deleteMemory(
+                          widget.sessionData['id'],
+                          saveSlotId: saveSlotId,
+                          memoryId: memoryId,
+                        );
+                      },
+                      insertMemoryRelative: ({required String anchorMemoryId, required String position, required String title, required String content}) async {
+                        await _characterService.insertMemoryRelative(
+                          widget.sessionData['id'],
+                          anchorMemoryId: anchorMemoryId,
+                          position: position,
+                          title: title,
+                          content: content,
+                        );
+                      },
                     ),
-
-                    // 展开的功能区
-                    if (_isMenuExpanded)
-                      AnimatedBuilder(
-                        animation: _menuAnimationController,
-                        builder: (context, child) {
-                          return SizedBox(
-                            height: _menuHeightAnimation.value,
-                            child: child,
-                          );
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.symmetric(horizontal: 16.w),
-                          decoration: BoxDecoration(
-                            color: Colors.transparent, // 改为透明，避免双重透明度叠加
-                            border: Border(
-                              top: BorderSide(
-                                color: Colors.white.withOpacity(0.1),
-                                width: 1,
-                              ),
-                            ),
-                          ),
-                          child: GridView.count(
-                            crossAxisCount: 5,
-                            padding: EdgeInsets.symmetric(vertical: 4.h),
-                            mainAxisSpacing: 2.h,
-                            crossAxisSpacing: 2.w,
-                            childAspectRatio: 0.9,
-                            physics: const NeverScrollableScrollPhysics(),
-                            children: [
-                              _buildExpandedFunctionButton(
-                                icon: Icons.person,
-                                label: '角色',
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => CharacterPanelPage(
-                                        characterData: widget.sessionData,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              _buildExpandedFunctionButton(
-                                icon: Icons.palette,
-                                label: '界面',
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => ChatSettingsPage(
-                                        sessionData: widget.sessionData,
-                                        backgroundOpacity: _backgroundOpacity,
-                                        onSettingsChanged: () {
-                                          // 重新加载设置
-                                          _loadSettings();
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              _buildExpandedFunctionButton(
-                                icon: Icons.format_paint,
-                                label: '消息渲染',
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => UiSettingsPage(
-                                        backgroundOpacity: _backgroundOpacity,
-                                        onSettingsChanged: () {
-                                          // 重新加载格式化模式
-                                          _loadFormatMode();
-                                          // 强制刷新所有消息
-                                          setState(() {});
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              _buildExpandedFunctionButton(
-                                icon: Icons.restart_alt,
-                                label: '重置',
-                                onTap: _handleResetSession,
-                                isLoading: _isResetting, // 传入重置状态
-                              ),
-                              _buildExpandedFunctionButton(
-                                icon: Icons.archive,
-                                label: '存档',
-                                onTap: _navigateToChatArchive,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),

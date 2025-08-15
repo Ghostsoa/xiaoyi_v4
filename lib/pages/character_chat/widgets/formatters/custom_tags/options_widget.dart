@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+ 
 import 'base_custom_tag.dart';
 import '../../../../../dao/chat_settings_dao.dart';
 
@@ -220,71 +221,53 @@ class _OptionsWidgetStatefulState extends State<OptionsWidgetStateful> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12.0),
             child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: isSelected ? 8 : 6,
-                sigmaY: isSelected ? 8 : 6
-              ),
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
               child: Container(
-                padding: isHorizontal
-                    ? const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0)
-                    : const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: isSelected
-                        ? [
-                            backgroundColor.withOpacity((opacity * 3.0).clamp(0.0, 1.0)),
-                            backgroundColor.withOpacity((opacity * 2.0).clamp(0.0, 1.0)),
-                            backgroundColor.withOpacity((opacity * 1.0).clamp(0.0, 1.0)),
-                          ]
-                        : [
-                            backgroundColor.withOpacity((opacity * 1.0).clamp(0.0, 1.0)),
-                            backgroundColor.withOpacity((opacity * 0.6).clamp(0.0, 1.0)),
-                            backgroundColor.withOpacity((opacity * 0.3).clamp(0.0, 1.0)),
-                          ],
-                  ),
-                  borderRadius: BorderRadius.circular(12.0),
-                  border: Border.all(
-                    color: isSelected
-                        ? backgroundColor.withOpacity((opacity * 6.0).clamp(0.0, 1.0))
-                        : backgroundColor.withOpacity((opacity * 2.5).clamp(0.0, 1.0)),
-                    width: isSelected ? 1.5 : 0.8,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isSelected
-                          ? backgroundColor.withOpacity((opacity * 1.5).clamp(0.0, 1.0))
-                          : Colors.black.withOpacity(0.05),
-                      blurRadius: isSelected ? 10 : 6,
-                      offset: Offset(0, isSelected ? 4 : 2),
-                      spreadRadius: isSelected ? 1 : 0,
-                    ),
-                  ],
+              padding: isHorizontal
+                  ? const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0)
+                  : const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? backgroundColor.withOpacity((opacity * 1.2).clamp(0.0, 1.0))
+                    : backgroundColor.withOpacity((opacity * 0.5).clamp(0.0, 1.0)),
+                borderRadius: BorderRadius.circular(12.0),
+                border: Border.all(
+                  color: isSelected
+                      ? backgroundColor.withOpacity((opacity * 3.0).clamp(0.0, 1.0))
+                      : backgroundColor.withOpacity((opacity * 1.5).clamp(0.0, 1.0)),
+                  width: isSelected ? 1.0 : 0.8,
                 ),
-                child: Center(
-                  child: RichText(
-                    textAlign: isHorizontal ? TextAlign.center : TextAlign.left,
-                    text: TextSpan(
-                      children: widget.formatter.processInlineFormats(
-                        option,
-                        widget.baseStyle.copyWith(
-                          fontSize: widget.baseStyle.fontSize! * (isSelected ? 0.95 : 0.9),
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isSelected
-                              ? textColor
-                              : textColor.withOpacity(0.85),
-                          letterSpacing: isSelected ? 0.3 : 0.1,
-                          height: 1.0,
-                        ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: RichText(
+                  textAlign: isHorizontal ? TextAlign.center : TextAlign.left,
+                  text: TextSpan(
+                    children: widget.formatter.processInlineFormats(
+                      option,
+                      widget.baseStyle.copyWith(
+                        fontSize: widget.baseStyle.fontSize! * (isSelected ? 0.95 : 0.9),
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected
+                            ? textColor
+                            : textColor.withOpacity(0.85),
+                        letterSpacing: isSelected ? 0.3 : 0.1,
+                        height: 1.0,
                       ),
                     ),
-                    textHeightBehavior: const TextHeightBehavior(
-                      applyHeightToFirstAscent: false,
-                      applyHeightToLastDescent: false,
-                    ),
+                  ),
+                  textHeightBehavior: const TextHeightBehavior(
+                    applyHeightToFirstAscent: false,
+                    applyHeightToLastDescent: false,
                   ),
                 ),
+              ),
               ),
             ),
           ),

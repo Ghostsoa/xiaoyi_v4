@@ -36,7 +36,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
   // 作者关注状态
   bool _isFollowingAuthor = false;
-  bool _isLoadingFollowStatus = false;
   bool _isUpdatingFollowStatus = false;
 
   // 缓存图片数据
@@ -45,10 +44,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
   // 滚动控制
   final ScrollController _scrollController = ScrollController();
-  double _scrollOffset = 0;
 
-  // 用于DraggableScrollableSheet的控制器
-  late ScrollController _sheetScrollController;
+  // 用于DraggableScrollableSheet的控制器（无需缓存）
 
   @override
   void initState() {
@@ -59,12 +56,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     _loadCoverImage();
     _checkFollowingStatus();
 
-    // 监听滚动事件
-    _scrollController.addListener(() {
-      setState(() {
-        _scrollOffset = _scrollController.offset;
-      });
-    });
+    // 无需监听滚动事件以改变透明度
   }
 
   @override
@@ -334,31 +326,26 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
     // 获取屏幕高度
     final double screenHeight = MediaQuery.of(context).size.height;
-    // 封面占满屏幕
-    final double coverHeight = screenHeight;
+    final double safeTop = MediaQuery.of(context).padding.top;
     // 内容区域初始位置（从屏幕的60%处开始）
     final double initialContentOffset = screenHeight * 0.6;
     // 内容区域可以拉到的最小位置（顶部保留空间）
     final double minContentOffset = screenHeight * 0.15;
+    // 计算最大展开高度，刚好卡在返回按钮底部，避免覆盖
+    final double backButtonHeight = 36.h; // 胶囊高度
+    final double reservedTopSpace = safeTop + 8.h + backButtonHeight + 8.h;
+    double maxChildSize = (screenHeight - reservedTopSpace) / screenHeight;
+    // 合理夹取
+    if (maxChildSize > 0.98) maxChildSize = 0.98;
+    if (maxChildSize < 0.5) maxChildSize = 0.5;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // 背景色 - 使用渐变背景
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppTheme.background.withOpacity(0.9),
-                  AppTheme.background,
-                ],
-              ),
-            ),
-          ),
+          // 背景色 - 实色背景
+          Container(color: AppTheme.background),
 
           // 封面图片 - 占满全屏
           Positioned.fill(
@@ -374,66 +361,27 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                   ),
           ),
 
-          // 返回按钮 - 放在左上角，美化按钮样式
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 10.h,
-            left: 16.w,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                padding: EdgeInsets.all(10.w),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.3),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white,
-                  size: 20.sp,
-                ),
-              ),
-            ),
-          ),
+          // 返回按钮（玻璃拟态 + 更优雅的定位与交互）
+          _buildBackButton(context),
 
           // 内容区域 - 可拖动
           NotificationListener<ScrollNotification>(
             onNotification: (notification) {
-              // 当内容向上滚动超过封面时，改变AppBar颜色
-              if (notification is ScrollUpdateNotification) {
-                setState(() {
-                  _scrollOffset = notification.metrics.pixels;
-                });
-              }
               return false;
             },
             child: DraggableScrollableSheet(
-              initialChildSize: initialContentOffset / screenHeight,
-              minChildSize: minContentOffset / screenHeight,
-              maxChildSize: 0.9, // 最大可以占屏幕的90%
+              initialChildSize: (initialContentOffset / screenHeight).clamp(0.2, maxChildSize),
+              minChildSize: (minContentOffset / screenHeight).clamp(0.1, (initialContentOffset / screenHeight)),
+              maxChildSize: maxChildSize,
               builder: (context, scrollController) {
-                _sheetScrollController = scrollController;
-                return Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.background,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(24.r),
-                      topRight: Radius.circular(24.r),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
-                        blurRadius: 15,
-                        offset: const Offset(0, -5),
-                      ),
-                    ],
+                return _glass(
+                  radius: BorderRadius.only(
+                    topLeft: Radius.circular(24.r),
+                    topRight: Radius.circular(24.r),
                   ),
+                  opacity: 0.12,
+                  borderOpacity: 0.22,
+                  blur: 24,
                   child: CustomScrollView(
                     controller: scrollController,
                     physics: const ClampingScrollPhysics(),
@@ -651,13 +599,10 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                     ),
                                   ),
                                   // 互动数据
-                                  Container(
+                                  _glass(
                                     padding: EdgeInsets.all(10.w),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.cardBackground
-                                          .withOpacity(0.5),
-                                      borderRadius: BorderRadius.circular(12.r),
-                                    ),
+                                    opacity: 0.14,
+                                    borderOpacity: 0.28,
                                     child: Column(
                                       children: [
                                         Row(
@@ -688,7 +633,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                             ),
                                             SizedBox(width: 4.w),
                                             Text(
-                                              '${widget.item["like_count"]}',
+                                              '$_likeCount',
                                               style: AppTheme.secondaryStyle,
                                             ),
                                           ],
@@ -830,27 +775,12 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                               SizedBox(height: 24.h),
 
                               // 操作按钮区域 - 美化按钮
-                              Container(
+                              _glass(
                                 padding: EdgeInsets.symmetric(
                                     vertical: 16.h, horizontal: 12.w),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      AppTheme.cardBackground.withOpacity(0.6),
-                                      AppTheme.cardBackground.withOpacity(0.3),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius: BorderRadius.circular(16.r),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
+                                opacity: 0.12,
+                                borderOpacity: 0.25,
+                                blur: 22,
                                 child: Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceAround,
@@ -982,17 +912,12 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
                               // 时间信息 - 改为卡片式设计
                               _buildSectionTitle('其他信息'),
-                              Container(
-                                width: double.infinity,
+                              _glass(
                                 padding: EdgeInsets.all(16.w),
-                                decoration: BoxDecoration(
-                                  color:
-                                      AppTheme.cardBackground.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(12.r),
-                                  border: Border.all(
-                                    color: Colors.grey.withOpacity(0.1),
-                                  ),
-                                ),
+                                radius: BorderRadius.circular(12.r),
+                                opacity: 0.10,
+                                borderOpacity: 0.22,
+                                blur: 18,
                                 child: Column(
                                   children: [
                                     _buildInfoItem(
@@ -1081,26 +1006,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           height: double.infinity,
           width: double.infinity,
         ),
-        // 顶部渐变 (当滚动时显示)
-        if (_scrollOffset > 50)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: 80.h,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(min(0.5, _scrollOffset / 200)),
-                  ],
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -1134,7 +1039,80 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
-  double min(double a, double b) => a < b ? a : b;
+  // 移除透明相关的工具函数
+
+  // Glassmorphism 容器
+  Widget _glass({
+    required Widget child,
+    BorderRadius? radius,
+    EdgeInsets? padding,
+    double blur = 20,
+    double opacity = 0.14,
+    double borderOpacity = 0.25,
+  }) {
+    final BorderRadius effectiveRadius = radius ?? BorderRadius.circular(16.r);
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: AppTheme.cardBackground,
+        borderRadius: effectiveRadius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  // 更优雅的返回按钮：
+  // - 紧贴安全区，水平左右内边距与整体一致
+  // - 更大点击范围、微阴影
+  // - 水平对齐封面与内容的左右间距
+  Widget _buildBackButton(BuildContext context) {
+    final EdgeInsets safe = MediaQuery.of(context).padding;
+    return Positioned(
+      top: safe.top + 8.h,
+      left: 12.w,
+      child: Semantics(
+        label: '返回',
+        button: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.maybePop(context),
+          child: _glass(
+            radius: BorderRadius.circular(14.r),
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            opacity: 0.16,
+            borderOpacity: 0.24,
+            blur: 20,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.arrow_back_rounded,
+                  size: 20.sp,
+                  color: AppTheme.textPrimary,
+                ),
+                SizedBox(width: 6.w),
+                Text(
+                  '返回',
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   // 更新美化后的按钮
   Widget _buildActionButton({
@@ -1154,9 +1132,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             padding: EdgeInsets.all(12.w),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: colors
-                    .map((e) => e.withOpacity(isHighlighted ? 1.0 : 0.2))
-                    .toList(),
+                colors: isHighlighted ? colors : [colors.first, colors.last],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -1174,7 +1150,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             child: Icon(
               icon,
               size: 24.sp,
-              color: isHighlighted ? Colors.white : colors.first,
+              color: Colors.white,
             ),
           ),
         ),

@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../../dao/user_dao.dart';
+import '../../../net/http_client.dart';
+import '../../../pages/login/login_page.dart';
 import '../models/sse_response.dart';
 import '../../../services/network_monitor_service.dart';
 
@@ -23,6 +26,21 @@ class CharacterChatStreamService {
     } catch (e) {
       debugPrint('获取版本号失败: $e');
       return '1.0.0+1'; // 默认版本号
+    }
+  }
+
+  /// 处理令牌失效
+  void _handleTokenExpired() async {
+    // 清除用户信息
+    await _userDao.clearUserInfo();
+
+    // 使用navigatorKey导航到登录页面
+    if (HttpClient.navigatorKey.currentContext != null) {
+      Navigator.pushAndRemoveUntil(
+        HttpClient.navigatorKey.currentContext!,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+        (route) => false,
+      );
     }
   }
 
@@ -82,7 +100,7 @@ class CharacterChatStreamService {
         }
 
         if (errorData['code'] == 1019) {
-          await _userDao.clearUserInfo();
+          _handleTokenExpired();
           yield* Stream.error(errorData['msg'] ?? '登录已过期');
           return;
         }
@@ -207,7 +225,7 @@ class CharacterChatStreamService {
         }
 
         if (errorData['code'] == 1019) {
-          await _userDao.clearUserInfo();
+          _handleTokenExpired();
           yield* Stream.error(errorData['msg'] ?? '登录已过期');
           return;
         }

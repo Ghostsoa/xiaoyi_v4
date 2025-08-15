@@ -42,7 +42,6 @@ class CharacterSessionListState extends State<CharacterSessionList> {
   bool _hasMore = true;
   final Map<String, Uint8List> _avatarCache = {};
   bool _isLoadingMore = false;
-  bool _isSyncing = false; // 是否正在后台同步
   StreamSubscription? _sessionStreamSubscription;
 
   @override
@@ -253,38 +252,30 @@ class CharacterSessionListState extends State<CharacterSessionList> {
     try {
       final nextPage = _currentPage + 1;
 
-      // 先从API同步下一页数据
+      // 先从API同步下一页数据到本地
       final apiResult = await _messageService.syncCharacterSessionsFromApi(
         page: nextPage,
         pageSize: 10,
       );
 
-      // 调试信息，忽略list字段内容
-      final debugResult = Map<String, dynamic>.from(apiResult);
-      if (debugResult['list'] is List) {
-        debugResult['list'] = '[${(debugResult['list'] as List).length} items]';
-      }
-      debugPrint('[CharacterSessionList] 分页加载结果: 页码=$nextPage, 数据=$debugResult');
-
       if (mounted) {
-        // 从API结果中直接获取新数据
-        List<Map<String, dynamic>> newSessions = [];
-        if (apiResult['list'] is List) {
-          newSessions = List<Map<String, dynamic>>.from(apiResult['list']);
-        } else {
-          debugPrint('API返回数据格式错误: $apiResult');
-        }
+        // 再从本地根据统一排序（包含置顶优先的本地规则）读取该页
+        final localResult = await _messageService.getCharacterSessions(
+          page: nextPage,
+          pageSize: 10,
+        );
 
-        debugPrint('[CharacterSessionList] 解析到新会话数量: ${newSessions.length}');
+        List<Map<String, dynamic>> newSessions = [];
+        if (localResult['list'] is List) {
+          newSessions = List<Map<String, dynamic>>.from(localResult['list']);
+        }
 
         if (newSessions.isNotEmpty) {
           setState(() {
-            _sessions.addAll(newSessions); // 累加到现有列表
+            _sessions.addAll(newSessions);
             _currentPage = nextPage;
-            // 分页参数以API为准
             final int total = apiResult['total'] is int ? apiResult['total'] : 0;
             _hasMore = _currentPage * 10 < total;
-            debugPrint('[CharacterSessionList] 更新状态: 当前页=$_currentPage, 总会话=${_sessions.length}, 总数=$total, 还有更多=$_hasMore');
           });
 
           for (var session in newSessions) {

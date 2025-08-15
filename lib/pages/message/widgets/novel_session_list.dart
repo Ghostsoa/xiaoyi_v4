@@ -160,19 +160,21 @@ class NovelSessionListState extends State<NovelSessionList> {
     setState(() => _isLoadingMore = true);
 
     try {
-      // 先尝试同步下一页的数据
+      final nextPage = _currentPage + 1;
+
+      // 先尝试同步下一页的数据（页级对齐）
       try {
         await _messageService.syncNovelSessionsFromApi(
-          page: _currentPage + 1,
+          page: nextPage,
           pageSize: 10,
         );
       } catch (e) {
         debugPrint('[NovelSessionList] 同步下一页数据失败: $e');
-        // 同步失败也继续从本地加载
       }
 
+      // 然后从本地根据统一排序规则读取该页
       final result = await _messageService.getNovelSessions(
-        page: _currentPage + 1,
+        page: nextPage,
         pageSize: 10,
       );
 
@@ -186,7 +188,7 @@ class NovelSessionListState extends State<NovelSessionList> {
 
         setState(() {
           _sessions.addAll(newSessions);
-          _currentPage++;
+          _currentPage = nextPage;
           final int total = result['total'] is int ? result['total'] : 0;
           _hasMore = _sessions.length < total;
           _isLoadingMore = false;
@@ -250,19 +252,21 @@ class NovelSessionListState extends State<NovelSessionList> {
     }
 
     try {
-      // 先尝试同步下一页的数据
+      final nextPage = _currentPage + 1;
+
+      // 先尝试同步下一页的数据（页级对齐）
       try {
         await _messageService.syncNovelSessionsFromApi(
-          page: _currentPage + 1,
+          page: nextPage,
           pageSize: 10,
         );
       } catch (e) {
         debugPrint('[NovelSessionList] 同步下一页数据失败: $e');
-        // 同步失败也继续从本地加载
       }
 
+      // 然后从本地读取该页
       final result = await _messageService.getNovelSessions(
-        page: _currentPage + 1,
+        page: nextPage,
         pageSize: 10,
       );
 
@@ -277,7 +281,7 @@ class NovelSessionListState extends State<NovelSessionList> {
         if (newSessions.isNotEmpty) {
           setState(() {
             _sessions.addAll(newSessions);
-            _currentPage++;
+            _currentPage = nextPage;
             final int total = (result['total'] is int ? result['total'] : 0);
             _hasMore = _sessions.length < total;
           });

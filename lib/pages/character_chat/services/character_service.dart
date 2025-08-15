@@ -194,6 +194,21 @@ class CharacterService {
     }
   }
 
+  /// 同步调试设置
+  Future<void> syncDebugSettings(int sessionId) async {
+    try {
+      final response = await _httpClient.post(
+        '/sessions/character/$sessionId/sync-debug-settings',
+      );
+
+      if (response.data['code'] != 0) {
+        throw response.data['msg'] ?? '同步调试设置失败';
+      }
+    } catch (e) {
+      throw '同步调试设置失败: $e';
+    }
+  }
+
   /// 获取角色卡详情
   Future<Map<String, dynamic>> getCharacterDetail(int characterId) async {
     try {
@@ -358,6 +373,132 @@ class CharacterService {
       }
     } catch (e) {
       throw '获取灵感建议失败: $e';
+    }
+  }
+
+  /// 获取标签记忆（游标分页，返回当前激活存档ID）
+  /// GET /sessions/character/:id/memories
+  Future<Map<String, dynamic>> getMemories(
+    int sessionId, {
+    String? cursor,
+    int limit = 20,
+  }) async {
+    try {
+      final response = await _httpClient.get(
+        '/sessions/character/$sessionId/memories',
+        queryParameters: {
+          if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+          'limit': limit,
+        },
+      );
+
+      if (response.data['code'] == 0) {
+        return response.data['data'];
+      } else {
+        throw response.data['msg'] ?? '获取标签记忆失败';
+      }
+    } catch (e) {
+      throw '获取标签记忆失败: $e';
+    }
+  }
+
+  /// 在指定记忆前/后插入（基于当前激活存档）
+  /// POST /sessions/character/:id/memories/insert-relative
+  Future<void> insertMemoryRelative(
+    int sessionId, {
+    required String anchorMemoryId,
+    required String position, // before | after
+    required String title,
+    required String content,
+  }) async {
+    try {
+      final response = await _httpClient.post(
+        '/sessions/character/$sessionId/memories/insert-relative',
+        data: {
+          'anchorMemoryId': anchorMemoryId,
+          'position': position,
+          'title': title,
+          'content': content,
+        },
+      );
+
+      if (response.data['code'] != 0) {
+        throw response.data['msg'] ?? '插入标签记忆失败';
+      }
+    } catch (e) {
+      throw '插入标签记忆失败: $e';
+    }
+  }
+
+  /// 创建标签记忆（指定存档，尾部追加）
+  /// POST /sessions/character/:id/save-slots/:saveSlotId/memories
+  Future<void> createMemory(
+    int sessionId, {
+    required String saveSlotId,
+    required String title,
+    required String content,
+  }) async {
+    try {
+      final response = await _httpClient.post(
+        '/sessions/character/$sessionId/save-slots/$saveSlotId/memories',
+        data: {
+          'title': title,
+          'content': content,
+        },
+      );
+
+      if (response.data['code'] != 0) {
+        throw response.data['msg'] ?? '创建标签记忆失败';
+      }
+    } catch (e) {
+      throw '创建标签记忆失败: $e';
+    }
+  }
+
+  /// 更新标签记忆（指定存档）
+  /// PUT /sessions/character/:id/save-slots/:saveSlotId/memories/:memoryId
+  Future<void> updateMemory(
+    int sessionId, {
+    required String saveSlotId,
+    required String memoryId,
+    String? title,
+    String? content,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {};
+      if (title != null) data['title'] = title;
+      if (content != null) data['content'] = content;
+
+      final response = await _httpClient.put(
+        '/sessions/character/$sessionId/save-slots/$saveSlotId/memories/$memoryId',
+        data: data,
+      );
+
+      if (response.data['code'] != 0) {
+        throw response.data['msg'] ?? '更新标签记忆失败';
+      }
+    } catch (e) {
+      throw '更新标签记忆失败: $e';
+    }
+  }
+
+  /// 删除标签记忆（指定存档）
+  /// DELETE /sessions/character/:id/save-slots/:saveSlotId/memories/:memoryId
+  Future<void> deleteMemory(
+    int sessionId, {
+    required String saveSlotId,
+    required String memoryId,
+  }) async {
+    try {
+      final response = await _httpClient.delete(
+        '/sessions/character/$sessionId/save-slots/$saveSlotId/memories/$memoryId',
+      );
+
+      if (response.data['code'] != 0) {
+        throw response.data['msg'] ?? '删除标签记忆失败';
+      }
+    } catch (e) {
+      throw '删除标签记忆失败: $e';
     }
   }
 }

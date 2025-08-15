@@ -258,57 +258,46 @@ class MessageWidgetStateful extends StatelessWidget {
           textColor = baseStyle.color ?? Colors.black;
         }
 
-        // 根据左右位置调整颜色，右侧使用稍微深一点的当前角色颜色
-        List<Color> bubbleColors = isLeft
-            ? [
-                backgroundColor.withOpacity((opacity * 0.8).clamp(0.0, 1.0)),
-                backgroundColor.withOpacity((opacity * 0.4).clamp(0.0, 1.0)),
-              ]
-            : [
-                backgroundColor.withOpacity((opacity * 1.5).clamp(0.0, 1.0)),
-                backgroundColor.withOpacity((opacity * 0.8).clamp(0.0, 1.0)),
-              ];
+        // 根据左右位置调整透明度（保留逻辑注释，当前未使用渐变）
 
         return ClipRRect(
-      borderRadius: bubbleRadius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 280.0), // 限制最大宽度
-          padding: const EdgeInsets.all(8.0), // 减少内边距
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: bubbleColors,
-            ),
-            borderRadius: bubbleRadius,
-            border: Border.all(
-              color: isLeft
-                  ? (baseStyle.color?.withOpacity(0.15) ?? Colors.grey.withOpacity(0.15))
-                  : (baseStyle.color?.withOpacity(0.25) ?? Colors.grey.withOpacity(0.25)),
-              width: 0.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+          borderRadius: bubbleRadius,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 280.0), // 限制最大宽度
+              padding: const EdgeInsets.all(8.0), // 减少内边距
+              decoration: BoxDecoration(
+                color: isLeft
+                    ? backgroundColor.withOpacity((opacity * 0.5).clamp(0.0, 1.0))
+                    : backgroundColor.withOpacity((opacity * 1.5).clamp(0.0, 1.0)),
+                borderRadius: bubbleRadius,
+                border: Border.all(
+                  color: isLeft
+                      ? backgroundColor.withOpacity((opacity * 1.5).clamp(0.0, 1.0))
+                      : backgroundColor.withOpacity((opacity * 3.0).clamp(0.0, 1.0)),
+                  width: 0.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: formatter.formatMarkdownOnly(
-            context,
-            content,
-            baseStyle.copyWith(
-              color: textColor,
+              child: formatter.formatMarkdownOnly(
+                context,
+                content,
+                baseStyle.copyWith(
+                  color: textColor,
+                ),
+                isInCustomTag: true,
+                allowNestedTags: true,
+              ),
             ),
-            isInCustomTag: true,
-            allowNestedTags: true,
           ),
-        ),
-      ),
-    );
+        );
       },
     );
   }

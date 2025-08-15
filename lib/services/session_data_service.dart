@@ -461,6 +461,120 @@ class SessionDataService {
     return sessionsToUpdate;
   }
 
+  /// 基于指定页的API数据对本地角色会话进行“修正式”对齐：
+  /// - 先增量更新/插入该页返回的会话
+  /// - 再删除本地中落在同一页切片（仅限未置顶）的且不在API该页返回集合内的会话
+  Future<void> reconcileCharacterPageWithApi(
+    List<SessionModel> apiSessions,
+    int page,
+    int pageSize,
+  ) async {
+    await initDatabase();
+
+    // 1) 先更新/插入该页的会话（保留本地置顶字段）
+    if (apiSessions.isNotEmpty) {
+      await insertOrUpdateCharacterSessions(apiSessions);
+    }
+
+    // 2) 仅基于未置顶会话，按服务器排序逻辑（updated_at DESC, id DESC）取出本地的同页切片
+    final int offset = (page - 1) * pageSize;
+    final List<Map<String, Object?>> localRows = await _database!.query(
+      'character_sessions',
+      columns: ['id'],
+      where: 'is_pinned = 0',
+      orderBy: 'updated_at DESC, id DESC',
+      limit: pageSize,
+      offset: offset,
+    );
+
+    if (localRows.isEmpty) {
+      return;
+    }
+
+    final Set<int> apiIds = apiSessions.map((e) => e.id).toSet();
+    final List<int> localPageIds = localRows
+        .map((row) => row['id'] as int)
+        .toList(growable: false);
+
+    // 3) 计算需要删除的本地会话（该页切片中但不在API返回集合中）
+    final List<int> idsToDelete = <int>[];
+    for (final int localId in localPageIds) {
+      if (!apiIds.contains(localId)) {
+        idsToDelete.add(localId);
+      }
+    }
+
+    if (idsToDelete.isNotEmpty) {
+      final batch = _database!.batch();
+      for (final id in idsToDelete) {
+        batch.delete(
+          'character_sessions',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+      await batch.commit(noResult: true);
+      _notifyCharacterSessionsUpdate();
+      debugPrint('[SessionDataService] 角色会话页面修正：删除${idsToDelete.length}条（page=$page, size=$pageSize）');
+    }
+  }
+
+  /// 基于指定页的API数据对本地小说会话进行“修正式”对齐
+  Future<void> reconcileNovelPageWithApi(
+    List<SessionModel> apiSessions,
+    int page,
+    int pageSize,
+  ) async {
+    await initDatabase();
+
+    // 1) 先更新/插入该页的会话（保留本地置顶字段）
+    if (apiSessions.isNotEmpty) {
+      await insertOrUpdateNovelSessions(apiSessions);
+    }
+
+    // 2) 仅基于未置顶会话，按服务器排序逻辑（updated_at DESC, id DESC）取出本地的同页切片
+    final int offset = (page - 1) * pageSize;
+    final List<Map<String, Object?>> localRows = await _database!.query(
+      'novel_sessions',
+      columns: ['id'],
+      where: 'is_pinned = 0',
+      orderBy: 'updated_at DESC, id DESC',
+      limit: pageSize,
+      offset: offset,
+    );
+
+    if (localRows.isEmpty) {
+      return;
+    }
+
+    final Set<int> apiIds = apiSessions.map((e) => e.id).toSet();
+    final List<int> localPageIds = localRows
+        .map((row) => row['id'] as int)
+        .toList(growable: false);
+
+    // 3) 计算需要删除的本地会话（该页切片中但不在API返回集合中）
+    final List<int> idsToDelete = <int>[];
+    for (final int localId in localPageIds) {
+      if (!apiIds.contains(localId)) {
+        idsToDelete.add(localId);
+      }
+    }
+
+    if (idsToDelete.isNotEmpty) {
+      final batch = _database!.batch();
+      for (final id in idsToDelete) {
+        batch.delete(
+          'novel_sessions',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+      await batch.commit(noResult: true);
+      _notifyNovelSessionsUpdate();
+      debugPrint('[SessionDataService] 小说会话页面修正：删除${idsToDelete.length}条（page=$page, size=$pageSize）');
+    }
+  }
+
   /// 判断API会话是否比本地会话更新
   bool _isApiSessionNewer(String? apiUpdatedAt, String localUpdatedAt) {
     if (apiUpdatedAt == null || apiUpdatedAt.isEmpty) return false;

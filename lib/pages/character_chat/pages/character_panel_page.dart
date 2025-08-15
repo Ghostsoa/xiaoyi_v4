@@ -32,6 +32,7 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   bool _isLoadingCover = false;
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isSyncing = false;
   bool _isRefreshing = false; // 添加刷新状态标志
   Map<String, dynamic> _sessionData = {};
   final Map<String, dynamic> _editedData = {};
@@ -57,14 +58,6 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   final _negativeDialogController = TextEditingController();
   final _supplementSettingController = TextEditingController();
   String _uiSettings = 'markdown';
-
-  // 为分类添加对应的颜色
-  final List<Color> _pageColors = [
-    AppTheme.primaryColor,
-    AppTheme.primaryColor,
-    AppTheme.primaryColor,
-    AppTheme.primaryColor,
-  ];
 
   final List<String> _pageNames = [
     '基本信息',
@@ -313,37 +306,96 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        // 保存按钮 - 改为纯图标按钮
-        _isSaving
-            ? Container(
-                padding: EdgeInsets.all(8.w),
-                child: SizedBox(
-                  width: 20.w,
-                  height: 20.w,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.w,
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                  ),
-                ),
-              )
-            : Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _saveChanges,
-                  borderRadius: BorderRadius.circular(8.r),
-                  child: Container(
+        // 右侧操作区：可选的同步按钮 + 保存按钮
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 如果存在 debug 字段且非空，则显示同步按钮
+            if ((_sessionData['debug']?.toString().isNotEmpty ?? false))
+              _isSyncing
+                  ? Container(
+                      padding: EdgeInsets.all(8.w),
+                      child: SizedBox(
+                        width: 20.w,
+                        height: 20.w,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.w,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              AppTheme.primaryColor),
+                        ),
+                      ),
+                    )
+                  : Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _syncDebugSettings,
+                        borderRadius: BorderRadius.circular(8.r),
+                        child: Container(
+                          padding: EdgeInsets.all(8.w),
+                          child: Icon(
+                            Icons.cloud_sync_outlined,
+                            color: AppTheme.primaryColor,
+                            size: 20.sp,
+                          ),
+                        ),
+                      ),
+                    ),
+            SizedBox(width: 4.w),
+            _isSaving
+                ? Container(
                     padding: EdgeInsets.all(8.w),
-                    child: Icon(
-                      Icons.save,
-                      color: AppTheme.primaryColor,
-                      size: 20.sp,
+                    child: SizedBox(
+                      width: 20.w,
+                      height: 20.w,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.w,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            AppTheme.primaryColor),
+                      ),
+                    ),
+                  )
+                : Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _saveChanges,
+                      borderRadius: BorderRadius.circular(8.r),
+                      child: Container(
+                        padding: EdgeInsets.all(8.w),
+                        child: Icon(
+                          Icons.save,
+                          color: AppTheme.primaryColor,
+                          size: 20.sp,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
+          ],
+        ),
       ],
     );
+  }
+
+  Future<void> _syncDebugSettings() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+    try {
+      await _characterService.syncDebugSettings(widget.characterData['id']);
+      if (!mounted) return;
+      CustomToast.show(
+        context,
+        message: '同步成功',
+        type: ToastType.success,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      CustomToast.show(
+        context,
+        message: e.toString(),
+        type: ToastType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
   }
 
   Widget _buildPageSelector() {
@@ -354,7 +406,6 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
         itemCount: _pageNames.length,
         itemBuilder: (context, index) {
           final isSelected = _currentPageIndex == index;
-          final color = AppTheme.primaryColor;
 
           return GestureDetector(
             onTap: () {

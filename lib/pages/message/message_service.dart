@@ -61,8 +61,12 @@ class MessageService {
 
         debugPrint('[MessageService] 解析后会话数量: ${apiResponse.sessions.length}, 总数: ${apiResponse.total}');
 
-        // 同步到本地数据库
-        await _sessionDataService.syncCharacterSessionsWithApi(apiResponse.sessions);
+        // 基于页的“修正式”对齐本地缓存
+        await _sessionDataService.reconcileCharacterPageWithApi(
+          apiResponse.sessions,
+          page,
+          pageSize,
+        );
 
         return apiData;
       } else {
@@ -127,8 +131,12 @@ class MessageService {
 
         debugPrint('[MessageService] 解析后小说会话数量: ${apiResponse.sessions.length}, 总数: ${apiResponse.total}');
 
-        // 同步到本地数据库
-        await _sessionDataService.syncNovelSessionsWithApi(apiResponse.sessions);
+        // 基于页的“修正式”对齐本地缓存
+        await _sessionDataService.reconcileNovelPageWithApi(
+          apiResponse.sessions,
+          page,
+          pageSize,
+        );
 
         return apiData;
       } else {
