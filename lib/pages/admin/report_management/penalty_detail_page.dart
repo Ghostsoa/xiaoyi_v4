@@ -9,9 +9,9 @@ class PenaltyDetailPage extends StatefulWidget {
   final String penaltyId;
 
   const PenaltyDetailPage({
-    Key? key,
+    super.key,
     required this.penaltyId,
-  }) : super(key: key);
+  });
 
   @override
   State<PenaltyDetailPage> createState() => _PenaltyDetailPageState();

@@ -153,7 +153,7 @@ class ChatListWidgetStateful extends StatelessWidget {
                 // 微信头部
                 _buildWeChatHeader(context, backgroundColor, opacity, textColor),
                 // 聊天列表
-                ...chatItems.map((item) => _buildChatItem(context, item, textColor)).toList(),
+                ...chatItems.map((item) => _buildChatItem(context, item, textColor)),
               ],
             ),
           ),

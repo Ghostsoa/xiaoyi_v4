@@ -95,7 +95,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   bool _isInputFocused = false;
 
   // 选项预制内容管理
-  Map<String, Map<String, dynamic>> _optionsPresetContent = {}; // 存储选项组的预制内容
+  final Map<String, Map<String, dynamic>> _optionsPresetContent = {}; // 存储选项组的预制内容
 
   // 版本检查相关
   bool _hasNewVersion = false;
@@ -137,7 +137,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   String? _activeArchiveId; // 当前激活的存档ID
 
   // 后台预加载相关
-  List<Map<String, dynamic>> _allLoadedMessages = []; // 所有已加载的消息
+  final List<Map<String, dynamic>> _allLoadedMessages = []; // 所有已加载的消息
   bool _isBackgroundLoading = false; // 是否正在后台加载
   int _backgroundLoadedPages = 0; // 已后台加载的页数
   static const int _backgroundPageSize = 200; // 后台加载的页面大小（本地模式可以更大）
@@ -172,9 +172,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   late Animation<double> _drawerAnimation;
 
   // 添加灵感相关变量
-  bool _isLoadingInspiration = false;
-  List<Map<String, dynamic>> _inspirationSuggestions = [];
-  bool _isShowingInspiration = false;
+  final bool _isLoadingInspiration = false;
+  final List<Map<String, dynamic>> _inspirationSuggestions = [];
+  final bool _isShowingInspiration = false;
   late AnimationController _inspirationAnimationController;
   late Animation<double> _inspirationOpacityAnimation;
 
@@ -1828,7 +1828,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         msgId: msgId,
       );
 
-      debugPrint('[CharacterChatPage] ✅ 幽灵消息处理：已从本地缓存${operation}消息 $msgId');
+      debugPrint('[CharacterChatPage] ✅ 幽灵消息处理：已从本地缓存$operation消息 $msgId');
 
       // 重新加载本地缓存数据
       debugPrint('[CharacterChatPage] 重新加载本地缓存数据...');
@@ -2073,7 +2073,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
     try {
       // 确保索引在有效范围内
-      if (_messages.length > 0) {
+      if (_messages.isNotEmpty) {
         if (immediate) {
           // 立即跳转，无动画，用于重置等需要快速响应的场景
           _itemScrollController.jumpTo(index: 0);

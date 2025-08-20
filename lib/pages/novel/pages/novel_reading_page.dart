@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
+import 'package:scrollview_observer/scrollview_observer.dart';
 import 'dart:developer' as developer;
 import 'package:shimmer/shimmer.dart';
 import '../../../theme/app_theme.dart';
 import '../../../services/file_service.dart';
+import '../../../services/message_cache_service.dart';
 import '../../../dao/novel_settings_dao.dart';
 import '../../../widgets/custom_toast.dart';
+import '../../../widgets/novel_cache_pull_dialog.dart';
 import '../services/novel_service.dart';
 import '../widgets/novel_content_bubble.dart';
 import '../widgets/novel_top_bar.dart';
@@ -33,8 +36,11 @@ class _NovelReadingPageState extends State<NovelReadingPage>
     with SingleTickerProviderStateMixin {
   final FileService _fileService = FileService();
   final NovelService _novelService = NovelService();
+  final MessageCacheService _messageCacheService = MessageCacheService();
   final NovelSettingsDao _settingsDao = NovelSettingsDao();
   final ScrollController _scrollController = ScrollController();
+  late ListObserverController _observerController;
+  final GlobalKey _listViewKey = GlobalKey();
 
   // 界面设置
   bool _showControls = true;
@@ -64,7 +70,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
 
   // 章节信息
   int _totalChapters = 0;
-  String _currentChapterTitleForDisplay = "加载中...";
+  final ValueNotifier<String> _currentChapterTitleNotifier = ValueNotifier<String>("加载中...");
 
   // 缓存背景图片
   Uint8List? _cachedBackgroundImage;
@@ -77,7 +83,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
       RefreshController(initialRefresh: false);
 
   // AI交互区高度
-  double _aiInteractionHeight = 160.0;
+  final double _aiInteractionHeight = 160.0;
   // 添加键盘高度跟踪变量
   double _keyboardHeight = 0.0;
   // 添加键盘可见状态
@@ -85,12 +91,30 @@ class _NovelReadingPageState extends State<NovelReadingPage>
 
   // 会话ID
   String get _sessionId => (widget.sessionData['id'] ?? '').toString();
+  int get _sessionIdInt => int.tryParse(_sessionId) ?? 0;
 
   // 章节数据
   List<Map<String, dynamic>> get _chapters =>
       (widget.novelData['chapters'] as List? ?? [])
           .map((e) => e as Map<String, dynamic>)
           .toList();
+
+  // 缓存相关状态
+  bool _isLocalMode = false; // 是否使用本地缓存模式
+  bool _isBackgroundLoading = false; // 是否正在后台加载
+  List<Map<String, dynamic>> _allLoadedChapters = []; // 所有已加载的章节（用于搜索）
+
+  // 搜索相关状态
+  bool _isSearchMode = false; // 是否处于搜索模式
+  String _searchKeyword = ''; // 当前搜索关键词
+  List<Map<String, dynamic>> _searchResults = []; // 搜索结果
+  final TextEditingController _searchController = TextEditingController();
+
+  // 编辑相关状态
+  bool _isEditingContent = false; // 是否正在编辑内容
+
+  // 滚动监听控制
+  bool _isInteractionPanelAnimating = false; // 交互面板是否正在动画中
 
   @override
   void initState() {
@@ -100,6 +124,9 @@ class _NovelReadingPageState extends State<NovelReadingPage>
 
     // 初始化章节数据
     _totalChapters = _chapters.length;
+
+    // 初始化 observer controller
+    _observerController = ListObserverController(controller: _scrollController);
 
     // 初始化刷新旋转动画控制器
     _refreshRotationController = AnimationController(
@@ -123,15 +150,15 @@ class _NovelReadingPageState extends State<NovelReadingPage>
       systemNavigationBarIconBrightness: Brightness.light,
     ));
 
-    // 加载历史消息
-    _loadHistoryMessages().then((_) {
+    // 检查缓存并初始化模式
+    _checkAndInitializeMode().then((_) {
       if (mounted) {
         setState(() {
           if (_novelBubbles.isNotEmpty) {
-            _currentChapterTitleForDisplay =
+            _currentChapterTitleNotifier.value =
                 _novelBubbles[0]['title'] ?? '章节加载完毕';
           } else {
-            _currentChapterTitleForDisplay = '开始创作吧';
+            _currentChapterTitleNotifier.value = '开始创作吧';
           }
         });
       }
@@ -140,8 +167,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
 
   @override
   void dispose() {
-    _scrollController.removeListener(_handleScroll);
-    _scrollController.dispose();
+    // ItemScrollController 不需要手动dispose
     _refreshRotationController.dispose();
     _promptController.dispose();
     _refreshController.dispose();
@@ -157,46 +183,30 @@ class _NovelReadingPageState extends State<NovelReadingPage>
 
   // 监听滚动事件
   void _handleScroll() {
-    if (_scrollController.position.isScrollingNotifier.value) {
-      _hideControls();
-      _hideAiInteraction();
+    // 如果交互面板正在动画中，跳过处理
+    if (_isInteractionPanelAnimating) {
+      return;
     }
 
-    if (_scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 100 &&
-        !_isLoadingHistory &&
-        _hasMoreHistory) {
-      _loadHistoryMessages();
+    if (!mounted || _novelBubbles.isEmpty) return;
+
+    // 只隐藏顶部控件，不隐藏交互面板
+    _hideControls();
+
+    // 简化处理，基于滚动位置检查是否需要加载更多
+    if (_scrollController.hasClients) {
+      final scrollOffset = _scrollController.offset;
+      final maxScrollExtent = _scrollController.position.maxScrollExtent;
+
+      // 如果滚动到接近底部（在反转列表中是顶部），加载更多历史
+      if (maxScrollExtent > 0 && scrollOffset > maxScrollExtent * 0.8 && !_isLoadingHistory && _hasMoreHistory) {
+        _loadHistoryMessages();
+      }
     }
 
-    _updateVisibleChapterTitle();
+    // 章节标题由 scrollview_observer 自动处理
   }
 
-  // 更新当前可见章节的标题
-  void _updateVisibleChapterTitle() {
-    if (_novelBubbles.isEmpty || _scrollController.positions.isEmpty) return;
-
-    double scrollOffset = _scrollController.offset;
-    double viewportHeight = _scrollController.position.viewportDimension;
-    double viewportTop = scrollOffset;
-    double viewportBottom = scrollOffset + viewportHeight;
-
-    int centerItemIndex = (_novelBubbles.length *
-            scrollOffset /
-            _scrollController.position.maxScrollExtent)
-        .floor();
-
-    centerItemIndex = centerItemIndex.clamp(0, _novelBubbles.length - 1);
-
-    String newTitle = _novelBubbles[centerItemIndex]['title'] ?? '';
-    if (newTitle.isNotEmpty &&
-        _currentChapterTitleForDisplay != newTitle &&
-        mounted) {
-      setState(() {
-        _currentChapterTitleForDisplay = newTitle;
-      });
-    }
-  }
 
   void _hideControls() {
     if (_showControls) {
@@ -206,13 +216,6 @@ class _NovelReadingPageState extends State<NovelReadingPage>
     }
   }
 
-  void _hideAiInteraction() {
-    if (_showAiInteraction) {
-      setState(() {
-        _showAiInteraction = false;
-      });
-    }
-  }
 
   void _toggleControls() {
     setState(() {
@@ -221,9 +224,33 @@ class _NovelReadingPageState extends State<NovelReadingPage>
   }
 
   void _toggleAiInteraction() {
+    // 设置动画标志，禁用滚动监听
+    _isInteractionPanelAnimating = true;
+
     setState(() {
       _showAiInteraction = !_showAiInteraction;
     });
+
+    // 动画完成后恢复滚动监听
+    Future.delayed(Duration(milliseconds: 250), () {
+      _isInteractionPanelAnimating = false;
+    });
+  }
+
+  // 滚动到指定索引的方法
+  void _scrollToIndex(int index, {bool animate = true}) {
+    if (_novelBubbles.isEmpty) return;
+
+    // 使用 scrollview_observer 的 animateTo 方法
+    if (animate) {
+      _observerController.animateTo(
+        index: index,
+        duration: Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      _observerController.jumpTo(index: index);
+    }
   }
 
   Future<void> _loadBackgroundImage() async {
@@ -334,6 +361,11 @@ class _NovelReadingPageState extends State<NovelReadingPage>
               child: NovelTopBar(
                 novelTitle: novelTitle,
                 onExit: () => Navigator.of(context).pop(),
+                onPullCache: _showPullCacheDialog,
+                onOverrideCache: _showOverrideCacheDialog,
+                isLocalMode: _isLocalMode,
+                showPullCache: !_isLocalMode, // 只在在线模式下显示拉取缓存按钮
+                showOverrideCache: _isLocalMode, // 只在本地模式下显示覆盖缓存按钮
               ),
             ),
           ),
@@ -362,7 +394,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
                             body = const Text("上拉加载更多历史章节");
                           } else if (mode == LoadStatus.loading) {
                             body = Shimmer.fromColors(
-                              baseColor: AppTheme.primaryColor.withOpacity(0.6),
+                              baseColor: AppTheme.primaryColor.withValues(alpha: 0.6),
                               highlightColor: Colors.white,
                               period: const Duration(milliseconds: 1800),
                               child: Row(
@@ -411,30 +443,55 @@ class _NovelReadingPageState extends State<NovelReadingPage>
                         developer.log('强制触发加载更多回调');
                         _loadHistoryMessages();
                       },
-                      child: ListView.builder(
-                        reverse: true,
-                        controller: _scrollController,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 16.w,
-                          vertical: 16.h,
-                        ),
-                        itemCount: _novelBubbles.length,
-                        itemBuilder: (context, index) {
-                          final bubble = _novelBubbles[index];
-                          return NovelContentBubble(
-                            title: bubble['title'],
-                            paragraphs: List<Map<String, dynamic>>.from(
-                                bubble['paragraphs']),
-                            createdAt: bubble['createdAt'] ?? '',
-                            msgId: bubble['msgId'] ?? '',
-                            isGenerating: bubble['isGenerating'] ?? false,
-                            contentFontSize: _contentFontSize,
-                            titleFontSize: _titleFontSize,
-                            backgroundColor: _backgroundColor,
-                            textColor: _textColor,
-                            onEdit: _handleEditContent,
-                          );
+                      child: ListViewObserver(
+                        controller: _observerController,
+                        onObserve: (resultModel) {
+                          // 监听当前第一个正在显示的子部件
+                          if (resultModel.firstChild != null) {
+                            final firstIndex = resultModel.firstChild!.index;
+                            final clampedIndex = firstIndex.clamp(0, _novelBubbles.length - 1);
+
+                            String newTitle = _novelBubbles[clampedIndex]['title'] ?? '';
+
+                            if (newTitle.isNotEmpty &&
+                                _currentChapterTitleNotifier.value != newTitle) {
+                              _currentChapterTitleNotifier.value = newTitle;
+                            }
+                          }
                         },
+                        child: ListView.builder(
+                          key: _listViewKey,
+                          controller: _scrollController,
+                          reverse: true,
+                          padding: EdgeInsets.only(
+                            left: 16.w,
+                            right: 16.w,
+                            top: 16.h,
+                            bottom: _calculateContentBottomPadding(),
+                          ),
+                          itemCount: _novelBubbles.length,
+                          itemBuilder: (context, index) {
+                            final bubble = _novelBubbles[index];
+                            return NovelContentBubble(
+                              title: bubble['title'],
+                              paragraphs: List<Map<String, dynamic>>.from(
+                                  bubble['paragraphs']),
+                              createdAt: bubble['createdAt'] ?? '',
+                              msgId: bubble['msgId'] ?? '',
+                              isGenerating: bubble['isGenerating'] ?? false,
+                              contentFontSize: _contentFontSize,
+                              titleFontSize: _titleFontSize,
+                              backgroundColor: _backgroundColor,
+                              textColor: _textColor,
+                              onEdit: _handleEditContent,
+                              onEditingStateChanged: (isEditing) {
+                                setState(() {
+                                  _isEditingContent = isEditing;
+                                });
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
             ),
@@ -447,81 +504,71 @@ class _NovelReadingPageState extends State<NovelReadingPage>
               curve: Curves.easeOut,
               left: 16.w,
               right: 16.w,
-              bottom: padding.bottom +
-                  12.h +
-                  (_showPromptInput && _isKeyboardVisible
-                      ? _keyboardHeight
-                      : 0),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return NotificationListener<SizeChangedLayoutNotification>(
-                    onNotification: (notification) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        final renderBox =
-                            context.findRenderObject() as RenderBox?;
-                        if (renderBox != null && mounted) {
-                          setState(() {
-                            _aiInteractionHeight = renderBox.size.height;
-                          });
-                        }
-                      });
-                      return true;
-                    },
-                    child: SizeChangedLayoutNotifier(
-                      child: Container(
-                        padding: EdgeInsets.all(12.w),
-                        decoration: BoxDecoration(
-                          color: _backgroundColor,
-                          borderRadius: BorderRadius.circular(12.r),
-                          border: Border.all(
-                            color: _textColor.withOpacity(0.2),
-                            width: 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 10,
-                              spreadRadius: 1,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: NovelAiInteractionArea(
-                          currentChapterTitle: _currentChapterTitleForDisplay,
-                          isInitialMode: isInitialMode,
-                          isGenerating: _isGenerating,
-                          isRefreshing: _isRefreshing,
-                          showRefreshSuccess: _showRefreshSuccess,
-                          refreshRotationAnimation: _refreshRotationAnimation,
-                          novelBubbles: _novelBubbles,
-                          backgroundColor: _backgroundColor,
-                          textColor: _textColor,
-                          onSettings: _handleSettings,
-                          onRegenerate: _handleRegenerate,
-                          onRefreshPage: _handleRefreshPage,
-                          onResetConversation: _handleResetConversation,
-                          onScrollToBottom: _scrollToBottom,
-                          onAutoContinue: _handleAutoContinue,
-                          onTogglePromptInput: _togglePromptInput,
-                          onCancelPrompt: _togglePromptInput,
-                          onSubmitPrompt: (prompt) {
-                            if (prompt.isNotEmpty) {
-                              _handleContinueWithPrompt(prompt);
-                              _promptController.clear();
-                              setState(() {
-                                _showPromptInput = false;
-                              });
-                            }
-                          },
-                          showPromptInput: _showPromptInput,
-                          promptController: _promptController,
-                        ),
-                      ),
+              bottom: _calculateInteractionAreaBottom(padding),
+              child: Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: _backgroundColor,
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(
+                    color: _textColor.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 2),
                     ),
-                  );
-                },
+                  ],
+                ),
+                child: ValueListenableBuilder<String>(
+                  valueListenable: _currentChapterTitleNotifier,
+                  builder: (context, currentTitle, child) {
+                    return NovelAiInteractionArea(
+                      currentChapterTitle: currentTitle,
+                  isInitialMode: isInitialMode,
+                  isGenerating: _isGenerating,
+                  isRefreshing: _isRefreshing,
+                  showRefreshSuccess: _showRefreshSuccess,
+                  refreshRotationAnimation: _refreshRotationAnimation,
+                  novelBubbles: _novelBubbles,
+                  backgroundColor: _backgroundColor,
+                  textColor: _textColor,
+                  isLocalMode: _isLocalMode,
+                  isSearchMode: _isSearchMode,
+                  onSettings: _handleSettings,
+                  onRegenerate: _handleRegenerate,
+                  onRefreshPage: _handleRefreshPage,
+                  onResetConversation: _handleResetConversation,
+                  onScrollToBottom: _scrollToBottom,
+                  onAutoContinue: _handleAutoContinue,
+                  onTogglePromptInput: _togglePromptInput,
+                  onCancelPrompt: _togglePromptInput,
+                  onSubmitPrompt: (prompt) {
+                    if (prompt.isNotEmpty) {
+                      _handleContinueWithPrompt(prompt);
+                      _promptController.clear();
+                      setState(() {
+                        _showPromptInput = false;
+                      });
+                    }
+                  },
+                  onToggleSearch: _toggleSearchMode,
+                  onSearch: _performSearch,
+                  searchController: _searchController,
+                  onPreviousChapter: _goToNextChapter,
+                  onNextChapter: _goToPreviousChapter,
+                  onShowChapterList: _showChapterList,
+                      showPromptInput: _showPromptInput,
+                      promptController: _promptController,
+                    );
+                  },
+                ),
               ),
             ),
+
         ],
       ),
     );
@@ -549,7 +596,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
       setState(() {
         _novelBubbles.insert(0, placeholderBubble);
         _isGenerating = true;
-        _currentChapterTitleForDisplay = placeholderBubble['title']! as String;
+        _currentChapterTitleNotifier.value = placeholderBubble['title']! as String;
       });
 
       // 调用AI对话接口
@@ -579,7 +626,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
                 data['created_at'] ?? DateTime.now().toIso8601String();
             _novelBubbles[0]['isGenerating'] = false;
             _novelBubbles[0]['msgId'] = data['msgId'] ?? ''; // 使用API返回的msgId
-            _currentChapterTitleForDisplay = _novelBubbles[0]['title']!;
+            _currentChapterTitleNotifier.value = _novelBubbles[0]['title']!;
           }
           _totalChapters++;
           _isGenerating = false;
@@ -600,6 +647,13 @@ class _NovelReadingPageState extends State<NovelReadingPage>
       };
 
       (widget.novelData['chapters'] as List).add(newChapter);
+
+      // 只在本地模式下同步新章节到缓存
+      if (_isLocalMode) {
+        await _syncChaptersToCache([newChapter]);
+        // 重新加载所有章节数据
+        await _reloadAllChapters();
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -609,9 +663,9 @@ class _NovelReadingPageState extends State<NovelReadingPage>
           }
           _isGenerating = false;
           if (mounted && _novelBubbles.isNotEmpty) {
-            _currentChapterTitleForDisplay = _novelBubbles[0]['title'] ?? "出错了";
+            _currentChapterTitleNotifier.value = _novelBubbles[0]['title'] ?? "出错了";
           } else if (mounted) {
-            _currentChapterTitleForDisplay = "自动生成章节失败";
+            _currentChapterTitleNotifier.value = "自动生成章节失败";
           }
         });
       }
@@ -641,7 +695,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
       setState(() {
         _novelBubbles.insert(0, placeholderBubble);
         _isGenerating = true;
-        _currentChapterTitleForDisplay = placeholderBubble['title']! as String;
+        _currentChapterTitleNotifier.value = placeholderBubble['title']! as String;
       });
 
       // 调用AI对话接口
@@ -672,7 +726,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
                 data['created_at'] ?? DateTime.now().toIso8601String();
             _novelBubbles[0]['isGenerating'] = false;
             _novelBubbles[0]['msgId'] = data['msgId'] ?? ''; // 使用API返回的msgId
-            _currentChapterTitleForDisplay = _novelBubbles[0]['title']!;
+            _currentChapterTitleNotifier.value = _novelBubbles[0]['title']!;
           }
           _totalChapters++;
           _isGenerating = false;
@@ -693,6 +747,13 @@ class _NovelReadingPageState extends State<NovelReadingPage>
       };
 
       (widget.novelData['chapters'] as List).add(newChapter);
+
+      // 只在本地模式下同步新章节到缓存
+      if (_isLocalMode) {
+        await _syncChaptersToCache([newChapter]);
+        // 重新加载所有章节数据
+        await _reloadAllChapters();
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -702,9 +763,9 @@ class _NovelReadingPageState extends State<NovelReadingPage>
           }
           _isGenerating = false;
           if (mounted && _novelBubbles.isNotEmpty) {
-            _currentChapterTitleForDisplay = _novelBubbles[0]['title'] ?? "出错了";
+            _currentChapterTitleNotifier.value = _novelBubbles[0]['title'] ?? "出错了";
           } else if (mounted) {
-            _currentChapterTitleForDisplay = "引导生成章节失败";
+            _currentChapterTitleNotifier.value = "引导生成章节失败";
           }
         });
       }
@@ -739,6 +800,765 @@ class _NovelReadingPageState extends State<NovelReadingPage>
     );
   }
 
+  // ==================== 缓存相关方法 ====================
+
+  /// 检查缓存并初始化模式
+  Future<void> _checkAndInitializeMode() async {
+    try {
+      debugPrint('[NovelReadingPage] 检查缓存状态，会话ID: $_sessionIdInt');
+
+      // 检查是否有缓存数据
+      final hasCache = await _messageCacheService.hasNovelCache(
+        sessionId: _sessionIdInt,
+      );
+
+      debugPrint('[NovelReadingPage] 是否有缓存: $hasCache');
+
+      if (hasCache) {
+        _isLocalMode = true;
+        debugPrint('[NovelReadingPage] ✅ 进入本地模式');
+        // 启动后台预加载
+        _startBackgroundLoading();
+      } else {
+        _isLocalMode = false;
+        debugPrint('[NovelReadingPage] ❌ 无缓存，使用在线模式');
+      }
+
+      // 加载历史消息
+      await _loadHistoryMessages();
+    } catch (e) {
+      debugPrint('[NovelReadingPage] 检查缓存失败: $e');
+      _isLocalMode = false;
+      // 出错时仍然尝试加载历史消息
+      await _loadHistoryMessages();
+    }
+  }
+
+  /// 切换到本地模式但不重新加载数据
+  Future<void> _switchToLocalModeWithoutReload() async {
+    try {
+      debugPrint('[NovelReadingPage] 切换到本地模式（不重新加载数据）');
+
+      setState(() {
+        _isLocalMode = true;
+      });
+
+      // 启动后台预加载
+      _startBackgroundLoading();
+    } catch (e) {
+      debugPrint('[NovelReadingPage] 切换到本地模式失败: $e');
+    }
+  }
+
+  /// 启动后台预加载
+  Future<void> _startBackgroundLoading() async {
+    if (_isBackgroundLoading || !_isLocalMode) return;
+
+    _isBackgroundLoading = true;
+    debugPrint('[NovelReadingPage] 🚀 启动后台预加载');
+
+    try {
+      // 获取所有缓存的章节用于搜索
+      final result = await _messageCacheService.getNovelChapters(
+        sessionId: _sessionIdInt,
+        page: 1,
+        pageSize: 1000, // 获取大量数据用于搜索
+      );
+
+      _allLoadedChapters = List<Map<String, dynamic>>.from(result['list'] ?? []);
+      debugPrint('[NovelReadingPage] 📥 后台预加载完成，章节数: ${_allLoadedChapters.length}');
+    } catch (e) {
+      debugPrint('[NovelReadingPage] 后台预加载失败: $e');
+    } finally {
+      _isBackgroundLoading = false;
+    }
+  }
+
+  /// 同步章节到缓存
+  Future<void> _syncChaptersToCache(List<Map<String, dynamic>> chapters) async {
+    if (!mounted || chapters.isEmpty) return;
+
+    try {
+      // 转换章节格式以适配缓存
+      final cacheChapters = chapters.map((chapter) => {
+        'msgId': chapter['msgId'] ?? '',
+        'title': chapter['title'] ?? '',
+        'content': chapter['content'] ?? chapter['paragraphs'] ?? [],
+        'createdAt': chapter['createdAt'] ?? chapter['created_at'] ?? DateTime.now().toIso8601String(),
+      }).toList();
+
+      await _messageCacheService.insertOrUpdateNovelChapters(
+        sessionId: _sessionIdInt,
+        chapters: cacheChapters,
+      );
+
+      debugPrint('[NovelReadingPage] 已同步 ${chapters.length} 个章节到缓存');
+    } catch (e) {
+      debugPrint('[NovelReadingPage] 同步章节到缓存失败: $e');
+    }
+  }
+
+  /// 重新加载所有章节数据
+  Future<void> _reloadAllChapters() async {
+    try {
+      final result = await _messageCacheService.getNovelChapters(
+        sessionId: _sessionIdInt,
+        page: 1,
+        pageSize: 1000,
+      );
+
+      _allLoadedChapters = List<Map<String, dynamic>>.from(result['list'] ?? []);
+      debugPrint('[NovelReadingPage] 重新加载章节数据完成，章节数: ${_allLoadedChapters.length}');
+    } catch (e) {
+      debugPrint('[NovelReadingPage] 重新加载章节数据失败: $e');
+    }
+  }
+
+
+
+  /// 显示拉取缓存对话框
+  Future<void> _showPullCacheDialog() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => NovelCachePullDialog(
+        sessionId: _sessionIdInt,
+        onCompleted: () {
+          // 拉取完成后只切换模式，不重新加载数据
+          _switchToLocalModeWithoutReload();
+          _showSuccessMessage('缓存拉取完成，现在可以使用搜索功能');
+        },
+      ),
+    );
+  }
+
+  /// 显示覆盖缓存确认对话框
+  Future<void> _showOverrideCacheDialog() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.cardBackground.withValues(alpha: 0.9),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+        title: Text(
+          '覆盖缓存',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          '这将清空现有缓存并重新拉取所有章节数据。\n\n确定要继续吗？',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14.sp,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              '取消',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 14.sp,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _performOverrideCache();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+            ),
+            child: Text(
+              '确定',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14.sp,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 执行覆盖缓存
+  Future<void> _performOverrideCache() async {
+    // 显示拉取缓存对话框
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => NovelCachePullDialog(
+        sessionId: _sessionIdInt,
+        onCompleted: () {
+          // 覆盖完成后只切换模式，不重新加载数据
+          _switchToLocalModeWithoutReload();
+          _showSuccessMessage('缓存已覆盖更新');
+        },
+      ),
+    );
+  }
+
+  // ==================== 搜索相关方法 ====================
+
+  /// 切换搜索模式
+  void _toggleSearchMode() {
+    setState(() {
+      _isSearchMode = !_isSearchMode;
+      if (_isSearchMode) {
+        // 进入搜索模式，清空搜索结果
+        _searchKeyword = '';
+        _searchResults.clear();
+        _searchController.clear();
+      } else {
+        // 退出搜索模式，清空搜索结果
+        _searchKeyword = '';
+        _searchResults.clear();
+        _searchController.clear();
+      }
+    });
+  }
+
+  /// 执行搜索
+  Future<void> _performSearch(String keyword) async {
+    if (!_isLocalMode || keyword.trim().isEmpty) {
+      setState(() {
+        _searchResults.clear();
+      });
+      return;
+    }
+
+    setState(() {
+      _searchKeyword = keyword.trim();
+    });
+
+    try {
+      // 从缓存中搜索章节
+      final results = await _messageCacheService.searchNovelChapters(
+        sessionId: _sessionIdInt,
+        keyword: _searchKeyword,
+      );
+
+      setState(() {
+        _searchResults = results;
+      });
+
+      debugPrint('[NovelReadingPage] 搜索关键词 "$_searchKeyword" 找到 ${results.length} 个结果');
+
+      // 如果有搜索结果，显示在底部弹窗中
+      if (results.isNotEmpty) {
+        _showSearchResults(results);
+      } else {
+        _showInfoMessage('未找到相关章节');
+      }
+    } catch (e) {
+      debugPrint('[NovelReadingPage] 搜索失败: $e');
+      setState(() {
+        _searchResults.clear();
+      });
+      _showErrorMessage('搜索失败: $e');
+    }
+  }
+
+  /// 显示搜索结果
+  void _showSearchResults(List<Map<String, dynamic>> results) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.cardBackground,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+      ),
+      builder: (context) => Container(
+        padding: EdgeInsets.all(16.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 标题
+            Row(
+              children: [
+                Icon(
+                  Icons.search,
+                  color: AppTheme.primaryColor,
+                  size: 20.sp,
+                ),
+                SizedBox(width: 8.w),
+                Text(
+                  '搜索结果 (${results.length})',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Spacer(),
+                IconButton(
+                  icon: Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+
+            SizedBox(height: 16.h),
+
+            // 搜索结果列表
+            Expanded(
+              child: ListView.builder(
+                itemCount: results.length,
+                itemBuilder: (context, index) {
+                  final result = results[index];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _jumpToSearchResult(result['msgId'] as String? ?? '');
+                    },
+                    child: _buildSearchResultItem(result),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 跳转到搜索结果章节
+  void _jumpToSearchResult(String msgId) {
+    // 退出搜索模式
+    setState(() {
+      _isSearchMode = false;
+      _searchKeyword = '';
+      _searchResults.clear();
+    });
+
+    // 跳转到目标章节
+    _jumpToChapter(msgId);
+  }
+
+  /// 跳转到指定章节
+  Future<void> _jumpToChapter(String msgId) async {
+    try {
+      // 在当前显示的章节列表中查找
+      final currentIndex = _novelBubbles.indexWhere((bubble) => bubble['msgId'] == msgId);
+
+      if (currentIndex != -1) {
+        // 章节在当前页面，使用平滑滚动到位置
+        _scrollToIndex(currentIndex, animate: true);
+        _showSuccessMessage('已定位到章节');
+        return;
+      }
+
+      // 如果有预加载的数据，使用快速定位
+      if (_allLoadedChapters.isNotEmpty) {
+        await _fastJumpUsingPreloadedData(msgId);
+      } else {
+        // 没有预加载数据，显示提示
+        _showInfoMessage('请先拉取缓存以支持快速定位');
+      }
+    } catch (e) {
+      debugPrint('[NovelReadingPage] 跳转到章节失败: $e');
+      _showErrorMessage('定位章节失败');
+    }
+  }
+
+  /// 使用预加载数据快速跳转
+  Future<void> _fastJumpUsingPreloadedData(String msgId) async {
+    try {
+      // 在预加载数据中找到目标章节
+      final targetIndex = _allLoadedChapters.indexWhere((chapter) => chapter['msgId'] == msgId);
+
+      if (targetIndex == -1) {
+        _showErrorMessage('未找到目标章节');
+        return;
+      }
+
+      // 计算需要加载到第几页
+      final targetPage = (targetIndex ~/ 2) + 1; // 假设每页2个章节
+
+      debugPrint('[NovelReadingPage] 🚀 快速定位：目标章节在第 $targetPage 页，索引 $targetIndex');
+
+      // 直接加载到目标页面
+      _currentHistoryPage = targetPage;
+      await _loadHistoryMessages();
+
+      // 等待UI更新，增加等待时间确保列表完全渲染
+      await Future.delayed(Duration(milliseconds: 300));
+
+      // 在新加载的页面中找到目标章节并精确跳转
+      final newIndex = _novelBubbles.indexWhere((bubble) => bubble['msgId'] == msgId);
+      if (newIndex != -1) {
+        // 使用 scrollTo 而不是 jumpTo，提供平滑的动画效果
+        _scrollToIndex(newIndex, animate: true);
+        _showSuccessMessage('已定位到章节');
+      } else {
+        _showErrorMessage('定位失败，请重试');
+      }
+    } catch (e) {
+      debugPrint('[NovelReadingPage] 快速定位失败: $e');
+      _showErrorMessage('定位失败');
+    }
+  }
+
+
+
+
+
+  /// 构建搜索结果项
+  Widget _buildSearchResultItem(Map<String, dynamic> result) {
+    final title = result['title'] as String? ?? '未知章节';
+    final createdAt = result['createdAt'] as String? ?? '';
+
+    // 获取章节内容的前几段作为预览
+    String contentPreview = '';
+    if (result['content'] is List) {
+      final paragraphs = result['content'] as List;
+      if (paragraphs.isNotEmpty) {
+        final firstParagraph = paragraphs.first;
+        if (firstParagraph is Map && firstParagraph['content'] is String) {
+          contentPreview = firstParagraph['content'] as String;
+          if (contentPreview.length > 100) {
+            contentPreview = '${contentPreview.substring(0, 100)}...';
+          }
+        }
+      }
+    }
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      child: Container(
+        padding: EdgeInsets.all(12.w),
+        decoration: BoxDecoration(
+          color: AppTheme.cardBackground.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8.r),
+          border: Border.all(
+            color: Colors.grey.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 章节标题
+            Text(
+              title,
+              style: TextStyle(
+                color: AppTheme.primaryColor,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (contentPreview.isNotEmpty) ...[
+              SizedBox(height: 8.h),
+              // 内容预览（高亮搜索关键词）
+              _buildHighlightedText(
+                contentPreview,
+                _searchKeyword,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14.sp,
+                  height: 1.4,
+                ),
+                maxLines: 2,
+              ),
+            ],
+            if (createdAt.isNotEmpty) ...[
+              SizedBox(height: 8.h),
+              // 创建时间
+              Text(
+                _formatSearchResultTime(createdAt),
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12.sp,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 格式化搜索结果时间
+  String _formatSearchResultTime(String timeStr) {
+    try {
+      final dateTime = DateTime.parse(timeStr);
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
+
+      if (difference.inDays > 0) {
+        return '${difference.inDays}天前';
+      } else if (difference.inHours > 0) {
+        return '${difference.inHours}小时前';
+      } else if (difference.inMinutes > 0) {
+        return '${difference.inMinutes}分钟前';
+      } else {
+        return '刚刚';
+      }
+    } catch (e) {
+      return timeStr;
+    }
+  }
+
+  /// 构建高亮文本
+  Widget _buildHighlightedText(
+    String text,
+    String keyword, {
+    TextStyle? style,
+    int? maxLines,
+  }) {
+    if (keyword.isEmpty) {
+      return Text(
+        text,
+        style: style,
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    final List<TextSpan> spans = [];
+    final String lowerText = text.toLowerCase();
+    final String lowerKeyword = keyword.toLowerCase();
+
+    int start = 0;
+    int index = lowerText.indexOf(lowerKeyword);
+
+    while (index != -1) {
+      // 添加关键词前的文本
+      if (index > start) {
+        spans.add(TextSpan(
+          text: text.substring(start, index),
+          style: style,
+        ));
+      }
+
+      // 添加高亮的关键词
+      spans.add(TextSpan(
+        text: text.substring(index, index + keyword.length),
+        style: style?.copyWith(
+          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.3),
+          color: AppTheme.primaryColor,
+          fontWeight: FontWeight.bold,
+        ),
+      ));
+
+      start = index + keyword.length;
+      index = lowerText.indexOf(lowerKeyword, start);
+    }
+
+    // 添加剩余的文本
+    if (start < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(start),
+        style: style,
+      ));
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  // ==================== 键盘和UI联动相关方法 ====================
+
+  /// 计算内容区域的底部 padding
+  double _calculateContentBottomPadding() {
+    // 基础底部 padding
+    double basePadding = 16.h;
+
+    // 如果正在编辑内容且键盘可见，需要额外的 padding 来避让键盘
+    if (_isEditingContent && _isKeyboardVisible) {
+      return basePadding + _keyboardHeight;
+    }
+
+    // 其他情况只需要基础 padding，交互面板是独立的
+    return basePadding;
+  }
+
+  /// 计算交互区域的底部位置
+  double _calculateInteractionAreaBottom(EdgeInsets padding) {
+    // 基础底部距离
+    double baseBottom = padding.bottom + 12.h;
+
+    // 如果正在编辑内容，隐藏交互面板
+    if (_isEditingContent) {
+      return -200.h; // 移到屏幕外隐藏
+    }
+
+    // 如果键盘可见（搜索或"我有一个想法"），交互区域被键盘顶上去
+    if (_isKeyboardVisible) {
+      return baseBottom + _keyboardHeight;
+    }
+
+    return baseBottom;
+  }
+
+
+
+  // ==================== 章节导航相关方法 ====================
+
+  /// 跳转到上一章
+  void _goToPreviousChapter() {
+    if (!_isLocalMode || _allLoadedChapters.isEmpty) return;
+
+    // 找到当前用户看到的章节
+    final currentVisibleChapterTitle = _currentChapterTitleNotifier.value;
+    if (currentVisibleChapterTitle.isEmpty) return;
+
+    // 在全部章节中找到当前章节的位置
+    final currentIndex = _allLoadedChapters.indexWhere(
+      (chapter) => chapter['title'] == currentVisibleChapterTitle
+    );
+
+    if (currentIndex > 0) {
+      // 跳转到上一章
+      final previousChapter = _allLoadedChapters[currentIndex - 1];
+      _jumpToChapter(previousChapter['msgId'] as String);
+    } else {
+      _showInfoMessage('已经是最新章节了');
+    }
+  }
+
+  /// 跳转到下一章
+  void _goToNextChapter() {
+    if (!_isLocalMode || _allLoadedChapters.isEmpty) return;
+
+    // 找到当前用户看到的章节
+    final currentVisibleChapterTitle = _currentChapterTitleNotifier.value;
+    if (currentVisibleChapterTitle.isEmpty) return;
+
+    // 在全部章节中找到当前章节的位置
+    final currentIndex = _allLoadedChapters.indexWhere(
+      (chapter) => chapter['title'] == currentVisibleChapterTitle
+    );
+
+    if (currentIndex >= 0 && currentIndex < _allLoadedChapters.length - 1) {
+      // 跳转到下一章
+      final nextChapter = _allLoadedChapters[currentIndex + 1];
+      _jumpToChapter(nextChapter['msgId'] as String);
+    } else {
+      _showInfoMessage('已经是第一章了');
+    }
+  }
+
+  /// 显示章节目录
+  void _showChapterList() {
+    if (!_isLocalMode || _allLoadedChapters.isEmpty) {
+      _showInfoMessage('请先拉取缓存以查看章节目录');
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.cardBackground,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+      ),
+      builder: (context) => Container(
+        padding: EdgeInsets.all(16.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 标题
+            Row(
+              children: [
+                Icon(
+                  Icons.list,
+                  color: AppTheme.primaryColor,
+                  size: 20.sp,
+                ),
+                SizedBox(width: 8.w),
+                Text(
+                  '章节目录',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Spacer(),
+                IconButton(
+                  icon: Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+
+            SizedBox(height: 16.h),
+
+            // 章节列表（反转顺序，最新章节在上）
+            Expanded(
+              child: ListView.builder(
+                itemCount: _allLoadedChapters.length,
+                itemBuilder: (context, index) {
+                  // 反转索引，最新章节在上
+                  final reversedIndex = _allLoadedChapters.length - 1 - index;
+                  final chapter = _allLoadedChapters[reversedIndex];
+                  final title = chapter['title'] as String? ?? '未知章节';
+                  final msgId = chapter['msgId'] as String? ?? '';
+
+                  // 检查是否是当前章节
+                  final isCurrentChapter = title == _currentChapterTitleNotifier.value;
+
+                  return Container(
+                    decoration: isCurrentChapter ? BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8.r),
+                    ) : null,
+                    margin: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                    child: ListTile(
+                      title: Row(
+                        children: [
+                          if (isCurrentChapter) ...[
+                            Icon(
+                              Icons.play_arrow,
+                              color: AppTheme.primaryColor,
+                              size: 20.sp,
+                            ),
+                            SizedBox(width: 8.w),
+                          ],
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                color: isCurrentChapter ? AppTheme.primaryColor : Colors.white,
+                                fontSize: 16.sp,
+                                fontWeight: isCurrentChapter ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16.w,
+                        vertical: 8.h,
+                      ),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _jumpToChapter(msgId);
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // 加载历史消息
   Future<void> _loadHistoryMessages() async {
     // 避免重复请求
@@ -747,57 +1567,95 @@ class _NovelReadingPageState extends State<NovelReadingPage>
       return;
     }
 
-    debugPrint("开始加载历史消息，页码: $_currentHistoryPage");
+    debugPrint("开始加载历史消息，页码: $_currentHistoryPage，模式: ${_isLocalMode ? '本地' : '在线'}");
     setState(() => _isLoadingHistory = true);
     List<Map<String, dynamic>> messages = [];
 
     try {
-      final response = await _novelService.getNovelMessages(
-        _sessionId,
-        page: _currentHistoryPage,
-        pageSize: 2,
-      );
+      Map<String, dynamic> result;
 
-      // 记录日志
-      final Map<String, dynamic> responseForLog = Map.from(response);
-      if (responseForLog['data'] is Map) {
-        final dataMap = Map<String, dynamic>.from(responseForLog['data']);
-        if (dataMap['list'] is List) {
-          final List<dynamic> messagesList = List.from(dataMap['list']);
-          final List<dynamic> simplifiedMessages = messagesList.map((msg) {
-            if (msg is Map) {
-              final Map<String, dynamic> newMsg = Map.from(msg);
-              newMsg.remove('content');
-              return newMsg;
-            }
-            return msg;
-          }).toList();
-          dataMap['list'] = simplifiedMessages;
+      if (_isLocalMode) {
+        // 本地模式：从缓存加载
+        debugPrint('[NovelReadingPage] 🔄 从本地缓存加载章节 (page: $_currentHistoryPage)');
+        result = await _messageCacheService.getNovelChapters(
+          sessionId: _sessionIdInt,
+          page: _currentHistoryPage,
+          pageSize: 2,
+        );
+      } else {
+        // 在线模式：从API加载
+        debugPrint('[NovelReadingPage] 🌐 从API加载章节 (page: $_currentHistoryPage)');
+        final response = await _novelService.getNovelMessages(
+          _sessionId,
+          page: _currentHistoryPage,
+          pageSize: 2,
+        );
+
+        // 记录日志
+        final Map<String, dynamic> responseForLog = Map.from(response);
+        if (responseForLog['data'] is Map) {
+          final dataMap = Map<String, dynamic>.from(responseForLog['data']);
+          if (dataMap['list'] is List) {
+            final List<dynamic> messagesList = List.from(dataMap['list']);
+            final List<dynamic> simplifiedMessages = messagesList.map((msg) {
+              if (msg is Map) {
+                final Map<String, dynamic> newMsg = Map.from(msg);
+                newMsg.remove('content');
+                return newMsg;
+              }
+              return msg;
+            }).toList();
+            dataMap['list'] = simplifiedMessages;
+          }
+          responseForLog['data'] = dataMap;
         }
-        responseForLog['data'] = dataMap;
+        debugPrint("原始响应(不含content): $responseForLog");
+
+        if (response['code'] != 0) {
+          throw response['msg'] ?? '请求失败';
+        }
+
+        final data = response['data'] as Map<String, dynamic>;
+        messages = (data['list'] as List? ?? [])
+            .map((e) => e as Map<String, dynamic>)
+            .toList();
+
+        // 更新分页信息
+        final pagination = data['pagination'] as Map<String, dynamic>? ?? {};
+        final total = pagination['total'] as int? ?? 0;
+        final pageSize = pagination['page_size'] as int? ?? 2;
+        final currentPage = pagination['page'] as int? ?? _currentHistoryPage;
+        final totalPages = pagination['total_pages'] as int? ?? 1;
+
+        _hasMoreHistory = messages.isNotEmpty && currentPage < totalPages;
+
+        debugPrint(
+            "加载成功 - 当前页: $currentPage/$totalPages, 消息数量: ${messages.length}, 总记录数: $total, 每页大小: $pageSize, 是否有更多: $_hasMoreHistory");
+
+        // 转换API响应为统一格式
+        result = {
+          'list': messages,
+          'pagination': {
+            'total_pages': totalPages,
+            'current_page': currentPage,
+            'total_count': total,
+            'page_size': pageSize,
+          }
+        };
+
+        // 在线模式下不自动写入缓存，让用户主动选择拉取缓存
       }
-      debugPrint("原始响应(不含content): $responseForLog");
 
-      if (response['code'] != 0) {
-        throw response['msg'] ?? '请求失败';
-      }
-
-      final data = response['data'] as Map<String, dynamic>;
-      messages = (data['list'] as List? ?? [])
-          .map((e) => e as Map<String, dynamic>)
-          .toList();
-
-      // 更新分页信息
-      final pagination = data['pagination'] as Map<String, dynamic>? ?? {};
-      final total = pagination['total'] as int? ?? 0;
-      final pageSize = pagination['page_size'] as int? ?? 2;
-      final currentPage = pagination['page'] as int? ?? _currentHistoryPage;
+      // 统一处理结果
+      messages = List<Map<String, dynamic>>.from(result['list'] ?? []);
+      final pagination = result['pagination'] as Map<String, dynamic>? ?? {};
+      final currentPage = pagination['current_page'] as int? ?? _currentHistoryPage;
       final totalPages = pagination['total_pages'] as int? ?? 1;
 
       _hasMoreHistory = messages.isNotEmpty && currentPage < totalPages;
 
       debugPrint(
-          "加载成功 - 当前页: $currentPage/$totalPages, 消息数量: ${messages.length}, 总记录数: $total, 每页大小: $pageSize, 是否有更多: $_hasMoreHistory");
+          "加载成功 - 当前页: $currentPage/$totalPages, 消息数量: ${messages.length}, 是否有更多: $_hasMoreHistory");
 
       // 处理消息数据
       await _processHistoryMessages(messages);
@@ -837,19 +1695,30 @@ class _NovelReadingPageState extends State<NovelReadingPage>
     for (final message in orderedMessages) {
       // 只处理AI发送的消息
       if (message['role'] == 'assistant') {
-        final content = message['content'] as String;
+        // 处理内容：可能是字符串（API数据）或段落列表（缓存数据）
+        List<Map<String, dynamic>> paragraphs;
+        if (message['content'] is String) {
+          // API数据：需要解析字符串内容
+          final content = message['content'] as String;
+          paragraphs = NovelContentParser.parseContent(content);
+        } else if (message['content'] is List) {
+          // 缓存数据：已经是解析过的段落列表
+          paragraphs = List<Map<String, dynamic>>.from(message['content']);
+        } else {
+          // 异常情况：创建空段落列表
+          paragraphs = [];
+          debugPrint('[NovelReadingPage] 警告：未知的内容格式: ${message['content'].runtimeType}');
+        }
 
         // 尝试获取章节标题
-        String chapterTitle = message['chapterTitle'] as String? ?? '';
+        String chapterTitle = message['chapterTitle'] as String? ??
+                             message['title'] as String? ?? ''; // 缓存数据中标题字段是 'title'
 
         // 如果没有章节标题，使用默认章节编号
         if (chapterTitle.isEmpty) {
           chapterTitle = NovelContentParser.getDefaultChapterTitle(
               tempChapters.length + 1);
         }
-
-        // 解析内容为段落列表
-        final paragraphs = NovelContentParser.parseContent(content);
 
         // 创建气泡对象
         final bubble = {
@@ -898,7 +1767,9 @@ class _NovelReadingPageState extends State<NovelReadingPage>
           }
           widget.novelData['chapters'] = List.from(tempChapters);
         } else {
-          // 分页加载，将历史章节添加到列表末尾
+          // 分页加载时保持当前位置（ListView 会自动处理）
+
+          // 将历史章节添加到列表末尾
           _novelBubbles.addAll(tempBubbles.reversed);
           debugPrint(
               "分页加载，添加${tempBubbles.length}个气泡，总数: ${_novelBubbles.length}");
@@ -910,6 +1781,8 @@ class _NovelReadingPageState extends State<NovelReadingPage>
             ...tempChapters.reversed,
             ...currentChapters
           ];
+
+          
         }
 
         // 更新章节计数
@@ -917,20 +1790,20 @@ class _NovelReadingPageState extends State<NovelReadingPage>
 
         // 更新当前显示的章节标题
         if (_novelBubbles.isNotEmpty) {
-          _currentChapterTitleForDisplay =
+          _currentChapterTitleNotifier.value =
               _novelBubbles[0]['title'] ?? '章节加载完毕';
         } else {
           if (_currentHistoryPage == 1 && messages.isEmpty) {
-            _currentChapterTitleForDisplay = '开始创作吧';
+            _currentChapterTitleNotifier.value = '开始创作吧';
           } else {
-            _currentChapterTitleForDisplay = '没有更多内容了';
+            _currentChapterTitleNotifier.value = '没有更多内容了';
           }
         }
       });
     } else if (_currentHistoryPage == 1 && messages.isEmpty) {
       // 首次加载且没有消息
       setState(() {
-        _currentChapterTitleForDisplay = '开始创作吧';
+        _currentChapterTitleNotifier.value = '开始创作吧';
         _totalChapters = 0;
       });
     }
@@ -999,7 +1872,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: AppTheme.cardBackground.withOpacity(0.9),
+          backgroundColor: AppTheme.cardBackground.withValues(alpha: 0.9),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
           title: Text('确认撤回',
@@ -1034,6 +1907,10 @@ class _NovelReadingPageState extends State<NovelReadingPage>
           throw response['message'] ?? '请求失败';
         }
 
+        // API调用成功后，更新UI和缓存
+        final String removedChapterMsgId = _novelBubbles.isNotEmpty ?
+            (_novelBubbles[0]['msgId'] as String? ?? '') : '';
+
         setState(() {
           _novelBubbles.removeAt(0);
 
@@ -1046,12 +1923,26 @@ class _NovelReadingPageState extends State<NovelReadingPage>
           _totalChapters = _chapters.length;
 
           if (_novelBubbles.isNotEmpty) {
-            _currentChapterTitleForDisplay = _novelBubbles[0]['title'] ?? '上一章';
+            _currentChapterTitleNotifier.value = _novelBubbles[0]['title'] ?? '上一章';
           } else {
-            _currentChapterTitleForDisplay = '开始创作吧';
+            _currentChapterTitleNotifier.value = '开始创作吧';
           }
           _isGenerating = false;
         });
+
+        // 只在本地模式下删除缓存中的章节
+        if (_isLocalMode && removedChapterMsgId.isNotEmpty) {
+          try {
+            await _messageCacheService.deleteNovelChapter(
+              sessionId: _sessionIdInt,
+              msgId: removedChapterMsgId,
+            );
+            debugPrint('[NovelReadingPage] 已从缓存中删除章节: $removedChapterMsgId');
+          } catch (e) {
+            debugPrint('[NovelReadingPage] 删除缓存章节失败: $e');
+          }
+        }
+
         _showSuccessMessage('章节已撤回');
       } catch (e) {
         if (mounted) {
@@ -1074,7 +1965,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
     setState(() {
       _isRefreshing = true;
       _showRefreshSuccess = false;
-      _currentChapterTitleForDisplay = "正在刷新...";
+      _currentChapterTitleNotifier.value = "正在刷新...";
     });
 
     _refreshController.resetNoData();
@@ -1125,7 +2016,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: AppTheme.cardBackground.withOpacity(0.9),
+          backgroundColor: AppTheme.cardBackground.withValues(alpha: 0.9),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
           title: Text('确认重置',
@@ -1159,6 +2050,7 @@ class _NovelReadingPageState extends State<NovelReadingPage>
           throw response['message'] ?? '请求失败';
         }
 
+        // API调用成功后，更新UI和缓存
         setState(() {
           _novelBubbles.clear();
 
@@ -1169,11 +2061,22 @@ class _NovelReadingPageState extends State<NovelReadingPage>
           _totalChapters = 0;
           _currentHistoryPage = 1;
           _hasMoreHistory = true;
-          _currentChapterTitleForDisplay = "开始创作吧";
+          _currentChapterTitleNotifier.value = "开始创作吧";
           _promptController.clear();
           _showPromptInput = false;
           _isGenerating = false;
         });
+
+        // 只在本地模式下清空缓存
+        if (_isLocalMode) {
+          try {
+            await _messageCacheService.clearNovelCache(_sessionIdInt);
+            debugPrint('[NovelReadingPage] 已清空小说缓存');
+          } catch (e) {
+            debugPrint('[NovelReadingPage] 清空缓存失败: $e');
+          }
+        }
+
         _refreshController.resetNoData();
         _showSuccessMessage('小说内容已重置');
       } catch (e) {
@@ -1189,12 +2092,8 @@ class _NovelReadingPageState extends State<NovelReadingPage>
 
   // 回到底部处理逻辑
   void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0.0,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeOutQuint,
-      );
+    if (_novelBubbles.isNotEmpty) {
+      _scrollToIndex(0, animate: true); // 在反转列表中，索引0是最新的内容（底部）
     }
   }
 
@@ -1216,11 +2115,13 @@ class _NovelReadingPageState extends State<NovelReadingPage>
       final paragraphs = NovelContentParser.parseContent(newContent);
 
       // 更新本地数据
+      String chapterTitle = '';
       setState(() {
         // 找到对应的气泡并更新
         for (var i = 0; i < _novelBubbles.length; i++) {
           if (_novelBubbles[i]['msgId'] == msgId) {
             _novelBubbles[i]['paragraphs'] = paragraphs;
+            chapterTitle = _novelBubbles[i]['title'] ?? '';
             break;
           }
         }
@@ -1233,6 +2134,27 @@ class _NovelReadingPageState extends State<NovelReadingPage>
           }
         }
       });
+
+      // 只在本地模式下同步编辑后的内容到缓存
+      if (_isLocalMode) {
+        try {
+          final updatedChapter = {
+            'msgId': msgId,
+            'title': chapterTitle,
+            'content': paragraphs,
+            'createdAt': DateTime.now().toIso8601String(),
+          };
+
+          await _messageCacheService.insertOrUpdateNovelChapters(
+            sessionId: _sessionIdInt,
+            chapters: [updatedChapter],
+          );
+
+          debugPrint('[NovelReadingPage] 已同步编辑后的章节到缓存: $msgId');
+        } catch (e) {
+          debugPrint('[NovelReadingPage] 同步编辑后章节到缓存失败: $e');
+        }
+      }
 
       // 显示成功消息
       _showSuccessMessage('内容已更新');

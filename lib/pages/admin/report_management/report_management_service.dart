@@ -25,8 +25,9 @@ class ReportManagementService {
 
       if (itemId != null) queryParameters['item_id'] = itemId;
       if (reporterId != null) queryParameters['reporter_id'] = reporterId;
-      if (keyword != null && keyword.isNotEmpty)
+      if (keyword != null && keyword.isNotEmpty) {
         queryParameters['keyword'] = keyword;
+      }
       if (startTime != null) queryParameters['start_time'] = startTime;
       if (endTime != null) queryParameters['end_time'] = endTime;
 
@@ -120,8 +121,9 @@ class ReportManagementService {
 
       if (itemId != null) queryParameters['item_id'] = itemId;
       if (authorId != null) queryParameters['author_id'] = authorId;
-      if (keyword != null && keyword.isNotEmpty)
+      if (keyword != null && keyword.isNotEmpty) {
         queryParameters['keyword'] = keyword;
+      }
       if (startTime != null) queryParameters['start_time'] = startTime;
       if (endTime != null) queryParameters['end_time'] = endTime;
 

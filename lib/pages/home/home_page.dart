@@ -331,16 +331,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  // 刷新最新内容
-  Future<void> _refreshLatestItems() async {
-    setState(() {
-      _forceReload = true;
-    });
-    await _loadLatestItems(refresh: true);
-    if (mounted) {
-      _refreshController.refreshCompleted();
-    }
-  }
+
 
   Future<void> _checkAuthorUpdates() async {
     if (!mounted) return;
@@ -393,7 +384,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 body = Text('刷新完成',
                     style: TextStyle(color: Colors.white70, fontSize: 14.sp));
               }
-              return Container(
+              return SizedBox(
                 height: 55.0,
                 child: Center(child: body),
               );
@@ -830,8 +821,9 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
                             // 调整索引以适应关注作者卡片
                             final itemIndex = index - 1;
-                            if (itemIndex >= _latestItems.length)
+                            if (itemIndex >= _latestItems.length) {
                               return const SizedBox();
+                            }
 
                             final item = _latestItems[itemIndex];
                             return _buildLatestItemCard(item);
@@ -1512,56 +1504,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  // 构建最新发布瀑布流
-  Widget _buildLatestGrid() {
-    if (_latestItems.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.inbox_rounded,
-              size: 48.sp,
-              color: AppTheme.textSecondary.withOpacity(0.5),
-            ),
-            SizedBox(height: 16.h),
-            Text(
-              '暂无内容',
-              style: TextStyle(
-                fontSize: 16.sp,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(), // 禁用内部滚动
-      shrinkWrap: true, // 收缩以适应内容高度
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.75, // 控制卡片高宽比
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: _latestItems.length + 1, // +1 是为了添加关注作者更新通知卡片
-      itemBuilder: (context, index) {
-        // 在第1个位置插入关注作者更新通知卡片
-        if (index == 0) {
-          return _buildFollowingAuthorsCard();
-        }
-
-        // 其他位置显示正常内容卡片，但需要调整实际索引
-        final itemIndex = index - 1;
-        if (itemIndex >= _latestItems.length) return const SizedBox();
-
-        final item = _latestItems[itemIndex];
-        return _buildLatestItemCard(item);
-      },
-    );
-  }
+  
 
   // 构建关注作者更新通知卡片
   Widget _buildFollowingAuthorsCard() {

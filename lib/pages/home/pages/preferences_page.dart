@@ -112,10 +112,11 @@ class _PreferencesPageState extends State<PreferencesPage> {
   }
 
   void _debounceAuthorSearch(String keyword, {required bool isLiked}) {
-    if (_authorSearchDebounce?.isActive ?? false)
+    if (_authorSearchDebounce?.isActive ?? false) {
       _authorSearchDebounce!.cancel();
+    }
     _authorSearchDebounce = Timer(const Duration(milliseconds: 500), () {
-      if (keyword.length >= 1) {
+      if (keyword.isNotEmpty) {
         _searchAuthors(keyword);
       } else {
         setState(() {

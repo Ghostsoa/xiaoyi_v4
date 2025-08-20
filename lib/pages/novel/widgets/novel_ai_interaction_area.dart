@@ -17,6 +17,10 @@ class NovelAiInteractionArea extends StatefulWidget {
   final Color backgroundColor;
   final Color textColor;
 
+  // 模式相关
+  final bool isLocalMode;
+  final bool isSearchMode;
+
   final VoidCallback onSettings;
   final VoidCallback onRegenerate;
   final VoidCallback onRefreshPage;
@@ -26,6 +30,16 @@ class NovelAiInteractionArea extends StatefulWidget {
   final VoidCallback onTogglePromptInput;
   final VoidCallback onCancelPrompt;
   final Function(String) onSubmitPrompt;
+
+  // 搜索相关
+  final VoidCallback? onToggleSearch;
+  final Function(String)? onSearch;
+  final TextEditingController? searchController;
+
+  // 章节导航相关
+  final VoidCallback? onPreviousChapter;
+  final VoidCallback? onNextChapter;
+  final VoidCallback? onShowChapterList;
 
   final bool showPromptInput;
   final TextEditingController promptController;
@@ -41,6 +55,8 @@ class NovelAiInteractionArea extends StatefulWidget {
     required this.novelBubbles,
     required this.backgroundColor,
     required this.textColor,
+    required this.isLocalMode,
+    this.isSearchMode = false,
     required this.onSettings,
     required this.onRegenerate,
     required this.onRefreshPage,
@@ -50,6 +66,12 @@ class NovelAiInteractionArea extends StatefulWidget {
     required this.onTogglePromptInput,
     required this.onCancelPrompt,
     required this.onSubmitPrompt,
+    this.onToggleSearch,
+    this.onSearch,
+    this.searchController,
+    this.onPreviousChapter,
+    this.onNextChapter,
+    this.onShowChapterList,
     required this.showPromptInput,
     required this.promptController,
   });
@@ -70,20 +92,83 @@ class _NovelAiInteractionAreaState extends State<NovelAiInteractionArea> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 章节标题显示
+        // 章节标题显示（本地模式下添加导航按钮）
         Padding(
           padding: EdgeInsets.only(bottom: 4.h),
-          child: Text(
-            widget.currentChapterTitle,
-            style: TextStyle(
-              color: fadedTextColor,
-              fontSize: 11.sp,
-              fontStyle: FontStyle.italic,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          child: widget.isLocalMode
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 上一章按钮
+                  if (widget.onPreviousChapter != null)
+                    IconButton(
+                      icon: Icon(
+                        Icons.chevron_left,
+                        color: fadedTextColor,
+                        size: 16.sp,
+                      ),
+                      onPressed: widget.onPreviousChapter,
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(
+                        minWidth: 24.w,
+                        minHeight: 24.h,
+                      ),
+                      tooltip: '上一章',
+                    ),
+
+                  // 章节标题（可点击显示目录）
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: widget.onShowChapterList,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                        child: Text(
+                          widget.currentChapterTitle,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.bold,
+                            decoration: widget.onShowChapterList != null
+                                ? TextDecoration.underline
+                                : null,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // 下一章按钮
+                  if (widget.onNextChapter != null)
+                    IconButton(
+                      icon: Icon(
+                        Icons.chevron_right,
+                        color: fadedTextColor,
+                        size: 16.sp,
+                      ),
+                      onPressed: widget.onNextChapter,
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(
+                        minWidth: 24.w,
+                        minHeight: 24.h,
+                      ),
+                      tooltip: '下一章',
+                    ),
+                ],
+              )
+            : Text(
+                widget.currentChapterTitle,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
         ),
 
         // 操作按钮行
@@ -108,21 +193,32 @@ class _NovelAiInteractionAreaState extends State<NovelAiInteractionArea> {
                 rotationAnimation: widget.refreshRotationAnimation,
                 color: textColor,
               ),
-              NovelSmallIconButton(
-                icon: widget.isRefreshing
-                    ? Icons.sync
-                    : widget.showRefreshSuccess
-                        ? Icons.check_circle
-                        : Icons.refresh_outlined,
-                tooltip: '刷新列表',
-                onPressed: (widget.isGenerating || widget.isRefreshing)
-                    ? null
-                    : widget.onRefreshPage,
-                isRotating: widget.isRefreshing,
-                color:
-                    widget.showRefreshSuccess ? Colors.green : fadedTextColor,
-                rotationAnimation: widget.refreshRotationAnimation,
-              ),
+              // 本地模式下显示搜索按钮，在线模式下显示刷新按钮
+              widget.isLocalMode
+                ? NovelSmallIconButton(
+                    icon: widget.isSearchMode
+                        ? Icons.search_off
+                        : Icons.search,
+                    tooltip: widget.isSearchMode ? '关闭搜索' : '搜索章节',
+                    onPressed: widget.isGenerating ? null : widget.onToggleSearch,
+                    rotationAnimation: widget.refreshRotationAnimation,
+                    color: widget.isSearchMode ? AppTheme.primaryColor : textColor,
+                  )
+                : NovelSmallIconButton(
+                    icon: widget.isRefreshing
+                        ? Icons.sync
+                        : widget.showRefreshSuccess
+                            ? Icons.check_circle
+                            : Icons.refresh_outlined,
+                    tooltip: '刷新列表',
+                    onPressed: (widget.isGenerating || widget.isRefreshing)
+                        ? null
+                        : widget.onRefreshPage,
+                    isRotating: widget.isRefreshing,
+                    color:
+                        widget.showRefreshSuccess ? Colors.green : fadedTextColor,
+                    rotationAnimation: widget.refreshRotationAnimation,
+                  ),
               NovelSmallIconButton(
                 icon: Icons.delete_sweep_outlined,
                 tooltip: '重置对话',
@@ -147,14 +243,84 @@ class _NovelAiInteractionAreaState extends State<NovelAiInteractionArea> {
           Padding(
             padding: EdgeInsets.only(bottom: 6.h),
             child: Divider(
-              color: textColor.withOpacity(0.3),
+              color: textColor.withValues(alpha: 0.3),
               thickness: 0.5,
               height: 1,
             ),
           ),
 
+        // 搜索框（本地模式且搜索模式下显示）
+        if (widget.isLocalMode && widget.isSearchMode && widget.searchController != null) ...[
+          Container(
+            margin: EdgeInsets.only(bottom: 12.h),
+            child: TextField(
+              controller: widget.searchController,
+              style: TextStyle(color: textColor, fontSize: 14.sp),
+              decoration: InputDecoration(
+                hintText: '搜索章节标题或内容...',
+                hintStyle: TextStyle(
+                  color: textColor.withValues(alpha: 0.5),
+                  fontSize: 14.sp,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: textColor.withValues(alpha: 0.7),
+                  size: 20.sp,
+                ),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    Icons.send,
+                    color: AppTheme.primaryColor,
+                    size: 20.sp,
+                  ),
+                  onPressed: () {
+                    final keyword = widget.searchController!.text.trim();
+                    if (keyword.isNotEmpty && widget.onSearch != null) {
+                      widget.onSearch!(keyword);
+                    }
+                  },
+                ),
+                filled: true,
+                fillColor: isDarkMode
+                    ? Colors.grey[900]!.withValues(alpha: 0.5)
+                    : Colors.grey[300]!.withValues(alpha: 0.5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.r),
+                  borderSide: BorderSide(
+                    color: textColor.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.r),
+                  borderSide: BorderSide(
+                    color: textColor.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.r),
+                  borderSide: BorderSide(
+                    color: AppTheme.primaryColor,
+                    width: 1,
+                  ),
+                ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16.w,
+                  vertical: 12.h,
+                ),
+              ),
+              onSubmitted: (value) {
+                if (value.trim().isNotEmpty && widget.onSearch != null) {
+                  widget.onSearch!(value.trim());
+                }
+              },
+            ),
+          ),
+        ],
+
         // 提示文本
-        if (!widget.isGenerating) ...[
+        if (!widget.isGenerating && !widget.isSearchMode) ...[
           if (widget.isInitialMode)
             Text(
               '开始您的小说创作之旅',
@@ -205,8 +371,10 @@ class _NovelAiInteractionAreaState extends State<NovelAiInteractionArea> {
               ),
             ],
           ),
-        ] else
-          // 生成状态指示器
+        ],
+
+        // 生成状态指示器（只在生成时显示）
+        if (widget.isGenerating)
           NovelGeneratingIndicator(
             message: widget.currentChapterTitle.startsWith("正在") ||
                     widget.currentChapterTitle.startsWith("根据您")
@@ -218,34 +386,46 @@ class _NovelAiInteractionAreaState extends State<NovelAiInteractionArea> {
         // 输入引导内容区域
         if (widget.showPromptInput && !widget.isGenerating) ...[
           SizedBox(height: 8.h),
-          Container(
-            decoration: BoxDecoration(
-              color: isDarkMode
-                  ? Colors.grey[900]!.withOpacity(0.5)
-                  : Colors.grey[300]!.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(6.r),
-              border: Border.all(
-                color: textColor.withOpacity(0.2),
-                width: 0.5,
-              ),
+          TextField(
+            controller: widget.promptController,
+            maxLines: 2,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 13.sp,
             ),
-            child: TextField(
-              controller: widget.promptController,
-              maxLines: 2,
-              style: TextStyle(
-                color: textColor,
+            decoration: InputDecoration(
+              hintText: '输入您对下一章节的想法或剧情走向...',
+              hintStyle: TextStyle(
+                color: hintTextColor,
                 fontSize: 13.sp,
               ),
-              decoration: InputDecoration(
-                hintText: '输入您对下一章节的想法或剧情走向...',
-                hintStyle: TextStyle(
-                  color: hintTextColor,
-                  fontSize: 13.sp,
+              filled: true,
+              fillColor: isDarkMode
+                  ? Colors.grey[900]!.withValues(alpha: 0.5)
+                  : Colors.grey[300]!.withValues(alpha: 0.5),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6.r),
+                borderSide: BorderSide(
+                  color: textColor.withValues(alpha: 0.2),
+                  width: 0.5,
                 ),
-                contentPadding: EdgeInsets.all(8.w),
-                border: InputBorder.none,
-                isDense: true,
               ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6.r),
+                borderSide: BorderSide(
+                  color: textColor.withValues(alpha: 0.2),
+                  width: 0.5,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6.r),
+                borderSide: BorderSide(
+                  color: AppTheme.primaryColor,
+                  width: 1,
+                ),
+              ),
+              contentPadding: EdgeInsets.all(8.w),
+              isDense: true,
             ),
           ),
           SizedBox(height: 6.h),
@@ -274,7 +454,7 @@ class _NovelAiInteractionAreaState extends State<NovelAiInteractionArea> {
                 onPressed: () =>
                     widget.onSubmitPrompt(widget.promptController.text.trim()),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor.withOpacity(0.8),
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.8),
                   padding: EdgeInsets.symmetric(
                     horizontal: 12.w,
                     vertical: 6.h,

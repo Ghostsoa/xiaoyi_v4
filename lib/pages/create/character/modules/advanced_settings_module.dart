@@ -829,7 +829,7 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                       'disabled', '标准\n模式', Icons.chat_outlined),
                   SizedBox(width: 8.w),
                   _buildUiSettingsButton(
-                      'legacy_bar', '新版\nUI样式', Icons.view_stream),
+                      'legacy_bar', '兼容\n模式', Icons.view_stream),
                 ],
               ),
               SizedBox(height: 8.h),

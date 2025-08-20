@@ -77,7 +77,7 @@ class _CollapsibleContainerState extends State<CollapsibleContainer>
 
   @override
   Widget build(BuildContext context) {
-    final bool _isStatusCollapsed =
+    final bool isStatusCollapsed =
         (widget.containerType == 'status_on' || widget.containerType == 'status_off') && !isExpanded;
 
     return FutureBuilder<Map<String, Map<String, dynamic>>>(
@@ -104,7 +104,7 @@ class _CollapsibleContainerState extends State<CollapsibleContainer>
           margin: const EdgeInsets.symmetric(vertical: 1.0),
           // 根据展开状态和容器类型决定宽度
           width: ((widget.containerType == 'status_on' || widget.containerType == 'status_off') && !isExpanded) ? null : double.infinity,
-          child: (_isStatusCollapsed)
+          child: (isStatusCollapsed)
               ? _buildCollapsedStatusBar(backgroundColor, opacity, textColor)
               : _buildExpandedContainer(backgroundColor, opacity, textColor),
         );

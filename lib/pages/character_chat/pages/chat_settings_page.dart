@@ -256,7 +256,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
         ],
       ),
       body: Center(
-        child: Container(
+        child: SizedBox(
           width: maxWidth,
           child: ListView(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),

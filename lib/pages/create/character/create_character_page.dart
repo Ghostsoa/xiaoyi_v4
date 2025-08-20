@@ -51,7 +51,8 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   final _rulesController = TextEditingController();
   final _positiveDialogExamplesController = TextEditingController();
   final _negativeDialogExamplesController = TextEditingController();
-  bool _settingEditable = true;
+  final _supplementSettingController = TextEditingController();
+  bool _settingEditable = false;
   String _uiSettings = 'markdown';
 
   // 模型配置
@@ -98,6 +99,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     _rulesController.text = character['rules'] ?? '';
     _positiveDialogExamplesController.text = character['positiveDialogExamples'] ?? '';
     _negativeDialogExamplesController.text = character['negativeDialogExamples'] ?? '';
+    _supplementSettingController.text = character['supplementSetting'] ?? '';
     _settingEditable = character['settingEditable'] ?? true;
     _uiSettings = character['uiSettings'] ?? 'markdown';
     _modelName = character['modelName'] ?? 'gemini-2.0-flash';
@@ -147,6 +149,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     _rulesController.dispose();
     _positiveDialogExamplesController.dispose();
     _negativeDialogExamplesController.dispose();
+    _supplementSettingController.dispose();
     _resourceMappingController.dispose();
     super.dispose();
   }
@@ -184,6 +187,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
         "rules": _rulesController.text,
         "positiveDialogExamples": _positiveDialogExamplesController.text,
         "negativeDialogExamples": _negativeDialogExamplesController.text,
+        "supplementSetting": _supplementSettingController.text,
         "uiSettings": _uiSettings,
         "searchDepth": _searchDepth,
         "worldbookMap": _worldbookMap,
@@ -341,6 +345,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           rulesController: _rulesController,
           positiveDialogExamplesController: _positiveDialogExamplesController,
           negativeDialogExamplesController: _negativeDialogExamplesController,
+          supplementSettingController: _supplementSettingController,
           settingEditable: _settingEditable,
           onSettingEditableChanged: (value) =>
               setState(() => _settingEditable = value),

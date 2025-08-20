@@ -665,7 +665,6 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
       }
 
       if (mounted) {
-        CustomToast.show(context, message: '置顶成功', type: ToastType.success);
         // 刷新列表
         if (_isCharacterMode) {
           _characterListKey.currentState?.onRefresh();
@@ -690,7 +689,6 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
       }
 
       if (mounted) {
-        CustomToast.show(context, message: '取消置顶成功', type: ToastType.success);
         // 刷新列表
         if (_isCharacterMode) {
           _characterListKey.currentState?.onRefresh();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'dart:typed_data';
 import 'dart:async';
 
@@ -10,15 +11,16 @@ import '../../character_chat/pages/character_chat_page.dart';
 import '../message_service.dart';
 import '../../../services/file_service.dart';
 import '../../../services/session_data_service.dart';
+import '../../../widgets/custom_toast.dart';
 
 class CharacterSessionList extends StatefulWidget {
   const CharacterSessionList({
-    Key? key,
+    super.key,
     required this.isMultiSelectMode,
     required this.selectedIds,
     required this.onSelectionChanged,
     required this.onShowMenu,
-  }) : super(key: key);
+  });
 
   final bool isMultiSelectMode;
   final Set<int> selectedIds;
@@ -167,7 +169,7 @@ class CharacterSessionListState extends State<CharacterSessionList> {
           debugPrint('获取本地数据格式错误: $result');
         }
 
-        debugPrint('[CharacterSessionList] 加载第${nextPage}页，新增${newSessions.length}条数据');
+        debugPrint('[CharacterSessionList] 加载第$nextPage页，新增${newSessions.length}条数据');
 
         if (newSessions.isNotEmpty) {
           final oldLength = _sessions.length;
@@ -180,7 +182,7 @@ class CharacterSessionListState extends State<CharacterSessionList> {
             _isLoadingMore = false;
           });
 
-          debugPrint('[CharacterSessionList] 数据累加成功：从${oldLength}条增加到${_sessions.length}条');
+          debugPrint('[CharacterSessionList] 数据累加成功：从$oldLength条增加到${_sessions.length}条');
           debugPrint('[CharacterSessionList] 新增数据ID: ${newSessions.map((s) => s['id']).toList()}');
 
           for (var session in newSessions) {
@@ -427,7 +429,7 @@ class CharacterSessionListState extends State<CharacterSessionList> {
           body = Text('刷新完成',
               style: TextStyle(color: Colors.white70, fontSize: 14.sp));
         }
-        return Container(
+        return SizedBox(
           height: 55.0,
           child: Center(child: body),
         );
@@ -459,7 +461,7 @@ class CharacterSessionListState extends State<CharacterSessionList> {
           body = Text('没有更多数据了',
               style: TextStyle(color: Colors.white70, fontSize: 14.sp));
         }
-        return Container(
+        return SizedBox(
           height: 55.0,
           child: Center(child: body),
         );
@@ -517,7 +519,7 @@ class CharacterSessionListState extends State<CharacterSessionList> {
 
   Widget _buildSkeletonItem() {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 10.h),
+      padding: EdgeInsets.symmetric(vertical: 6.h),
       child: Shimmer.fromColors(
         baseColor: AppTheme.cardBackground,
         highlightColor: AppTheme.cardBackground.withOpacity(0.5),
@@ -614,30 +616,91 @@ class CharacterSessionListState extends State<CharacterSessionList> {
     }
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 10.h),
-      child: GestureDetector(
-        onTap: () {
-          if (widget.isMultiSelectMode) {
-            widget.onSelectionChanged(sessionId);
-          } else {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => CharacterChatPage(
-                  sessionData: session,
-                  characterData: session,
-                ),
-              ),
-            );
-          }
-        },
-        onLongPressStart: widget.isMultiSelectMode
-            ? null
-            : (LongPressStartDetails details) {
-                // 🔥 修复：使用LongPressStartDetails获取准确的触摸位置
-                final Offset globalPosition = details.globalPosition;
-                widget.onShowMenu(context, session, globalPosition);
+      padding: EdgeInsets.symmetric(vertical: 6.h),
+      child: Slidable(
+        enabled: !widget.isMultiSelectMode,
+        startActionPane: ActionPane(
+          motion: const DrawerMotion(),
+          extentRatio: 0.25,
+          children: [
+            CustomSlidableAction(
+              borderRadius: BorderRadius.circular(12.r),
+              onPressed: (context) {
+                final bool isPinned = (session['is_pinned'] as int? ?? 0) == 1;
+                if (isPinned) {
+                  _unpinSession(sessionId);
+                } else {
+                  _pinSession(sessionId);
+                }
+                // 关闭滑动状态
+                Slidable.of(context)?.close();
               },
+              backgroundColor: (session['is_pinned'] as int? ?? 0) == 1 ? const Color(0xFF8E8E93) : const Color(0xFFFF9500),
+              foregroundColor: Colors.white,
+              icon: (session['is_pinned'] as int? ?? 0) == 1 ? Icons.push_pin_outlined : Icons.push_pin,
+              label: (session['is_pinned'] as int? ?? 0) == 1 ? '取消置顶' : '置顶',
+              iconSize: 16.sp,
+              labelStyle: TextStyle(fontSize: 12.sp, color: Colors.white, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+        endActionPane: ActionPane(
+          motion: const DrawerMotion(),
+          extentRatio: 0.5,
+          children: [
+            CustomSlidableAction(
+              borderRadius: BorderRadius.circular(12.r),
+              onPressed: (context) {
+                _showRenameDialog(sessionId, session['name'] ?? '未命名会话');
+                // 关闭滑动状态
+                Slidable.of(context)?.close();
+              },
+              backgroundColor: const Color(0xFF007AFF),
+              foregroundColor: Colors.white,
+              icon: Icons.edit,
+              label: '重命名',
+              iconSize: 16.sp,
+              labelStyle: TextStyle(fontSize: 12.sp, color: Colors.white, fontWeight: FontWeight.w500),
+            ),
+            CustomSlidableAction(
+              borderRadius: BorderRadius.circular(12.r),
+              onPressed: (context) {
+                _showDeleteConfirmDialog(sessionId);
+                // 关闭滑动状态
+                Slidable.of(context)?.close();
+              },
+              backgroundColor: const Color(0xFFFF3B30),
+              foregroundColor: Colors.white,
+              icon: Icons.delete,
+              label: '删除',
+              iconSize: 16.sp,
+              labelStyle: TextStyle(fontSize: 12.sp, color: Colors.white, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+        child: GestureDetector(
+          onTap: () {
+            if (widget.isMultiSelectMode) {
+              widget.onSelectionChanged(sessionId);
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CharacterChatPage(
+                    sessionData: session,
+                    characterData: session,
+                  ),
+                ),
+              );
+            }
+          },
+          onLongPressStart: widget.isMultiSelectMode
+              ? null
+              : (LongPressStartDetails details) {
+                  // 🔥 修复：使用LongPressStartDetails获取准确的触摸位置
+                  final Offset globalPosition = details.globalPosition;
+                  widget.onShowMenu(context, session, globalPosition);
+                },
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
@@ -811,8 +874,9 @@ class CharacterSessionListState extends State<CharacterSessionList> {
             ],
           ),
         ),
+          ),
+        ),
       ),
-    ),
     );
   }
 
@@ -891,6 +955,239 @@ class CharacterSessionListState extends State<CharacterSessionList> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 置顶会话
+  Future<void> _pinSession(int sessionId) async {
+    try {
+      final MessageService messageService = MessageService();
+      await messageService.pinCharacterSession(sessionId);
+
+      if (mounted) {
+        // 静默更新本地数据
+        setState(() {
+          final index = _sessions.indexWhere((s) => s['id'] == sessionId);
+          if (index != -1) {
+            _sessions[index]['is_pinned'] = 1;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '置顶失败: $e',
+          type: ToastType.error,
+        );
+      }
+    }
+  }
+
+  /// 取消置顶会话
+  Future<void> _unpinSession(int sessionId) async {
+    try {
+      final MessageService messageService = MessageService();
+      await messageService.unpinCharacterSession(sessionId);
+
+      if (mounted) {
+        // 静默更新本地数据
+        setState(() {
+          final index = _sessions.indexWhere((s) => s['id'] == sessionId);
+          if (index != -1) {
+            _sessions[index]['is_pinned'] = 0;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '取消置顶失败: $e',
+          type: ToastType.error,
+        );
+      }
+    }
+  }
+
+  /// 显示重命名对话框
+  void _showRenameDialog(int sessionId, String currentName) {
+    final TextEditingController controller = TextEditingController(text: currentName);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('重命名会话'),
+          content: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              hintText: '请输入新名称',
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('取消'),
+            ),
+            TextButton(
+              onPressed: () {
+                final newName = controller.text.trim();
+                if (newName.isNotEmpty) {
+                  _renameSession(sessionId, newName);
+                }
+                Navigator.of(context).pop();
+              },
+              child: Text('确定'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 重命名会话
+  Future<void> _renameSession(int sessionId, String newName) async {
+    try {
+      final result = await _messageService.renameSession(sessionId, newName);
+
+      if (result['success'] == true) {
+        if (mounted) {
+          CustomToast.show(
+            context,
+            message: '重命名成功',
+            type: ToastType.success,
+          );
+          _loadSessions();
+        }
+      } else {
+        if (mounted) {
+          CustomToast.show(
+            context,
+            message: result['msg'] ?? '重命名失败',
+            type: ToastType.error,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '重命名失败: $e',
+          type: ToastType.error,
+        );
+      }
+    }
+  }
+
+  /// 显示删除确认对话框
+  Future<void> _showDeleteConfirmDialog(int sessionId) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('确认删除'),
+          content: Text('确定要删除这个会话吗？此操作不可恢复。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text('删除', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      _deleteSingleSession(sessionId);
+    }
+  }
+
+  /// 删除单个会话
+  Future<void> _deleteSingleSession(int sessionId) async {
+    try {
+      final Map<String, dynamic> result = await _messageService.batchDeleteCharacterSessions([sessionId]);
+
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: result['msg'] ?? '删除完成',
+          type: result['success'] ? ToastType.success : ToastType.error,
+        );
+        _loadSessions();
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '删除失败: $e',
+          type: ToastType.error,
+        );
+      }
+    }
+  }
+}
+
+/// 自定义滑动按钮，支持调整图标和文字大小
+class CustomSlidableAction extends StatelessWidget {
+  const CustomSlidableAction({
+    super.key,
+    required this.onPressed,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.icon,
+    required this.label,
+    this.borderRadius,
+    this.iconSize,
+    this.labelStyle,
+  });
+
+  final void Function(BuildContext) onPressed;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final IconData icon;
+  final String label;
+  final BorderRadius? borderRadius;
+  final double? iconSize;
+  final TextStyle? labelStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => onPressed(context),
+        child: Container(
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: borderRadius,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: foregroundColor,
+                size: iconSize ?? 20.sp,
+              ),
+              SizedBox(height: 2.h),
+              Text(
+                label,
+                style: labelStyle ?? TextStyle(
+                  color: foregroundColor,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -412,7 +412,7 @@ class _MyCreationPageState extends State<MyCreationPage> {
                       body = Text('刷新完成',
                           style: TextStyle(color: Colors.green, fontSize: 14.sp));
                     }
-                    return Container(
+                    return SizedBox(
                       height: 55.h,
                       child: Center(child: body),
                     );

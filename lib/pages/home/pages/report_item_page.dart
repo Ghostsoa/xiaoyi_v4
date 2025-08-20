@@ -15,10 +15,10 @@ class ReportItemPage extends StatefulWidget {
   final String itemTitle;
 
   const ReportItemPage({
-    Key? key,
+    super.key,
     required this.itemId,
     required this.itemTitle,
-  }) : super(key: key);
+  });
 
   @override
   State<ReportItemPage> createState() => _ReportItemPageState();
@@ -31,7 +31,7 @@ class _ReportItemPageState extends State<ReportItemPage> {
   final ImagePicker _imagePicker = ImagePicker();
 
   int _selectedReportType = 1; // 默认选择违规内容
-  List<String> _evidenceUris = []; // 存储证据图片URI
+  final List<String> _evidenceUris = []; // 存储证据图片URI
   bool _isSubmitting = false;
   bool _isUploadingImage = false;
 

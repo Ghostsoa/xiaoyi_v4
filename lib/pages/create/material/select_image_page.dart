@@ -83,7 +83,7 @@ class _SelectImagePageState extends State<SelectImagePage> {
 
   // 现代化的源选择器
   Widget _buildModernSourceSelector() {
-    return Container(
+    return SizedBox(
       height: 50.h,
       child: Row(
         children: [

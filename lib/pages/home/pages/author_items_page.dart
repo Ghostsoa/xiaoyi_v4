@@ -44,7 +44,7 @@ class _AuthorItemsPageState extends State<AuthorItemsPage> {
 
   // 关注状态 - 默认为未关注，静默更新
   bool _isFollowing = false;
-  bool _isCheckingFollowStatus = false;
+  final bool _isCheckingFollowStatus = false;
   bool _isUpdatingFollowStatus = false;
 
   // 图片缓存

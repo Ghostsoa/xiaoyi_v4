@@ -491,7 +491,7 @@ class _AuthorPushListPageState extends State<AuthorPushListPage> {
                     SizedBox(height: 8.h),
                     GestureDetector(
                       onTap: () => _toggleDescriptionExpanded(updateId),
-                      child: Container(
+                      child: SizedBox(
                         width: double.infinity,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1024,7 +1024,7 @@ class _AuthorPushListPageState extends State<AuthorPushListPage> {
                         statusText = '刷新失败';
                       }
 
-                      return Container(
+                      return SizedBox(
                         height: 55.h,
                         child: Center(
                           child: mode == RefreshStatus.refreshing
@@ -1108,7 +1108,7 @@ class _AuthorPushListPageState extends State<AuthorPushListPage> {
                         );
                       }
 
-                      return Container(
+                      return SizedBox(
                         height: 55.h,
                         child: Center(
                           child: statusWidget,

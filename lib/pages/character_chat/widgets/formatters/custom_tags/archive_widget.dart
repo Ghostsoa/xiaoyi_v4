@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'base_custom_tag.dart';
-import '../../../../../dao/chat_settings_dao.dart';
 import 'collapsible_container.dart';
 
 /// 档案标签组件

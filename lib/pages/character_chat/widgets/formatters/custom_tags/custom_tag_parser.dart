@@ -10,6 +10,7 @@ import 'topic_widget.dart';
 import 'feed_widget.dart';
 import 'chat_list_widget.dart';
 import 'chat_conversation_widget.dart';
+import 'status_tag_widget.dart';
 
 /// 自定义标签解析器
 class CustomTagParser {
@@ -27,6 +28,15 @@ class CustomTagParser {
     'feed': FeedWidget(),
     'chat-list': ChatListWidget(),
     'chat-conversation': ChatConversationWidget(),
+    // 状态标签
+    's': StatusTagWidget(statusTagType: 's'),
+    'action': StatusTagWidget(statusTagType: 'action'),
+    'thought': StatusTagWidget(statusTagType: 'thought'),
+    'narration': StatusTagWidget(statusTagType: 'narration'),
+    'emotion': StatusTagWidget(statusTagType: 'emotion'),
+    'environment': StatusTagWidget(statusTagType: 'environment'),
+    'system': StatusTagWidget(statusTagType: 'system'),
+    'emphasis': StatusTagWidget(statusTagType: 'emphasis'),
   };
 
   /// 解析文本中的自定义标签
@@ -89,6 +99,15 @@ class CustomTagParser {
             baseStyle,
             formatter,
           );
+        } else if (_isStatusTag(tagName)) {
+          // 状态标签特殊处理，传递完整的属性字符串
+          customWidget = tagHandler.build(
+            context,
+            attributesString, // 传递完整的属性字符串而不是 nameAttribute
+            content,
+            baseStyle,
+            formatter,
+          );
         } else {
           customWidget = tagHandler.build(
             context,
@@ -144,5 +163,10 @@ class CustomTagParser {
     }
 
     return attributes;
+  }
+
+  /// 检查是否为状态标签
+  static bool _isStatusTag(String tagName) {
+    return ['s', 'action', 'thought', 'narration', 'emotion', 'environment', 'system', 'emphasis'].contains(tagName);
   }
 }

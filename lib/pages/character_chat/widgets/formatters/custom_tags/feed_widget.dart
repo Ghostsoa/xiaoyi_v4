@@ -185,7 +185,7 @@ class _FeedWidgetStatefulState extends State<FeedWidgetStateful> {
                       _buildTopicItem(context, topicContent, backgroundColor, textColor),
                     ],
                   );
-                }).toList(),
+                }),
               ],
             ),
           ),

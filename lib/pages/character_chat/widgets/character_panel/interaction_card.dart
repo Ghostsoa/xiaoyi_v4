@@ -323,7 +323,7 @@ class InteractionCard extends StatelessWidget {
                 _buildUiSettingOption('disabled', '不启用状态栏', AppTheme.error),
                 SizedBox(height: 8.h),
                 _buildUiSettingOption(
-                    'legacy_bar', '新版UI样式', AppTheme.primaryLight),
+                    'legacy_bar', '兼容模式', AppTheme.primaryLight),
               ],
             ),
           ),
@@ -434,7 +434,7 @@ class InteractionCard extends StatelessWidget {
       case 'disabled':
         return '不启用状态栏功能';
       case 'legacy_bar':
-        return '使用新版UI样式';
+        return '兼容旧版格式，使用Markdown渲染器处理状态标签';
       default:
         return '';
     }

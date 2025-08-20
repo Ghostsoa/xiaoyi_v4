@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'dart:ui';
 import '../../../../theme/app_theme.dart';
 
 class SettingCard extends StatefulWidget {

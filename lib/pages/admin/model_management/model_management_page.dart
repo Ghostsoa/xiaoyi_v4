@@ -386,7 +386,7 @@ class _ModelManagementPageState extends State<ModelManagementPage> {
                       )
                     : SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
-                        child: Container(
+                        child: SizedBox(
                           width: 1200
                               .w, // Provide ample width for horizontal scrolling
                           child: Column(
@@ -659,7 +659,7 @@ class _AddApiKeyDialogState extends State<_AddApiKeyDialog> {
   final _formKey = GlobalKey<FormState>();
   final _apiKeysController = TextEditingController();
   final _endpointController = TextEditingController();
-  List<Map<String, TextEditingController>> _modelQuotas = [];
+  final List<Map<String, TextEditingController>> _modelQuotas = [];
 
   @override
   void initState() {

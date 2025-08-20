@@ -13,6 +13,7 @@ class NovelContentBubble extends StatefulWidget {
 
   // 编辑相关回调
   final Function(String msgId, String content)? onEdit;
+  final Function(bool isEditing)? onEditingStateChanged;
 
   // 新增样式参数
   final double contentFontSize;
@@ -28,6 +29,7 @@ class NovelContentBubble extends StatefulWidget {
     this.createdAt = '',
     this.isGenerating = false,
     this.onEdit,
+    this.onEditingStateChanged,
     this.contentFontSize = 20.0,
     this.titleFontSize = 25.0,
     this.backgroundColor = const Color(0xFF121212),
@@ -203,6 +205,8 @@ class _NovelContentBubbleState extends State<NovelContentBubble> {
       setState(() {
         _isEditing = true;
       });
+      // 通知父组件编辑状态变化
+      widget.onEditingStateChanged?.call(true);
     }
   }
 
@@ -211,6 +215,8 @@ class _NovelContentBubbleState extends State<NovelContentBubble> {
     setState(() {
       _isEditing = false;
     });
+    // 通知父组件编辑状态变化
+    widget.onEditingStateChanged?.call(false);
   }
 
   // 处理保存内容
@@ -221,6 +227,8 @@ class _NovelContentBubbleState extends State<NovelContentBubble> {
     setState(() {
       _isEditing = false;
     });
+    // 通知父组件编辑状态变化
+    widget.onEditingStateChanged?.call(false);
   }
 
   // 从段落中提取内容文本

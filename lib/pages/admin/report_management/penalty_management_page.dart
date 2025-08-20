@@ -7,7 +7,7 @@ import 'report_management_service.dart';
 import 'penalty_detail_page.dart';
 
 class PenaltyManagementPage extends StatefulWidget {
-  const PenaltyManagementPage({Key? key}) : super(key: key);
+  const PenaltyManagementPage({super.key});
 
   @override
   State<PenaltyManagementPage> createState() => _PenaltyManagementPageState();

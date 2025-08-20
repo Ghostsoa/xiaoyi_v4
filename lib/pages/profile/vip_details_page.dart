@@ -568,7 +568,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
                 ),
                 SizedBox(height: 8.h),
                 _buildMagicFeature('使用小懿特有的回复增强功能'),
-                _buildMagicFeature('全新记忆模组'),
+                _buildMagicFeature('智能的密钥负载均衡和重试机制'),
                 _buildMagicFeature('小懿特供模型'),
                 _buildMagicFeature('小说功能等更多最新功能'),
               ],

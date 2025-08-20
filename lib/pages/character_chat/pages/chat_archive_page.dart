@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'dart:ui';
 import 'dart:typed_data';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/custom_toast.dart';
@@ -1336,8 +1335,8 @@ class _ChatArchivePageState extends State<ChatArchivePage>
         floatingActionButton: FloatingActionButton(
           onPressed: _showCreateSaveSlotDialog,
           backgroundColor: AppTheme.primaryColor,
-          child: Icon(Icons.add),
           tooltip: '创建存档/快照',
+          child: Icon(Icons.add),
         ),
       ),
     );

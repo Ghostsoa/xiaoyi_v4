@@ -95,7 +95,7 @@ class ResourceMappingParser {
   /// 返回是否有效
   static bool isValidResourceName(String name) {
     return name.trim().isNotEmpty && 
-           name.length >= 1 && 
+           name.isNotEmpty && 
            name.length <= 50 &&
            !name.contains('"') && 
            !name.contains('|') && 

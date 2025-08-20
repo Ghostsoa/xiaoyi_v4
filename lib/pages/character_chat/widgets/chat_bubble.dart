@@ -3,7 +3,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../theme/app_theme.dart';
 import 'formatters/base_formatter.dart';
-import 'formatters/status_formatter.dart';
 import 'formatters/markdown_formatter.dart';
 import 'formatters/custom_formatter.dart';
 import 'status_bar.dart';
@@ -833,7 +832,11 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
     BaseFormatter formatter;
     switch (widget.formatMode) {
       case 'old':
-        formatter = StatusFormatter();
+        // 使用 MarkdownFormatter 替代原来的 StatusFormatter
+        formatter = MarkdownFormatter(
+          onOptionsChanged: widget.onOptionsChanged,
+          resourceMapping: widget.resourceMapping,
+        );
         break;
       case 'markdown':
         formatter = MarkdownFormatter(
@@ -851,7 +854,11 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
             style: baseStyle,
           );
         }
-        formatter = StatusFormatter();
+        // 默认使用 MarkdownFormatter
+        formatter = MarkdownFormatter(
+          onOptionsChanged: widget.onOptionsChanged,
+          resourceMapping: widget.resourceMapping,
+        );
     }
 
     return SingleChildScrollView(

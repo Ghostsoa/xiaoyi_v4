@@ -278,7 +278,7 @@ class SessionDataService {
     // 构造 WHERE IN 子句
     final String placeholders = List.filled(ids.length, '?').join(',');
     final List<Map<String, Object?>> rows = await _database!.rawQuery(
-      'SELECT id, is_pinned, pinned_at FROM ' + table + ' WHERE id IN (' + placeholders + ')',
+      'SELECT id, is_pinned, pinned_at FROM $table WHERE id IN ($placeholders)',
       ids,
     );
 

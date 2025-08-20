@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'dart:ui';
 import '../../../../pages/create/character/select_model_page.dart';
 import '../../../../theme/app_theme.dart';
 

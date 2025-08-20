@@ -29,7 +29,7 @@ class _AuthorFollowersPageState extends State<AuthorFollowersPage> {
 
   bool _isLoading = true;
   List<dynamic> _followers = [];
-  Map<String, dynamic> _followersInfo = {}; // 存储关注者详细信息，key为userId
+  final Map<String, dynamic> _followersInfo = {}; // 存储关注者详细信息，key为userId
   int _page = 1;
   final int _pageSize = 20;
   bool _hasMore = true;

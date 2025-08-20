@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as path;
@@ -23,7 +22,7 @@ class MessageCacheService {
 
     _database = await openDatabase(
       dbPath,
-      version: 1,
+      version: 2, // 增加版本号以触发升级
       onCreate: _createTables,
       onUpgrade: _upgradeTables,
     );
@@ -52,9 +51,26 @@ class MessageCacheService {
       )
     ''');
 
+    // 小说章节缓存表
+    await db.execute('''
+      CREATE TABLE novel_chapters_cache (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL,
+        msg_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        content TEXT,
+        created_at TEXT,
+        last_sync_time INTEGER,
+        UNIQUE(session_id, msg_id)
+      )
+    ''');
+
     // 创建索引
     await db.execute('CREATE INDEX idx_messages_session_archive ON messages_cache(session_id, archive_id)');
     await db.execute('CREATE INDEX idx_messages_created_at ON messages_cache(created_at)');
+    await db.execute('CREATE INDEX idx_novel_chapters_session ON novel_chapters_cache(session_id)');
+    await db.execute('CREATE INDEX idx_novel_chapters_created_at ON novel_chapters_cache(created_at)');
+    await db.execute('CREATE INDEX idx_novel_chapters_content ON novel_chapters_cache(content)');
 
     debugPrint('[MessageCacheService] 数据库表创建完成');
   }
@@ -62,6 +78,29 @@ class MessageCacheService {
   /// 升级数据库表
   Future<void> _upgradeTables(Database db, int oldVersion, int newVersion) async {
     debugPrint('[MessageCacheService] 数据库升级: $oldVersion -> $newVersion');
+
+    if (oldVersion < 2) {
+      // 添加小说章节缓存表
+      await db.execute('''
+        CREATE TABLE novel_chapters_cache (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          session_id INTEGER NOT NULL,
+          msg_id TEXT NOT NULL,
+          title TEXT NOT NULL,
+          content TEXT,
+          created_at TEXT,
+          last_sync_time INTEGER,
+          UNIQUE(session_id, msg_id)
+        )
+      ''');
+
+      // 创建索引
+      await db.execute('CREATE INDEX idx_novel_chapters_session ON novel_chapters_cache(session_id)');
+      await db.execute('CREATE INDEX idx_novel_chapters_created_at ON novel_chapters_cache(created_at)');
+      await db.execute('CREATE INDEX idx_novel_chapters_content ON novel_chapters_cache(content)');
+
+      debugPrint('[MessageCacheService] 已添加小说章节缓存表');
+    }
   }
 
   /// 获取指定存档的消息列表（分页）
@@ -313,6 +352,209 @@ class MessageCacheService {
     );
     
     debugPrint('[MessageCacheService] 清理会话缓存: session=$sessionId');
+  }
+
+  // ==================== 小说章节缓存相关方法 ====================
+
+  /// 获取小说章节列表（分页）
+  Future<Map<String, dynamic>> getNovelChapters({
+    required int sessionId,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    await initDatabase();
+
+    final offset = (page - 1) * pageSize;
+
+    // 获取总数
+    final countResult = await _database!.rawQuery(
+      'SELECT COUNT(*) as count FROM novel_chapters_cache WHERE session_id = ?',
+      [sessionId]
+    );
+    final total = countResult.first['count'] as int;
+
+    // 获取分页数据（按创建时间倒序排序）
+    final result = await _database!.query(
+      'novel_chapters_cache',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'created_at DESC',
+      limit: pageSize,
+      offset: offset,
+    );
+
+    final chapters = result.map((row) {
+      final data = Map<String, dynamic>.from(row);
+
+      // 解析JSON字段
+      List<Map<String, dynamic>> paragraphs = [];
+      if (data['content'] != null && data['content'].isNotEmpty) {
+        try {
+          final contentData = jsonDecode(data['content']);
+          if (contentData is List) {
+            paragraphs = List<Map<String, dynamic>>.from(contentData);
+          }
+        } catch (e) {
+          debugPrint('[MessageCacheService] 解析章节内容失败: $e');
+        }
+      }
+
+      return {
+        'msgId': data['msg_id'],
+        'title': data['title'],
+        'content': paragraphs,
+        'createdAt': data['created_at'],
+        'role': 'assistant', // 小说章节都是AI生成的
+      };
+    }).toList();
+
+    return {
+      'list': chapters,
+      'pagination': {
+        'total_pages': (total / pageSize).ceil(),
+        'current_page': page,
+        'total_count': total,
+        'page_size': pageSize,
+      }
+    };
+  }
+
+  /// 批量插入或更新小说章节
+  Future<void> insertOrUpdateNovelChapters({
+    required int sessionId,
+    required List<Map<String, dynamic>> chapters,
+  }) async {
+    await initDatabase();
+
+    final batch = _database!.batch();
+
+    for (final chapter in chapters) {
+      final data = {
+        'session_id': sessionId,
+        'msg_id': chapter['msgId'],
+        'title': chapter['title'] ?? '',
+        'content': chapter['content'] != null ? jsonEncode(chapter['content']) : null,
+        'created_at': chapter['createdAt'] ?? chapter['created_at'],
+        'last_sync_time': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      batch.insert(
+        'novel_chapters_cache',
+        data,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+
+    await batch.commit(noResult: true);
+
+    debugPrint('[MessageCacheService] 批量更新小说章节: ${chapters.length} 条 (session: $sessionId)');
+  }
+
+  /// 检查指定会话是否有小说缓存数据
+  Future<bool> hasNovelCache({
+    required int sessionId,
+  }) async {
+    await initDatabase();
+
+    final result = await _database!.rawQuery(
+      'SELECT COUNT(*) as count FROM novel_chapters_cache WHERE session_id = ?',
+      [sessionId]
+    );
+
+    final count = result.first['count'] as int;
+    return count > 0;
+  }
+
+  /// 搜索小说章节（关键词搜索）
+  Future<List<Map<String, dynamic>>> searchNovelChapters({
+    required int sessionId,
+    required String keyword,
+  }) async {
+    await initDatabase();
+
+    // 使用 LIKE 进行模糊搜索，搜索章节标题和内容
+    final result = await _database!.query(
+      'novel_chapters_cache',
+      where: 'session_id = ? AND (title LIKE ? OR content LIKE ?)',
+      whereArgs: [sessionId, '%$keyword%', '%$keyword%'],
+      orderBy: 'created_at DESC', // 按时间倒序，最新的在前
+    );
+
+    debugPrint('[MessageCacheService] 搜索小说关键词 "$keyword" 找到 ${result.length} 条章节 (session: $sessionId)');
+
+    return result.map((row) {
+      final data = Map<String, dynamic>.from(row);
+
+      // 解析内容
+      List<Map<String, dynamic>> paragraphs = [];
+      if (data['content'] != null && data['content'].isNotEmpty) {
+        try {
+          final contentData = jsonDecode(data['content']);
+          if (contentData is List) {
+            paragraphs = List<Map<String, dynamic>>.from(contentData);
+          }
+        } catch (e) {
+          debugPrint('[MessageCacheService] 解析搜索结果内容失败: $e');
+        }
+      }
+
+      return {
+        'msgId': data['msg_id'],
+        'title': data['title'],
+        'content': paragraphs,
+        'createdAt': data['created_at'],
+        'role': 'assistant',
+      };
+    }).toList();
+  }
+
+  /// 清理指定会话的小说缓存
+  Future<void> clearNovelCache(int sessionId) async {
+    await initDatabase();
+
+    await _database!.delete(
+      'novel_chapters_cache',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+    );
+
+    debugPrint('[MessageCacheService] 清理小说缓存: session=$sessionId');
+  }
+
+  /// 删除指定章节
+  Future<void> deleteNovelChapter({
+    required int sessionId,
+    required String msgId,
+  }) async {
+    await initDatabase();
+
+    await _database!.delete(
+      'novel_chapters_cache',
+      where: 'session_id = ? AND msg_id = ?',
+      whereArgs: [sessionId, msgId],
+    );
+
+    debugPrint('[MessageCacheService] 删除小说章节: session=$sessionId, msgId=$msgId');
+  }
+
+  /// 获取小说缓存统计信息
+  Future<Map<String, dynamic>> getNovelCacheStats({
+    required int sessionId,
+  }) async {
+    await initDatabase();
+
+    final result = await _database!.rawQuery(
+      'SELECT COUNT(*) as count, MAX(last_sync_time) as last_sync FROM novel_chapters_cache WHERE session_id = ?',
+      [sessionId]
+    );
+
+    final row = result.first;
+    return {
+      'chapterCount': row['count'] as int,
+      'lastSyncTime': row['last_sync'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(row['last_sync'] as int)
+          : null,
+    };
   }
 
   /// 清理资源

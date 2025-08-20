@@ -1133,7 +1133,7 @@ class _MyMaterialPageState extends State<MyMaterialPage>
 
   // 构建现代化的分类选择器
   Widget _buildModernCategorySelector() {
-    return Container(
+    return SizedBox(
       height: 50.h,
       child: Row(
         children: _categories.map((category) {

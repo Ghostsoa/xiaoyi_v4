@@ -246,7 +246,7 @@ class DeclarationPage extends StatelessWidget {
           SizedBox(height: 8.h),
           ...items
               .map((item) => _buildListItem(item, hasTopPadding: false))
-              .toList(),
+              ,
         ],
       ),
     );

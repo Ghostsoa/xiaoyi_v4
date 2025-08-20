@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'base_custom_tag.dart';
 import 'collapsible_container.dart';
-import '../../../../../dao/chat_settings_dao.dart';
 
 /// 状态栏标签组件
 class StatusWidget extends BaseCustomTag {

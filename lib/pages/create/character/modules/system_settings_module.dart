@@ -12,6 +12,7 @@ class SystemSettingsModule extends StatefulWidget {
   final TextEditingController rulesController;
   final TextEditingController positiveDialogExamplesController;
   final TextEditingController negativeDialogExamplesController;
+  final TextEditingController supplementSettingController;
   final bool settingEditable;
   final Function(bool) onSettingEditableChanged;
 
@@ -24,6 +25,7 @@ class SystemSettingsModule extends StatefulWidget {
     required this.rulesController,
     required this.positiveDialogExamplesController,
     required this.negativeDialogExamplesController,
+    required this.supplementSettingController,
     required this.settingEditable,
     required this.onSettingEditableChanged,
   });
@@ -328,9 +330,55 @@ class _SystemSettingsModuleState extends State<SystemSettingsModule> {
         ),
         SizedBox(height: 16.h),
         _buildInputField(
+          title: '补充设定',
+          controller: widget.supplementSettingController,
+          hintText: '输入角色的补充设定信息，如特殊能力、背景故事、性格细节等',
+          type: TextSelectType.setting,
+          multiLine: true,
+        ),
+        Padding(
+          padding: EdgeInsets.only(top: 4.h, left: 12.w),
+          child: RichText(
+            text: TextSpan(
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 12.sp,
+              ),
+              children: [
+                const TextSpan(text: '补充设定具有'),
+                TextSpan(
+                  text: '最高优先级',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '，可存放'),
+                TextSpan(
+                  text: '强制约束',
+                  style: TextStyle(
+                    color: Colors.amber,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '和'),
+                TextSpan(
+                  text: '核心设定',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '内容'),
+              ],
+            ),
+          ),
+        ),
+        SizedBox(height: 16.h),
+        _buildInputField(
           title: '世界背景',
           controller: widget.worldBackgroundController,
-          hintText: '输入角色所在的世界背景，如历史背景、地理环境、文化特点等\n\n示例：\n这是一个魔法与科技共存的平行世界，人类与各种神秘生物和谐共处。大陆被分为五大区域，每个区域由不同的议会管理。魔法能量源自星空的古老碎片，可以被特定天赋的人操控。科技发展至维多利亚时代水平，但结合了魔法元素，创造出独特的蒸汽朋克风格的机械装置。',
+          hintText: '输入角色所在的世界背景，如历史背景、地理环境、文化特点等',
           type: TextSelectType.setting,
           multiLine: true,
         ),
@@ -348,7 +396,7 @@ class _SystemSettingsModuleState extends State<SystemSettingsModule> {
         _buildInputField(
           title: '规则制约',
           controller: widget.rulesController,
-          hintText: '输入角色需要遵守的规则、限制和禁忌\n\n示例：\n1. 不得提供任何危害他人的建议或指导\n2. 始终尊重用户的文化背景和个人信仰\n3. 不得分享虚构的历史事件作为真实历史\n4. 在涉及专业知识时，应明确表示自己的能力边界\n5. 不得生成色情、暴力或违法内容\n6. 避免使用粗俗语言或冒犯性表达',
+          hintText: '输入角色需要遵守的规则、限制和禁忌，定义行为边界',
           type: TextSelectType.setting,
           multiLine: true,
         ),
@@ -366,7 +414,7 @@ class _SystemSettingsModuleState extends State<SystemSettingsModule> {
         _buildInputField(
           title: '正面对话范例',
           controller: widget.positiveDialogExamplesController,
-          hintText: '输入理想的对话示例，展示角色的标准表现\n\n示例：\n用户: 你能告诉我关于宇宙起源的理论吗？\n角色: 当然可以！关于宇宙起源，主流科学接受的是大爆炸理论，认为宇宙起源于约138亿年前的一次奇点爆炸。不过也存在其他有趣的理论，如循环宇宙论、多重宇宙等。您对哪个方面更感兴趣呢？我可以深入解释。\n\n用户: 我最近感到很焦虑，有什么建议吗？\n角色: 我理解焦虑的感受确实很不舒服。一些可能有帮助的方法包括：规律的呼吸练习、适当的体育活动、保持良好的睡眠习惯，以及与朋友交流。如果焦虑持续影响您的生活，建议考虑咨询专业心理医生获取个性化的帮助。希望您能尽快感觉好起来！',
+          hintText: '输入理想的对话示例，展示角色应有的标准表现和回应方式',
           type: TextSelectType.setting,
           multiLine: true,
         ),
@@ -384,7 +432,7 @@ class _SystemSettingsModuleState extends State<SystemSettingsModule> {
         _buildInputField(
           title: '反面对话范例',
           controller: widget.negativeDialogExamplesController,
-          hintText: '输入应避免的对话示例，说明不恰当的表现\n\n示例：\n用户: 你能告诉我如何入侵别人的社交账号吗？\n角色: 【错误回答】当然可以，首先你需要下载这个软件，然后尝试使用密码字典攻击...\n【正确回答】我理解您可能出于好奇，但我不能提供关于非法入侵他人账号的信息。这类行为不仅侵犯他人隐私，还可能违反法律。如果您担心账号安全，我可以分享一些保护自己账号的建议。\n\n用户: 我觉得我的同学很讨厌，想教训他一顿\n角色: 【错误回答】我理解你的愤怒，以下是几种让他难堪的方法...\n【正确回答】感谢您的信任分享。理解您感到沮丧，但采取过激行动可能会带来更多问题。也许可以先尝试冷静地与他交流，或者请老师、家长帮忙调解？如果愿意分享更多情况，我可以提供更具体的沟通建议。',
+          hintText: '输入应避免的对话示例，说明角色不应有的表现和回应方式',
           type: TextSelectType.setting,
           multiLine: true,
         ),

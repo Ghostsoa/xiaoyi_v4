@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:typed_data';
-import 'dart:ui';
 import '../../../theme/app_theme.dart';
 import '../../../dao/chat_settings_dao.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -500,8 +499,8 @@ class _UiSettingsPageState extends State<UiSettingsPage> {
             groupValue: _selectedMode,
             onChanged: (value) => _saveSettings(value as String),
             activeColor: color,
-            fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-              if (states.contains(MaterialState.selected)) {
+            fillColor: WidgetStateProperty.resolveWith<Color>((states) {
+              if (states.contains(WidgetState.selected)) {
                 return color;
               }
               return AppTheme.textSecondary;
@@ -615,8 +614,8 @@ class _UiSettingsPageState extends State<UiSettingsPage> {
                       ),
                       _buildModeCard(
                         mode: 'old',
-                        title: '新版UI样式',
-                        description: '使用新版的UI样式，支持状态栏显示',
+                        title: '兼容模式',
+                        description: '兼容旧版格式，使用Markdown渲染器处理状态标签',
                         icon: Icons.restore,
                         color: AppTheme.primaryColor,
                         characterCardValue: 'legacy_bar',

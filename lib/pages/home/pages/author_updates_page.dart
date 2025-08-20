@@ -163,7 +163,7 @@ class _AuthorUpdatesTabState extends State<_AuthorUpdatesTab> {
   final Map<String, bool> _loadingItemDetails = {};
 
   // 记录不存在的作品ID，避免重复请求
-  final Set<String> _nonExistentItems = Set<String>();
+  final Set<String> _nonExistentItems = <String>{};
 
   // 展开状态管理
   final Set<String> _expandedDescriptions = {};
@@ -689,7 +689,7 @@ class _AuthorUpdatesTabState extends State<_AuthorUpdatesTab> {
                     SizedBox(height: 8.h),
                     GestureDetector(
                       onTap: () => _toggleDescriptionExpanded(updateId),
-                      child: Container(
+                      child: SizedBox(
                         width: double.infinity,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1402,7 +1402,7 @@ class _AuthorUpdatesTabState extends State<_AuthorUpdatesTab> {
                         statusText = '刷新失败';
                       }
 
-                      return Container(
+                      return SizedBox(
                         height: 55.h,
                         child: Center(
                           child: mode == RefreshStatus.refreshing
@@ -1486,7 +1486,7 @@ class _AuthorUpdatesTabState extends State<_AuthorUpdatesTab> {
                         );
                       }
 
-                      return Container(
+                      return SizedBox(
                         height: 55.h,
                         child: Center(
                           child: statusWidget,
@@ -1523,7 +1523,7 @@ class _FollowingAuthorsTabState extends State<_FollowingAuthorsTab> {
 
   bool _isLoading = true;
   List<dynamic> _authors = [];
-  Map<String, dynamic> _authorsInfo = {}; // 存储作者详细信息，key为authorId
+  final Map<String, dynamic> _authorsInfo = {}; // 存储作者详细信息，key为authorId
   int _page = 1;
   final int _pageSize = 20;
   bool _hasMore = true;
@@ -2083,7 +2083,7 @@ class _FollowingAuthorsTabState extends State<_FollowingAuthorsTab> {
                       statusText = '刷新失败';
                     }
 
-                    return Container(
+                    return SizedBox(
                       height: 55.h,
                       child: Center(
                         child: mode == RefreshStatus.refreshing
@@ -2167,7 +2167,7 @@ class _FollowingAuthorsTabState extends State<_FollowingAuthorsTab> {
                       );
                     }
 
-                    return Container(
+                    return SizedBox(
                       height: 55.h,
                       child: Center(
                         child: statusWidget,

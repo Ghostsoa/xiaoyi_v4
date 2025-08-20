@@ -13,9 +13,9 @@ class ReportDetailPage extends StatefulWidget {
   final String reportId;
 
   const ReportDetailPage({
-    Key? key,
+    super.key,
     required this.reportId,
-  }) : super(key: key);
+  });
 
   @override
   State<ReportDetailPage> createState() => _ReportDetailPageState();
@@ -35,7 +35,7 @@ class _ReportDetailPageState extends State<ReportDetailPage> {
 
   // 处罚设置
   int _selectedPenaltyType = PenaltyType.warning;
-  int _selectedDuration = 7; // 默认7天
+  final int _selectedDuration = 7; // 默认7天
 
   @override
   void initState() {

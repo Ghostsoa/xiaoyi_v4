@@ -208,6 +208,20 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
     }
   }
 
+  // 复制赞助网址
+  void _copySponsorUrl() {
+    const String sponsorUrl = 'http://zanzhu.xiaoyi.ink';
+    Clipboard.setData(const ClipboardData(text: sponsorUrl)).then((_) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '已复制赞助网址: $sponsorUrl',
+          type: ToastType.success,
+        );
+      }
+    });
+  }
+
   Future<void> _syncOldAssets() async {
     setState(() {
       _isSyncingAssets = true;
@@ -682,28 +696,72 @@ class _EarnCoinPageState extends State<EarnCoinPage> {
 
                   SizedBox(height: 24.h),
 
-                  // 赞助按钮
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _launchSponsorUrl,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusMedium),
+                  // 赞助按钮组
+                  Row(
+                    children: [
+                      // 立即赞助按钮
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: _launchSponsorUrl,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                            padding: EdgeInsets.symmetric(vertical: 12.h),
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusMedium),
+                            ),
+                          ),
+                          child: Text(
+                            '立即赞助',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
-                      child: Text(
-                        '立即赞助',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.bold,
+                      SizedBox(width: 12.w),
+                      // 复制网址按钮
+                      Expanded(
+                        flex: 1,
+                        child: ElevatedButton(
+                          onPressed: _copySponsorUrl,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            padding: EdgeInsets.symmetric(vertical: 12.h),
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusMedium),
+                              side: BorderSide(
+                                color: Colors.redAccent,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.copy,
+                                color: Colors.redAccent,
+                                size: 16.sp,
+                              ),
+                              SizedBox(width: 4.w),
+                              Text(
+                                '复制网址',
+                                style: TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),

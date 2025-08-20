@@ -3,31 +3,28 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:async';
 import '../theme/app_theme.dart';
 import '../services/message_cache_service.dart';
-import '../pages/character_chat/services/character_service.dart';
-import '../services/session_data_service.dart';
+import '../pages/novel/services/novel_service.dart';
+import '../pages/novel/utils/novel_content_parser.dart';
 
-/// 拉取缓存对话框
-/// 显示分页拉取进度，1秒1次的频率
-class CachePullDialog extends StatefulWidget {
+/// 小说缓存拉取对话框
+/// 显示分页拉取进度
+class NovelCachePullDialog extends StatefulWidget {
   final int sessionId;
-  final String archiveId;
   final VoidCallback? onCompleted;
 
-  const CachePullDialog({
+  const NovelCachePullDialog({
     super.key,
     required this.sessionId,
-    required this.archiveId,
     this.onCompleted,
   });
 
   @override
-  State<CachePullDialog> createState() => _CachePullDialogState();
+  State<NovelCachePullDialog> createState() => _NovelCachePullDialogState();
 }
 
-class _CachePullDialogState extends State<CachePullDialog> {
+class _NovelCachePullDialogState extends State<NovelCachePullDialog> {
   final MessageCacheService _messageCacheService = MessageCacheService();
-  final CharacterService _characterService = CharacterService();
-  final SessionDataService _sessionDataService = SessionDataService();
+  final NovelService _novelService = NovelService();
   
   bool _isPulling = false;
   bool _isCompleted = false;
@@ -37,17 +34,12 @@ class _CachePullDialogState extends State<CachePullDialog> {
   int _currentPage = 1;
   int _totalPages = 1;
   int _totalMessages = 0;
-  int _pulledMessages = 0;
+  int _pulledChapters = 0;
 
   @override
   void initState() {
     super.initState();
     _startPulling();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 
   /// 开始拉取缓存
@@ -59,21 +51,23 @@ class _CachePullDialogState extends State<CachePullDialog> {
 
     try {
       // 先清空现有缓存，确保完全覆盖
-      await _messageCacheService.clearArchiveCache(
-        sessionId: widget.sessionId,
-        archiveId: widget.archiveId,
-      );
+      await _messageCacheService.clearNovelCache(widget.sessionId);
 
-      debugPrint('[CachePullDialog] 已清空现有缓存，开始拉取最新数据');
+      debugPrint('[NovelCachePullDialog] 已清空现有缓存，开始拉取最新数据');
 
-      // 先获取第一页，确定总页数（使用更大的分页减少请求次数）
-      final firstPageResult = await _characterService.getSessionMessages(
-        widget.sessionId,
+      // 先获取第一页，确定总页数
+      final firstPageResult = await _novelService.getNovelMessages(
+        widget.sessionId.toString(),
         page: 1,
-        pageSize: 50,
+        pageSize: 20,
       );
 
-      final pagination = firstPageResult['pagination'] ?? {};
+      if (firstPageResult['code'] != 0) {
+        throw firstPageResult['msg'] ?? '请求失败';
+      }
+
+      final data = firstPageResult['data'] as Map<String, dynamic>;
+      final pagination = data['pagination'] as Map<String, dynamic>? ?? {};
       _totalPages = pagination['total_pages'] ?? 1;
       _totalMessages = pagination['total_count'] ?? 0;
 
@@ -104,11 +98,15 @@ class _CachePullDialogState extends State<CachePullDialog> {
     }
 
     try {
-      final result = await _characterService.getSessionMessages(
-        widget.sessionId,
+      final result = await _novelService.getNovelMessages(
+        widget.sessionId.toString(),
         page: _currentPage,
-        pageSize: 50,
+        pageSize: 20,
       );
+
+      if (result['code'] != 0) {
+        throw result['msg'] ?? '请求失败';
+      }
 
       await _processPageData(result);
 
@@ -116,9 +114,9 @@ class _CachePullDialogState extends State<CachePullDialog> {
         _currentPage++;
       });
 
-      // 立即拉取下一页，不等待
+      // 立即拉取下一页
       if (_currentPage <= _totalPages) {
-        _pullNextPage(); // 递归调用，立即拉取下一页
+        _pullNextPage();
       } else {
         _completePulling();
       }
@@ -133,31 +131,40 @@ class _CachePullDialogState extends State<CachePullDialog> {
 
   /// 处理页面数据
   Future<void> _processPageData(Map<String, dynamic> result) async {
-    final List<dynamic> messageList = result['list'] ?? [];
+    final data = result['data'] as Map<String, dynamic>;
+    final List<dynamic> messageList = data['list'] ?? [];
     
     if (messageList.isNotEmpty) {
-      // 转换消息格式
-      final messages = messageList.map((msg) => {
-        'msgId': msg['msgId'],
-        'content': msg['content'] ?? '',
-        'role': msg['role'],
-        'createdAt': msg['createdAt'],
-        'tokenCount': msg['tokenCount'] ?? 0,
-        'statusBar': msg['statusBar'],
-        'enhanced': msg['enhanced'],
-        'keywords': msg['keywords'],
-      }).toList();
+      // 转换消息为章节格式
+      final chapters = <Map<String, dynamic>>[];
       
-      // 存储到本地缓存
-      await _messageCacheService.insertOrUpdateMessages(
-        sessionId: widget.sessionId,
-        archiveId: widget.archiveId,
-        messages: messages,
-      );
+      for (final message in messageList) {
+        if (message['role'] == 'assistant') {
+          final content = message['content'] as String? ?? '';
+          final chapterTitle = message['chapterTitle'] as String? ?? 
+              NovelContentParser.getDefaultChapterTitle(chapters.length + 1);
+          final paragraphs = NovelContentParser.parseContent(content);
+
+          chapters.add({
+            'msgId': message['msgId'] ?? '',
+            'title': chapterTitle,
+            'content': paragraphs,
+            'createdAt': message['createdAt'] ?? message['created_at'] ?? DateTime.now().toIso8601String(),
+          });
+        }
+      }
       
-      setState(() {
-        _pulledMessages += messages.length;
-      });
+      if (chapters.isNotEmpty) {
+        // 存储到本地缓存
+        await _messageCacheService.insertOrUpdateNovelChapters(
+          sessionId: widget.sessionId,
+          chapters: chapters,
+        );
+        
+        setState(() {
+          _pulledChapters += chapters.length;
+        });
+      }
     }
   }
 
@@ -168,46 +175,15 @@ class _CachePullDialogState extends State<CachePullDialog> {
       _isCompleted = true;
     });
 
-    // 拉取完成后，写入存档ID到会话记录
-    _updateSessionActiveArchive();
+    debugPrint('[NovelCachePullDialog] ✅ 拉取完成，共拉取 $_pulledChapters 个章节');
 
-    // 延迟1秒后自动关闭对话框
-    Timer(const Duration(seconds: 1), () {
+    // 延迟关闭对话框并调用回调
+    Future.delayed(Duration(seconds: 1), () {
       if (mounted) {
         Navigator.of(context).pop();
         widget.onCompleted?.call();
       }
     });
-  }
-
-  /// 更新会话的激活存档ID
-  Future<void> _updateSessionActiveArchive() async {
-    try {
-      await _sessionDataService.initDatabase();
-
-      // 获取当前会话数据
-      final sessionResponse = await _sessionDataService.getLocalCharacterSessions(
-        page: 1,
-        pageSize: 1000
-      );
-
-      final session = sessionResponse.sessions.firstWhere(
-        (s) => s.id == widget.sessionId,
-        orElse: () => throw '会话不存在',
-      );
-
-      // 更新激活存档ID
-      final updatedSession = session.copyWith(
-        activeArchiveId: widget.archiveId,
-        lastSyncTime: DateTime.now(),
-      );
-
-      await _sessionDataService.updateCharacterSession(updatedSession);
-
-      debugPrint('[CachePullDialog] ✅ 拉取完成，已写入存档ID: ${widget.archiveId}');
-    } catch (e) {
-      debugPrint('[CachePullDialog] ❌ 写入存档ID失败: $e');
-    }
   }
 
   /// 获取进度百分比
@@ -229,7 +205,7 @@ class _CachePullDialogState extends State<CachePullDialog> {
           children: [
             // 标题
             Text(
-              '拉取存档缓存',
+              '拉取小说缓存',
               style: TextStyle(
                 fontSize: 18.sp,
                 fontWeight: FontWeight.bold,
@@ -239,7 +215,7 @@ class _CachePullDialogState extends State<CachePullDialog> {
             
             SizedBox(height: 24.h),
             
-            // 🔥 优化：使用横条进度指示器，更直观的动画效果
+            // 进度指示器
             Column(
               children: [
                 // 进度百分比显示
@@ -307,7 +283,7 @@ class _CachePullDialogState extends State<CachePullDialog> {
               ),
             ] else if (_isCompleted) ...[
               Text(
-                '共拉取 $_pulledMessages 条消息',
+                '共拉取 $_pulledChapters 个章节',
                 style: TextStyle(
                   fontSize: 14.sp,
                   color: AppTheme.primaryColor,
@@ -317,7 +293,7 @@ class _CachePullDialogState extends State<CachePullDialog> {
               ),
             ] else if (_isPulling) ...[
               Text(
-                '已拉取 $_pulledMessages / $_totalMessages 条消息',
+                '已拉取 $_pulledChapters 个章节',
                 style: TextStyle(
                   fontSize: 14.sp,
                   color: AppTheme.textPrimary,
@@ -370,15 +346,19 @@ class _CachePullDialogState extends State<CachePullDialog> {
                   ),
                 ],
               ),
-            ] else if (!_isCompleted) ...[
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
+            ] else if (!_isPulling && !_isCompleted) ...[
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                ),
                 child: Text(
-                  '取消',
+                  '关闭',
                   style: TextStyle(
-                    color: AppTheme.textSecondary,
+                    color: Colors.white,
                     fontSize: 14.sp,
                   ),
                 ),
