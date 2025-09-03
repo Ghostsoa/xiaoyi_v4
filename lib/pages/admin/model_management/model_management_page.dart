@@ -658,13 +658,33 @@ class _AddApiKeyDialog extends StatefulWidget {
 class _AddApiKeyDialogState extends State<_AddApiKeyDialog> {
   final _formKey = GlobalKey<FormState>();
   final _apiKeysController = TextEditingController();
-  final _endpointController = TextEditingController();
+  final _endpointController = TextEditingController(
+    text: 'https://generativelanguage.googleapis.com/v1beta/openai/'
+  );
   final List<Map<String, TextEditingController>> _modelQuotas = [];
 
   @override
   void initState() {
     super.initState();
-    _addModelQuota();
+    _initializeDefaultQuotas();
+  }
+
+  void _initializeDefaultQuotas() {
+    // 预设的默认模型配额
+    final defaultQuotas = [
+      {'model': 'gemini-2.5-pro', 'quota': '100'},
+      {'model': 'gemini-2.5-flash', 'quota': '250'},
+      {'model': 'gemini-2.5-flash-lite', 'quota': '1000'},
+      {'model': 'gemini-2.0-flash', 'quota': '200'},
+      {'model': 'gemini-2.0-flash-exp', 'quota': '200'},
+    ];
+
+    for (var quota in defaultQuotas) {
+      _modelQuotas.add({
+        'modelName': TextEditingController(text: quota['model']),
+        'dailyLimit': TextEditingController(text: quota['quota']),
+      });
+    }
   }
 
   void _addModelQuota() {
@@ -1052,7 +1072,25 @@ class _BatchQuotaDialogState extends State<_BatchQuotaDialog> {
   @override
   void initState() {
     super.initState();
-    _addModelQuota();
+    _initializeDefaultQuotas();
+  }
+
+  void _initializeDefaultQuotas() {
+    // 预设的默认模型配额
+    final defaultQuotas = [
+      {'model': 'gemini-2.5-pro', 'quota': '100'},
+      {'model': 'gemini-2.5-flash', 'quota': '250'},
+      {'model': 'gemini-2.5-flash-lite', 'quota': '1000'},
+      {'model': 'gemini-2.0-flash', 'quota': '200'},
+      {'model': 'gemini-2.0-flash-exp', 'quota': '200'},
+    ];
+
+    for (var quota in defaultQuotas) {
+      _modelQuotas.add({
+        'modelName': TextEditingController(text: quota['model']),
+        'dailyLimit': TextEditingController(text: quota['quota']),
+      });
+    }
   }
 
   void _addModelQuota() {

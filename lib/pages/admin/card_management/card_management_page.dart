@@ -238,6 +238,7 @@ class _CardManagementPageState extends State<CardManagementPage> {
                     DropdownMenuItem(value: 'coin', child: Text('小懿币卡')),
                     DropdownMenuItem(value: 'play_time', child: Text('畅玩时长卡')),
                     DropdownMenuItem(value: 'vip', child: Text('VIP会员卡')),
+                    DropdownMenuItem(value: 'quota_reset', child: Text('配额重置卡')),
                   ],
                   onChanged: (value) =>
                       setStateDialog(() => _createCardType = value),
@@ -250,7 +251,9 @@ class _CardManagementPageState extends State<CardManagementPage> {
                     labelText: '卡密面额',
                     hintText: _createCardType == 'vip'
                         ? '例如：30, 90, 365'
-                        : '例如：100, 500',
+                        : _createCardType == 'quota_reset'
+                            ? '例如：1, 3, 5'
+                            : '例如：100, 500',
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8.r)),
                     contentPadding:
@@ -535,6 +538,7 @@ class _CardManagementPageState extends State<CardManagementPage> {
                     DropdownMenuItem(value: 'coin', child: Text('小懿币卡')),
                     DropdownMenuItem(value: 'play_time', child: Text('畅玩时长卡')),
                     DropdownMenuItem(value: 'vip', child: Text('VIP会员卡')),
+                    DropdownMenuItem(value: 'quota_reset', child: Text('配额重置卡')),
                   ],
                   onChanged: (value) {
                     setState(() => _selectedCardType = value);

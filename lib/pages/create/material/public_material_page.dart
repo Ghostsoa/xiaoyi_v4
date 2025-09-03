@@ -626,7 +626,7 @@ class _PublicMaterialPageState extends State<PublicMaterialPage> {
                         borderRadius:
                             BorderRadius.circular(AppTheme.radiusSmall),
                       ),
-                      child: Text(
+                      child: SelectableText(
                         material['metadata'] ?? '',
                         style: TextStyle(
                           fontSize: AppTheme.bodySize,

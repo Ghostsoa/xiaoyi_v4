@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../pages/create/character/select_model_page.dart';
 import '../../../../theme/app_theme.dart';
 
-class ModelConfigCard extends StatelessWidget {
+class ModelConfigCard extends StatefulWidget {
   final Map<String, dynamic> sessionData;
   final Map<String, dynamic> editedData;
   final Function(String, dynamic) onUpdateField;
@@ -26,6 +26,20 @@ class ModelConfigCard extends StatelessWidget {
     required this.memoryTurnsController,
     required this.searchDepthController,
   });
+
+  @override
+  State<ModelConfigCard> createState() => _ModelConfigCardState();
+}
+
+class _ModelConfigCardState extends State<ModelConfigCard> {
+  bool _isCustomModelMode = false;
+  final TextEditingController _customModelController = TextEditingController();
+
+  @override
+  void dispose() {
+    _customModelController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +96,7 @@ class ModelConfigCard extends StatelessWidget {
           _buildSliderItem(
             '温度',
             'temperature',
-            temperatureController,
+            widget.temperatureController,
             0.0,
             2.0,
             40,
@@ -92,7 +106,7 @@ class ModelConfigCard extends StatelessWidget {
           _buildSliderItem(
             'Top P',
             'top_p',
-            topPController,
+            widget.topPController,
             0.0,
             1.0,
             20,
@@ -102,7 +116,7 @@ class ModelConfigCard extends StatelessWidget {
           _buildSliderItem(
             'Top K',
             'top_k',
-            topKController,
+            widget.topKController,
             1,
             100,
             99,
@@ -113,7 +127,7 @@ class ModelConfigCard extends StatelessWidget {
           _buildSliderItem(
             '最大Token',
             'max_tokens',
-            maxTokensController,
+            widget.maxTokensController,
             100,
             8192,
             81,
@@ -124,7 +138,7 @@ class ModelConfigCard extends StatelessWidget {
           _buildSliderItem(
             '记忆轮数',
             'memory_turns',
-            memoryTurnsController,
+            widget.memoryTurnsController,
             1,
             500,
             499,
@@ -140,7 +154,7 @@ class ModelConfigCard extends StatelessWidget {
 
   Widget _buildEnhanceModeSelector(BuildContext context) {
     final currentMode =
-        editedData['enhance_mode'] ?? sessionData['enhance_mode'] ?? 'disabled';
+        widget.editedData['enhance_mode'] ?? widget.sessionData['enhance_mode'] ?? 'disabled';
     final accentColor = AppTheme.accentPink;
 
     return Container(
@@ -258,7 +272,7 @@ class ModelConfigCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        onUpdateField('enhance_mode', mode);
+        widget.onUpdateField('enhance_mode', mode);
       },
       child: Container(
         padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
@@ -397,47 +411,109 @@ class ModelConfigCard extends StatelessWidget {
             ],
           ),
           SizedBox(height: 10.h),
-          GestureDetector(
-            onTap: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SelectModelPage(),
-                ),
-              );
-              if (result != null) {
-                onUpdateField('model_name', result);
-              }
-            },
-            child: Container(
-              padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
-              decoration: BoxDecoration(
-                color: AppTheme.background.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(8.r),
-                border:
-                    Border.all(color: accentColor.withOpacity(0.3), width: 1),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      editedData['model_name'] ??
-                          sessionData['model_name'] ??
-                          '未知',
-                      style: TextStyle(
-                        fontSize: 16.sp,
-                        color: AppTheme.textPrimary,
-                        fontWeight: FontWeight.w500,
+          Container(
+            padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
+            decoration: BoxDecoration(
+              color: AppTheme.background.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(color: accentColor.withOpacity(0.3), width: 1),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _isCustomModelMode
+                    ? TextField(
+                        controller: _customModelController,
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: '输入自定义模型名称',
+                          hintStyle: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 14.sp,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onSubmitted: (value) {
+                          if (value.trim().isNotEmpty) {
+                            setState(() {
+                              _isCustomModelMode = false;
+                            });
+                            widget.onUpdateField('model_name', value.trim());
+                          }
+                        },
+                      )
+                    : Text(
+                        widget.editedData['model_name'] ??
+                            widget.sessionData['model_name'] ??
+                            '未知',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
+                ),
+                // 编辑按钮（自定义模型）
+                IconButton(
+                  icon: Icon(
+                    _isCustomModelMode ? Icons.check : Icons.edit,
                     size: 16.sp,
-                    color: AppTheme.textSecondary,
+                    color: _isCustomModelMode ? Colors.green : AppTheme.textSecondary,
                   ),
-                ],
-              ),
+                  onPressed: () {
+                    if (_isCustomModelMode) {
+                      // 确认自定义输入
+                      if (_customModelController.text.trim().isNotEmpty) {
+                        setState(() {
+                          _isCustomModelMode = false;
+                        });
+                        widget.onUpdateField('model_name', _customModelController.text.trim());
+                      }
+                    } else {
+                      // 进入编辑模式
+                      setState(() {
+                        _isCustomModelMode = true;
+                        _customModelController.text = widget.editedData['model_name'] ??
+                            widget.sessionData['model_name'] ??
+                            '';
+                      });
+                    }
+                  },
+                ),
+                // 选择按钮（预设模型）
+                IconButton(
+                  icon: Icon(
+                    _isCustomModelMode ? Icons.close : Icons.arrow_forward_ios,
+                    size: 16.sp,
+                    color: _isCustomModelMode ? Colors.red : AppTheme.textSecondary,
+                  ),
+                  onPressed: () async {
+                    if (_isCustomModelMode) {
+                      // 取消编辑
+                      setState(() {
+                        _isCustomModelMode = false;
+                        _customModelController.clear();
+                      });
+                    } else {
+                      // 选择预设模型
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SelectModelPage(),
+                        ),
+                      );
+                      if (result != null) {
+                        widget.onUpdateField('model_name', result);
+                      }
+                    }
+                  },
+                ),
+              ],
             ),
           ),
           SizedBox(height: 8.h),
@@ -562,7 +638,7 @@ class ModelConfigCard extends StatelessWidget {
                       controller.text = isInt
                           ? newValue.toString()
                           : newValue.toStringAsFixed(2);
-                      onUpdateField(field, newValue);
+                      widget.onUpdateField(field, newValue);
                     },
             ),
           ),

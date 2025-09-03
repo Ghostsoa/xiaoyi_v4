@@ -188,7 +188,7 @@ class WorldBookDetailPage extends StatelessWidget {
               ],
 
               SizedBox(height: 24.h),
-              Text(
+              SelectableText(
                 worldBook['content'] ?? '',
                 style: TextStyle(
                   fontSize: AppTheme.bodySize,

@@ -7,10 +7,12 @@ import '../../../theme/app_theme.dart';
 import '../services/characte_service.dart';
 import '../services/novel_service.dart';
 import '../../../services/file_service.dart';
+import '../../../services/group_chat_service.dart';
 import '../../../widgets/custom_toast.dart';
 import '../../../widgets/confirmation_dialog.dart';
 import '../character/create_character_page.dart';
 import '../novel/create_novel_page.dart';
+import '../group_chat/create_group_chat_page.dart';
 import '../../../pages/character_chat/pages/character_init_page.dart';
 import '../../../pages/novel/pages/novel_init_page.dart';
 
@@ -22,10 +24,11 @@ class MyCreationPage extends StatefulWidget {
 }
 
 class _MyCreationPageState extends State<MyCreationPage> {
-  int _selectedIndex = 0; // 0: 角色卡, 1: 小说
+  int _selectedIndex = 0; // 0: 角色卡, 1: 小说, 2: 群聊
   String _status = 'published'; // published: 公开, private: 私密
   final _characterService = CharacterService();
   final _novelService = NovelService();
+  final _groupChatService = GroupChatService();
   final ScrollController _scrollController = ScrollController();
   final RefreshController _refreshController = RefreshController(initialRefresh: false);
   final Map<String, Uint8List> _imageCache = {}; // 图片缓存
@@ -34,6 +37,7 @@ class _MyCreationPageState extends State<MyCreationPage> {
   bool _isLoadingMore = false;
   List<Map<String, dynamic>> _characterList = [];
   List<Map<String, dynamic>> _novelList = [];
+  List<Map<String, dynamic>> _groupChatList = [];
   int _total = 0;
   int _currentPage = 1;
   final int _pageSize = 10;
@@ -72,8 +76,10 @@ class _MyCreationPageState extends State<MyCreationPage> {
 
     if (_selectedIndex == 0) {
       await _loadCharacterData();
-    } else {
+    } else if (_selectedIndex == 1) {
       await _loadNovelData();
+    } else {
+      await _loadGroupChatData();
     }
 
     setState(() => _isLoading = false);
@@ -131,6 +137,32 @@ class _MyCreationPageState extends State<MyCreationPage> {
     }
   }
 
+  Future<void> _loadGroupChatData() async {
+    try {
+      final response = await _groupChatService.getGroupChatList(
+        page: _currentPage,
+        pageSize: _pageSize,
+        status: _status,
+      );
+
+      if (response['code'] == 0) {
+        setState(() {
+          _groupChatList =
+              List<Map<String, dynamic>>.from(response['data']['items'] ?? []);
+          _total = response['data']['total'] ?? 0;
+          _hasMoreData = _groupChatList.length < _total;
+        });
+
+        // 预加载图片
+        _preloadImages(_groupChatList);
+      } else {
+        _showToast('加载失败：${response['message']}', type: ToastType.error);
+      }
+    } catch (e) {
+      _showToast('加载失败：$e', type: ToastType.error);
+    }
+  }
+
   // 预加载图片到缓存
   Future<void> _preloadImages(List<Map<String, dynamic>> items) async {
     for (final item in items) {
@@ -155,8 +187,10 @@ class _MyCreationPageState extends State<MyCreationPage> {
 
     if (_selectedIndex == 0) {
       await _loadMoreCharacterData();
-    } else {
+    } else if (_selectedIndex == 1) {
       await _loadMoreNovelData();
+    } else {
+      await _loadMoreGroupChatData();
     }
 
     setState(() => _isLoadingMore = false);
@@ -226,6 +260,38 @@ class _MyCreationPageState extends State<MyCreationPage> {
     }
   }
 
+  Future<void> _loadMoreGroupChatData() async {
+    try {
+      final response = await _groupChatService.getGroupChatList(
+        page: _currentPage + 1,
+        pageSize: _pageSize,
+        status: _status,
+      );
+
+      if (response['code'] == 0) {
+        final newItems =
+            List<Map<String, dynamic>>.from(response['data']['items'] ?? []);
+
+        if (newItems.isNotEmpty) {
+          setState(() {
+            _groupChatList.addAll(newItems);
+            _currentPage += 1;
+            _hasMoreData = _groupChatList.length < _total;
+          });
+
+          // 预加载新加载的图片
+          _preloadImages(newItems);
+        } else {
+          setState(() => _hasMoreData = false);
+        }
+      } else {
+        _showToast('加载更多失败：${response['message']}', type: ToastType.error);
+      }
+    } catch (e) {
+      _showToast('加载更多失败：$e', type: ToastType.error);
+    }
+  }
+
   /// 黑盒调试功能（占位实现）
   void _showBlackBoxDebug(Map<String, dynamic> item) {
     // 仅支持角色卡进入调试
@@ -280,7 +346,7 @@ class _MyCreationPageState extends State<MyCreationPage> {
             _preloadImages(_characterList);
           }
         }
-      } else {
+      } else if (_selectedIndex == 1) {
         final response = await _novelService.getUserNovels(
           page: _currentPage,
           pageSize: _pageSize,
@@ -294,6 +360,24 @@ class _MyCreationPageState extends State<MyCreationPage> {
               _total = response['data']['total'] ?? 0;
               _hasMoreData = _novelList.length < _total;
             });
+          }
+        }
+      } else {
+        final response = await _groupChatService.getGroupChatList(
+          page: _currentPage,
+          pageSize: _pageSize,
+          status: _status,
+        );
+
+        if (response['code'] == 0) {
+          if (mounted) {
+            setState(() {
+              _groupChatList = List<Map<String, dynamic>>.from(response['data']['items'] ?? []);
+              _total = response['data']['total'] ?? 0;
+              _hasMoreData = _groupChatList.length < _total;
+            });
+            // 预加载图片
+            _preloadImages(_groupChatList);
           }
         }
       }
@@ -369,6 +453,8 @@ class _MyCreationPageState extends State<MyCreationPage> {
                       _buildSwitchButton('角色卡', 0, primaryColor, textPrimary),
                       SizedBox(width: 24.w),
                       _buildSwitchButton('小说', 1, primaryColor, textPrimary),
+                      SizedBox(width: 24.w),
+                      _buildSwitchButton('群聊', 2, primaryColor, textPrimary),
                     ],
                   ),
 
@@ -422,7 +508,9 @@ class _MyCreationPageState extends State<MyCreationPage> {
                     ? _buildSkeletonList()
                     : _selectedIndex == 0
                         ? _buildCharacterList()
-                        : _buildNovelList(),
+                        : _selectedIndex == 1
+                            ? _buildNovelList()
+                            : _buildGroupChatList(),
               ),
             ),
           ],
@@ -1527,6 +1615,339 @@ class _MyCreationPageState extends State<MyCreationPage> {
         _loadData(); // 重新加载列表
       } else {
         _showToast('状态更新失败: ${response['message']}', type: ToastType.error);
+      }
+    } catch (e) {
+      _showToast('状态更新失败: $e', type: ToastType.error);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Widget _buildGroupChatList() {
+    if (_groupChatList.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.group_outlined,
+              size: 48.sp,
+              color: AppTheme.textSecondary.withOpacity(0.5),
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              '暂无群聊',
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: EdgeInsets.symmetric(horizontal: 24.w),
+      itemCount: _groupChatList.length + (_hasMoreData ? 1 : 0),
+      itemBuilder: (context, index) {
+        // 显示加载更多的指示器
+        if (index == _groupChatList.length) {
+          return _buildCustomLoadMoreIndicator();
+        }
+
+        final groupChat = _groupChatList[index];
+        return Container(
+          padding: EdgeInsets.symmetric(vertical: 12.h),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: AppTheme.border.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 封面图片
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4.r),
+                    child: groupChat['coverUri'] != null
+                        ? _buildCachedImage(groupChat['coverUri'])
+                        : Container(
+                            width: 96.h,
+                            height: 96.h,
+                            color: AppTheme.cardBackground,
+                            child: Icon(
+                              Icons.group_outlined,
+                              color: AppTheme.textSecondary.withOpacity(0.5),
+                            ),
+                          ),
+                  ),
+
+                  SizedBox(width: 12.w),
+
+                  // 内容区域
+                  Expanded(
+                    child: SizedBox(
+                      height: 96.h,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 群聊名称
+                          Text(
+                            groupChat['name'] ?? '未命名群聊',
+                            style: TextStyle(
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 2.h),
+
+                          // 第二行：简介
+                          Expanded(
+                            child: Text(
+                              groupChat['description'] ?? '',
+                              style: TextStyle(
+                                fontSize: 13.sp,
+                                color: AppTheme.textPrimary.withOpacity(0.8),
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+
+                          // 第三行：标签
+                          if (groupChat['tags'] != null &&
+                              (groupChat['tags'] as List).isNotEmpty) ...[
+                            SizedBox(height: 2.h),
+                            Text(
+                              (groupChat['tags'] as List)
+                                  .map((tag) => '#$tag')
+                                  .join(' '),
+                              style: TextStyle(
+                                fontSize: 11.sp,
+                                color: Colors.grey,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+
+                          SizedBox(height: 2.h),
+                          // 第四行：作者和时间
+                          Text(
+                            '@${groupChat['authorName'] ?? ''} · ${_formatTime(groupChat['createdAt'])}',
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: Colors.grey,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // 底部按钮行
+              SizedBox(height: 10.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // 状态切换按钮
+                  GestureDetector(
+                    onTap: () {
+                      _toggleGroupChatStatus(groupChat);
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          groupChat['status'] == 'published'
+                              ? Icons.public
+                              : Icons.lock_outline,
+                          size: 18.sp,
+                          color: const Color(0xFF666666),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          groupChat['status'] == 'published' ? '公开' : '私密',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF666666),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 编辑按钮
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CreateGroupChatPage(
+                            groupChat: groupChat,
+                            isEdit: true,
+                          ),
+                        ),
+                      ).then((result) {
+                        // 如果返回的结果为true，表示编辑成功，刷新列表
+                        if (result == true) {
+                          _loadData();
+                        }
+                      });
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.edit_outlined,
+                          size: 18.sp,
+                          color: const Color(0xFF666666),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '编辑',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF666666),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 聊天按钮
+                  GestureDetector(
+                    onTap: () {
+                      // TODO: 实现群聊功能
+                      CustomToast.show(
+                        context,
+                        message: '群聊功能即将上线',
+                        type: ToastType.info,
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.chat_outlined,
+                          size: 18.sp,
+                          color: const Color(0xFF666666),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '聊天',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF666666),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 删除按钮
+                  GestureDetector(
+                    onTap: () {
+                      _deleteGroupChat(groupChat['id']);
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_outline,
+                          size: 18.sp,
+                          color: const Color(0xFFE57373),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '删除',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFFE57373),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+
+
+  Future<void> _deleteGroupChat(int id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => ConfirmationDialog(
+        title: '删除群聊',
+        content: '确定要删除这个群聊吗？此操作不可撤销。',
+        confirmText: '删除',
+        cancelText: '取消',
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isLoading = true);
+      try {
+        final response = await _groupChatService.deleteGroupChat(id);
+        if (response['code'] == 200 || response['code'] == 0) {
+          _showToast('删除成功', type: ToastType.success);
+          _loadData(); // 重新加载列表
+        } else {
+          _showToast('删除失败: ${response['msg']}', type: ToastType.error);
+        }
+      } catch (e) {
+        _showToast('删除失败: $e', type: ToastType.error);
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+    }
+  }
+
+  Future<void> _toggleGroupChatStatus(Map<String, dynamic> groupChat) async {
+    // 在公开和私密之间切换
+    final currentStatus = groupChat['status'];
+    final newStatus = currentStatus == 'published' ? 'private' : 'published';
+
+    await _updateGroupChatStatus(groupChat['id'], newStatus);
+  }
+
+  Future<void> _updateGroupChatStatus(int id, String status) async {
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await _groupChatService.updateGroupChatStatus(id, status);
+      if (response['code'] == 0) {
+        _showToast('状态更新成功', type: ToastType.success);
+        _loadData(); // 重新加载列表
+      } else {
+        _showToast('状态更新失败: ${response['msg']}', type: ToastType.error);
       }
     } catch (e) {
       _showToast('状态更新失败: $e', type: ToastType.error);

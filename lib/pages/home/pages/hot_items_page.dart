@@ -542,14 +542,41 @@ class _HotItemsPageState extends State<HotItemsPage> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    Text(
-                      '@${item['author_name'] ?? '未知'} · $timeAgo',
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        color: AppTheme.textSecondary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        // 类型标记
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 6.w,
+                            vertical: 2.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getTypeColor(item['item_type']),
+                            borderRadius: BorderRadius.circular(4.r),
+                          ),
+                          child: Text(
+                            _getTypeLabel(item),
+                            style: TextStyle(
+                              fontSize: 10.sp,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 8.w),
+                        // 作者+时间
+                        Expanded(
+                          child: Text(
+                            '@${item['author_name'] ?? '未知'} · $timeAgo',
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: AppTheme.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -584,5 +611,45 @@ class _HotItemsPageState extends State<HotItemsPage> {
         color: AppTheme.cardBackground,
       ),
     );
+  }
+
+  Color _getTypeColor(String? itemType) {
+    switch (itemType) {
+      case 'character_card':
+        return const Color(0xFF1E88E5); // 更深的蓝色
+      case 'novel_card':
+        return const Color(0xFFFF9800); // 更暖的橙色
+      case 'group_chat_card':
+        return const Color(0xFF4CAF50); // 更鲜艳的绿色
+      default:
+        return AppTheme.textSecondary;
+    }
+  }
+
+  String _getTypeLabel(Map<String, dynamic> item) {
+    switch (item['item_type']) {
+      case 'character_card':
+        return '角色卡';
+      case 'novel_card':
+        return '小说';
+      case 'group_chat_card':
+        // 获取群聊角色数量
+        final roleGroup = item['role_group'];
+        int roleCount = 0;
+        
+        if (roleGroup != null) {
+          if (roleGroup is List) {
+            roleCount = roleGroup.length;
+          } else if (roleGroup is Map) {
+            // 如果role_group是Map，尝试获取roles字段
+            final roles = roleGroup['roles'] as List?;
+            roleCount = roles?.length ?? 0;
+          }
+        }
+        
+        return '群聊·$roleCount';
+      default:
+        return '未知';
+    }
   }
 }

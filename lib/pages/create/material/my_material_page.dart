@@ -862,7 +862,7 @@ class _MyMaterialPageState extends State<MyMaterialPage>
                           borderRadius:
                               BorderRadius.circular(AppTheme.radiusSmall),
                         ),
-                        child: Text(
+                        child: SelectableText(
                           material['metadata'] ?? '',
                           style: TextStyle(
                             fontSize: AppTheme.bodySize,

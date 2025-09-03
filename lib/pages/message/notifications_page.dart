@@ -7,7 +7,12 @@ import '../../widgets/custom_toast.dart';
 import 'notification_service.dart';
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key});
+  final VoidCallback? onUnreadCountChanged;
+
+  const NotificationsPage({
+    super.key,
+    this.onUnreadCountChanged,
+  });
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -160,6 +165,9 @@ class _NotificationsPageState extends State<NotificationsPage>
           _notifications[index]['status'] = 1;
         }
       });
+
+      // 通知父组件更新未读数量
+      widget.onUnreadCountChanged?.call();
     } catch (e) {
       _showErrorToast('标记已读失败: $e');
     }
@@ -178,6 +186,9 @@ class _NotificationsPageState extends State<NotificationsPage>
           }
         }
       });
+
+      // 通知父组件更新未读数量
+      widget.onUnreadCountChanged?.call();
 
       _showSuccessToast('已全部标为已读');
     } catch (e) {

@@ -42,6 +42,13 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   Uint8List? _cachedCoverImage;
   bool _isLoadingCover = false;
 
+  // 角色头像缓存
+  final Map<String, Uint8List> _roleAvatarCache = {};
+  final Map<String, bool> _loadingRoleAvatars = {};
+
+  // 角色选中状态
+  int _selectedRoleIndex = 0;
+
   // 滚动控制
   final ScrollController _scrollController = ScrollController();
 
@@ -55,6 +62,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     _isFavorite = widget.item['is_favorited'] ?? false;
     _loadCoverImage();
     _checkFollowingStatus();
+    _loadRoleAvatars(); // 预加载角色头像
 
     // 无需监听滚动事件以改变透明度
   }
@@ -85,6 +93,44 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       if (mounted) {
         setState(() => _isLoadingCover = false);
       }
+    }
+  }
+
+  // 预加载角色头像
+  Future<void> _loadRoleAvatars() async {
+    if (widget.item['item_type'] != 'group_chat_card' || 
+        widget.item['role_group'] == null) {
+      return;
+    }
+
+    final List<dynamic> roles = widget.item['role_group']['roles'] as List<dynamic>? ?? [];
+    
+    for (final role in roles) {
+      final String? avatarUri = role['avatarUri'];
+      if (avatarUri != null) {
+        _loadRoleAvatar(avatarUri);
+      }
+    }
+  }
+
+  // 加载单个角色头像
+  Future<void> _loadRoleAvatar(String avatarUri) async {
+    if (_loadingRoleAvatars[avatarUri] == true || 
+        _roleAvatarCache.containsKey(avatarUri)) {
+      return;
+    }
+
+    _loadingRoleAvatars[avatarUri] = true;
+    try {
+      final result = await _fileService.getFile(avatarUri);
+      if (mounted) {
+        setState(() {
+          _roleAvatarCache[avatarUri] = result.data;
+          _loadingRoleAvatars[avatarUri] = false;
+        });
+      }
+    } catch (e) {
+      _loadingRoleAvatars[avatarUri] = false;
     }
   }
 
@@ -286,7 +332,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         return '角色卡';
       case 'novel_card':
         return '小说卡';
-      case 'chat_card':
+      case 'group_chat_card':
         return '群聊卡';
       default:
         return '未知类型';
@@ -299,7 +345,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         return Icons.person_rounded;
       case 'novel_card':
         return Icons.book_rounded;
-      case 'chat_card':
+      case 'group_chat_card':
         return Icons.groups_rounded;
       default:
         return Icons.help_outline_rounded;
@@ -312,7 +358,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         return const Color(0xFF1E88E5); // 更深的蓝色
       case 'novel_card':
         return const Color(0xFFFF9800); // 更暖的橙色
-      case 'chat_card':
+      case 'group_chat_card':
         return const Color(0xFF4CAF50); // 更鲜艳的绿色
       default:
         return Colors.grey;
@@ -910,6 +956,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                 SizedBox(height: 16.h),
                               ],
 
+                              // 群聊角色展示区域
+                              _buildGroupChatRoles(),
+
                               // 时间信息 - 改为卡片式设计
                               _buildSectionTitle('其他信息'),
                               _glass(
@@ -1242,6 +1291,213 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         setState(() => _isUpdatingFollowStatus = false);
       }
     }
+  }
+
+  // 构建群聊角色展示区域
+  Widget _buildGroupChatRoles() {
+    if (widget.item['item_type'] != 'group_chat_card' || 
+        widget.item['role_group'] == null) {
+      return const SizedBox.shrink();
+    }
+
+    final List<dynamic> roles = widget.item['role_group']['roles'] as List<dynamic>? ?? [];
+    
+    if (roles.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // 确保选中的索引在有效范围内
+    if (_selectedRoleIndex >= roles.length) {
+      _selectedRoleIndex = 0;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('群聊角色 (${roles.length})'),
+        
+        // 角色头像选择列表
+        SizedBox(
+          height: 80.h,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(horizontal: 4.w),
+            itemCount: roles.length,
+            itemBuilder: (context, index) {
+              final role = roles[index];
+              final bool isSelected = index == _selectedRoleIndex;
+              return _buildRoleAvatar(role, index, isSelected);
+            },
+          ),
+        ),
+        
+        SizedBox(height: 10.h),
+        
+        // 选中角色的详情
+        _buildSelectedRoleDetail(roles[_selectedRoleIndex]),
+        
+        SizedBox(height: 16.h),
+      ],
+    );
+  }
+
+  // 构建角色头像选择器
+  Widget _buildRoleAvatar(Map<String, dynamic> role, int index, bool isSelected) {
+    final String? avatarUri = role['avatarUri'];
+    final String name = role['name'] ?? '未命名角色';
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedRoleIndex = index;
+        });
+      },
+      child: Container(
+        width: 70.w,
+        margin: EdgeInsets.symmetric(horizontal: 6.w),
+        child: Column(
+          children: [
+            // 角色头像
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: isSelected ? 50.w : 45.w,
+              height: isSelected ? 50.w : 45.w,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected 
+                      ? AppTheme.primaryColor 
+                      : AppTheme.primaryColor.withOpacity(0.3),
+                  width: isSelected ? 3.w : 2.w,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isSelected 
+                        ? AppTheme.primaryColor.withOpacity(0.4)
+                        : AppTheme.primaryColor.withOpacity(0.2),
+                    blurRadius: isSelected ? 12 : 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: _buildRoleAvatarImage(avatarUri),
+              ),
+            ),
+            
+            SizedBox(height: 6.h),
+            
+            // 角色名称
+            Text(
+              name,
+              style: TextStyle(
+                fontSize: isSelected ? 11.sp : 10.sp,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 构建选中角色的简介
+  Widget _buildSelectedRoleDetail(Map<String, dynamic> role) {
+    final String description = role['description'] ?? '暂无简介';
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(14.w),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBackground.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: AppTheme.primaryColor.withOpacity(0.2),
+          width: 1.w,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 固定标题
+          Text(
+            '角色简介',
+            style: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          
+          SizedBox(height: 8.h),
+          
+          // 角色描述
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: 13.sp,
+              color: AppTheme.textSecondary,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 构建角色头像图片
+  Widget _buildRoleAvatarImage(String? avatarUri) {
+    if (avatarUri == null) {
+      return Container(
+        color: AppTheme.cardBackground,
+        child: Icon(
+          Icons.person,
+          color: AppTheme.textSecondary,
+          size: 24.sp,
+        ),
+      );
+    }
+
+    if (_roleAvatarCache.containsKey(avatarUri)) {
+      return Image.memory(
+        _roleAvatarCache[avatarUri]!,
+        fit: BoxFit.cover,
+        width: 50.w,
+        height: 50.w,
+      );
+    }
+
+    // 如果正在加载，显示加载指示器
+    if (_loadingRoleAvatars[avatarUri] == true) {
+      return Container(
+        color: AppTheme.cardBackground,
+        child: Shimmer.fromColors(
+          baseColor: AppTheme.cardBackground,
+          highlightColor: AppTheme.cardBackground.withOpacity(0.5),
+          child: Container(
+            width: 50.w,
+            height: 50.w,
+            color: AppTheme.cardBackground,
+          ),
+        ),
+      );
+    }
+
+    // 如果未开始加载，先加载图片
+    _loadRoleAvatar(avatarUri);
+
+    return Container(
+      color: AppTheme.cardBackground,
+      child: Icon(
+        Icons.person,
+        color: AppTheme.textSecondary,
+        size: 24.sp,
+      ),
+    );
   }
 }
 

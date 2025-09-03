@@ -6,9 +6,11 @@ import '../../../theme/app_theme.dart';
 import '../services/characte_service.dart';
 import '../services/novel_service.dart';
 import '../../../services/file_service.dart';
+import '../../../services/group_chat_service.dart';
 import '../../../widgets/custom_toast.dart';
 import '../character/create_character_page.dart';
 import '../novel/create_novel_page.dart';
+import '../group_chat/create_group_chat_page.dart';
 
 class DraftPage extends StatefulWidget {
   const DraftPage({super.key});
@@ -18,9 +20,10 @@ class DraftPage extends StatefulWidget {
 }
 
 class _DraftPageState extends State<DraftPage> {
-  int _selectedIndex = 0; // 0: 角色卡, 1: 小说
+  int _selectedIndex = 0; // 0: 角色卡, 1: 小说, 2: 群聊
   final _characterService = CharacterService();
   final _novelService = NovelService();
+  final _groupChatService = GroupChatService();
   final ScrollController _scrollController = ScrollController();
   final Map<String, Uint8List> _imageCache = {}; // 图片缓存
 
@@ -28,6 +31,7 @@ class _DraftPageState extends State<DraftPage> {
   bool _isLoadingMore = false;
   List<Map<String, dynamic>> _characterList = [];
   List<Map<String, dynamic>> _novelList = [];
+  List<Map<String, dynamic>> _groupChatList = [];
   int _total = 0;
   int _currentPage = 1;
   final int _pageSize = 10;
@@ -65,8 +69,10 @@ class _DraftPageState extends State<DraftPage> {
 
     if (_selectedIndex == 0) {
       await _loadCharacterData();
-    } else {
+    } else if (_selectedIndex == 1) {
       await _loadNovelData();
+    } else {
+      await _loadGroupChatData();
     }
 
     setState(() => _isLoading = false);
@@ -124,6 +130,32 @@ class _DraftPageState extends State<DraftPage> {
     }
   }
 
+  Future<void> _loadGroupChatData() async {
+    try {
+      final response = await _groupChatService.getGroupChatList(
+        page: _currentPage,
+        pageSize: _pageSize,
+        status: 'draft',
+      );
+
+      if (response['code'] == 0) {
+        setState(() {
+          _groupChatList =
+              List<Map<String, dynamic>>.from(response['data']['items'] ?? []);
+          _total = response['data']['total'] ?? 0;
+          _hasMoreData = _groupChatList.length < _total;
+        });
+
+        // 预加载图片
+        _preloadImages(_groupChatList);
+      } else {
+        _showToast('加载失败：${response['message']}', type: ToastType.error);
+      }
+    } catch (e) {
+      _showToast('加载失败：$e', type: ToastType.error);
+    }
+  }
+
   // 预加载图片到缓存
   Future<void> _preloadImages(List<Map<String, dynamic>> items) async {
     for (final item in items) {
@@ -148,8 +180,10 @@ class _DraftPageState extends State<DraftPage> {
 
     if (_selectedIndex == 0) {
       await _loadMoreCharacterData();
-    } else {
+    } else if (_selectedIndex == 1) {
       await _loadMoreNovelData();
+    } else {
+      await _loadMoreGroupChatData();
     }
 
     setState(() => _isLoadingMore = false);
@@ -204,6 +238,38 @@ class _DraftPageState extends State<DraftPage> {
             _novelList.addAll(newItems);
             _currentPage += 1;
             _hasMoreData = _novelList.length < _total;
+          });
+
+          // 预加载新加载的图片
+          _preloadImages(newItems);
+        } else {
+          setState(() => _hasMoreData = false);
+        }
+      } else {
+        _showToast('加载更多失败：${response['message']}', type: ToastType.error);
+      }
+    } catch (e) {
+      _showToast('加载更多失败：$e', type: ToastType.error);
+    }
+  }
+
+  Future<void> _loadMoreGroupChatData() async {
+    try {
+      final response = await _groupChatService.getGroupChatList(
+        page: _currentPage + 1,
+        pageSize: _pageSize,
+        status: 'draft',
+      );
+
+      if (response['code'] == 0) {
+        final newItems =
+            List<Map<String, dynamic>>.from(response['data']['items'] ?? []);
+
+        if (newItems.isNotEmpty) {
+          setState(() {
+            _groupChatList.addAll(newItems);
+            _currentPage += 1;
+            _hasMoreData = _groupChatList.length < _total;
           });
 
           // 预加载新加载的图片
@@ -277,6 +343,8 @@ class _DraftPageState extends State<DraftPage> {
                   _buildSwitchButton('角色卡', 0),
                   SizedBox(width: 24.w),
                   _buildSwitchButton('小说', 1),
+                  SizedBox(width: 24.w),
+                  _buildSwitchButton('群聊', 2),
                 ],
               ),
             ),
@@ -287,7 +355,9 @@ class _DraftPageState extends State<DraftPage> {
                   ? _buildSkeletonList()
                   : _selectedIndex == 0
                       ? _buildCharacterList()
-                      : _buildNovelList(),
+                      : _selectedIndex == 1
+                          ? _buildNovelList()
+                          : _buildGroupChatList(),
             ),
           ],
         ),
@@ -1174,6 +1244,247 @@ class _DraftPageState extends State<DraftPage> {
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Widget _buildGroupChatList() {
+    if (_groupChatList.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.group_outlined,
+              size: 48.sp,
+              color: AppTheme.textSecondary,
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              '暂无草稿',
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: EdgeInsets.symmetric(horizontal: 24.w),
+      itemCount: _groupChatList.length + (_isLoadingMore || _hasMoreData ? 1 : 0),
+      itemBuilder: (context, index) {
+        // 显示加载更多的指示器
+        if (index == _groupChatList.length) {
+          return _buildLoadMoreIndicator();
+        }
+
+        final groupChat = _groupChatList[index];
+        return Container(
+          padding: EdgeInsets.symmetric(vertical: 12.h),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: AppTheme.cardBackground.withOpacity(0.1),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 封面图片
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4.r),
+                child: groupChat['coverUri'] != null
+                    ? _buildCachedImage(groupChat['coverUri'])
+                    : Container(
+                        width: 96.h,
+                        height: 96.h,
+                        color: AppTheme.cardBackground,
+                        child: Icon(
+                          Icons.group_outlined,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+              ),
+
+              SizedBox(width: 12.w),
+
+              // 内容区域
+              Expanded(
+                child: SizedBox(
+                  height: 96.h,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 第一行：名字和按钮
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              groupChat['name'] ?? '未命名群聊',
+                              style: TextStyle(
+                                fontSize: 15.sp,
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.textPrimary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          // 编辑和删除按钮
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              GestureDetector(
+                                onTap: () => _editGroupChat(groupChat),
+                                child: Container(
+                                  padding: EdgeInsets.all(4.w),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(4.r),
+                                  ),
+                                  child: Icon(
+                                    Icons.edit_outlined,
+                                    size: 16.sp,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 12.w),
+                              GestureDetector(
+                                onTap: () => _deleteGroupChat(groupChat['id']),
+                                child: Container(
+                                  padding: EdgeInsets.all(4.w),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.error.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(4.r),
+                                  ),
+                                  child: Icon(
+                                    Icons.delete_outline,
+                                    size: 16.sp,
+                                    color: AppTheme.error,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 2.h),
+
+                      // 第二行：简介
+                      Expanded(
+                        child: Text(
+                          groupChat['description'] ?? '',
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            color: AppTheme.textSecondary,
+                            height: 1.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+
+                      // 第三行：标签
+                      if (groupChat['tags'] != null &&
+                          (groupChat['tags'] as List).isNotEmpty) ...[
+                        SizedBox(height: 2.h),
+                        Text(
+                          (groupChat['tags'] as List)
+                              .map((tag) => '#$tag')
+                              .join(' '),
+                          style: TextStyle(
+                            fontSize: 11.sp,
+                            color: AppTheme.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+
+                      SizedBox(height: 2.h),
+                      // 第四行：作者和时间
+                      Text(
+                        '@${groupChat['authorName'] ?? ''} · ${_formatTime(groupChat['createdAt'])}',
+                        style: TextStyle(
+                          fontSize: 11.sp,
+                          color: AppTheme.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+              )
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+
+
+  void _editGroupChat(Map<String, dynamic> groupChat) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateGroupChatPage(
+          groupChat: groupChat,
+          isEdit: true,
+        ),
+      ),
+    ).then((result) {
+      if (result == true) {
+        _loadData(); // 重新加载数据
+      }
+    });
+  }
+
+  Future<void> _deleteGroupChat(int id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('删除草稿'),
+        content: Text('确定要删除这个群聊草稿吗？此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isLoading = true);
+      try {
+        final response = await _groupChatService.deleteGroupChat(id);
+        if (response['code'] == 200 || response['code'] == 0) {
+          _showToast('删除成功', type: ToastType.success);
+          _loadData(); // 重新加载列表
+        } else {
+          _showToast('删除失败: ${response['msg']}', type: ToastType.error);
+        }
+      } catch (e) {
+        _showToast('删除失败: $e', type: ToastType.error);
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
     }
   }

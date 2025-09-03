@@ -11,10 +11,12 @@ import 'customer_service_page.dart';
 
 class MessagePage extends StatefulWidget {
   final int unreadCount;
+  final VoidCallback? onUnreadCountChanged;
 
   const MessagePage({
     super.key,
     this.unreadCount = 0,
+    this.onUnreadCountChanged,
   });
 
   @override
@@ -39,6 +41,16 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
     super.initState();
     _unreadCount = widget.unreadCount;
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didUpdateWidget(MessagePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.unreadCount != oldWidget.unreadCount) {
+      setState(() {
+        _unreadCount = widget.unreadCount;
+      });
+    }
   }
 
   @override
@@ -78,13 +90,20 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                       if (!_isMultiSelectMode) ...[
                         _buildIconButton(
                           icon: Icons.notifications_outlined,
-                          onTap: () {
-                            Navigator.push(
+                          onTap: () async {
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const NotificationsPage(),
+                                builder: (context) => NotificationsPage(
+                                  onUnreadCountChanged: () {
+                                    // 通知主页面更新未读数量
+                                    widget.onUnreadCountChanged?.call();
+                                  },
+                                ),
                               ),
                             );
+                            // 从通知页面返回后，触发主页面更新未读数量
+                            widget.onUnreadCountChanged?.call();
                           },
                           showBadge: _unreadCount > 0,
                           badgeCount: _unreadCount,

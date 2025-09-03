@@ -115,7 +115,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     final List<Widget> pages = [
       HomePage(key: homeKey),
       _pageInitialized[1]
-          ? MessagePage(key: messageKey, unreadCount: _unreadCount)
+          ? MessagePage(
+              key: messageKey,
+              unreadCount: _unreadCount,
+              onUnreadCountChanged: _fetchUnreadCount,
+            )
           : Container(),
       const SizedBox(),
       const SizedBox(),

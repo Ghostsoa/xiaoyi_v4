@@ -37,6 +37,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
     {'value': 'all', 'label': '全部'},
     {'value': 'character_card', 'label': '角色'},
     {'value': 'novel_card', 'label': '小说'},
+    {'value': 'group_chat_card', 'label': '群聊'},
   ];
 
   @override
@@ -457,13 +458,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
                           padding: EdgeInsets.symmetric(
                               horizontal: 6.w, vertical: 2.h),
                           decoration: BoxDecoration(
-                            color: item['item_type'] == 'character_card'
-                                ? const Color(0xFF1E88E5)
-                                : const Color(0xFFFF9800),
+                            color: _getTypeColor(item['item_type']),
                             borderRadius: BorderRadius.circular(4.r),
                           ),
                           child: Text(
-                            itemType,
+                            _getTypeLabel(item),
                             style: TextStyle(
                               fontSize: 10.sp,
                               fontWeight: FontWeight.w500,
@@ -561,5 +560,45 @@ class _FavoritesPageState extends State<FavoritesPage> {
         color: AppTheme.cardBackground,
       ),
     );
+  }
+
+  Color _getTypeColor(String? itemType) {
+    switch (itemType) {
+      case 'character_card':
+        return const Color(0xFF1E88E5); // 更深的蓝色
+      case 'novel_card':
+        return const Color(0xFFFF9800); // 更暖的橙色
+      case 'group_chat_card':
+        return const Color(0xFF4CAF50); // 更鲜艳的绿色
+      default:
+        return AppTheme.textSecondary;
+    }
+  }
+
+  String _getTypeLabel(Map<String, dynamic> item) {
+    switch (item['item_type']) {
+      case 'character_card':
+        return '角色卡';
+      case 'novel_card':
+        return '小说';
+      case 'group_chat_card':
+        // 获取群聊角色数量
+        final roleGroup = item['role_group'];
+        int roleCount = 0;
+        
+        if (roleGroup != null) {
+          if (roleGroup is List) {
+            roleCount = roleGroup.length;
+          } else if (roleGroup is Map) {
+            // 如果role_group是Map，尝试获取roles字段
+            final roles = roleGroup['roles'] as List?;
+            roleCount = roles?.length ?? 0;
+          }
+        }
+        
+        return '群聊·$roleCount';
+      default:
+        return '未知';
+    }
   }
 }

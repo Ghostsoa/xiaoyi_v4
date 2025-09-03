@@ -43,6 +43,12 @@ class _EditWorldBookPageState extends State<EditWorldBookPage> {
   }
 
   void _addKeyword(String keyword) {
+    if (keyword.length > 15) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('关键词不能超过15个字符')),
+      );
+      return;
+    }
     if (!_keywords.contains(keyword)) {
       setState(() {
         _keywords.add(keyword);
@@ -268,12 +274,14 @@ class _EditWorldBookPageState extends State<EditWorldBookPage> {
                         child: TextField(
                           controller: _keywordController,
                           focusNode: _keywordFocusNode,
+                          maxLength: 15,
                           decoration: InputDecoration(
-                            hintText: '请输入关键词',
+                            hintText: '请输入关键词（最多15字符）',
                             hintStyle: TextStyle(
                               fontSize: AppTheme.bodySize,
                               color: AppTheme.textHint,
                             ),
+                            counterText: '', // 隐藏默认的字符计数器
                             border: OutlineInputBorder(
                               borderRadius:
                                   BorderRadius.circular(AppTheme.radiusSmall),

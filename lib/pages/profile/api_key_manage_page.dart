@@ -243,6 +243,16 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
 
   // 更新API密钥状态
   Future<void> _updateApiKeyStatus(int id, int status) async {
+    // 先乐观更新UI
+    setState(() {
+      for (int i = 0; i < _apiKeys.length; i++) {
+        if (_apiKeys[i]['id'] == id) {
+          _apiKeys[i]['status'] = status;
+          break;
+        }
+      }
+    });
+
     try {
       final result = await _profileServer.updateApiKeyStatus(
         id: id,
@@ -253,23 +263,16 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
         if (result['success']) {
           // 显示成功消息
           _showToast(result['msg'], ToastType.success);
-
-          // 重新加载API密钥列表
-          _loadApiKeys();
         } else {
-          // 显示错误消息
+          // 显示错误消息并恢复原状态
           _showToast(result['msg'], ToastType.error);
-
-          // 重新加载API密钥列表以恢复原状态
-          _loadApiKeys();
+          _loadApiKeys(); // 只有失败时才重新加载
         }
       }
     } catch (e) {
       if (mounted) {
         _showToast('更新API密钥状态失败: $e', ToastType.error);
-
-        // 重新加载API密钥列表以恢复原状态
-        _loadApiKeys();
+        _loadApiKeys(); // 只有出错时才重新加载
       }
     }
   }
@@ -302,6 +305,108 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
     } catch (e) {
       if (mounted) {
         _showToast('删除API密钥失败: $e', ToastType.error);
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // 批量更新API密钥状态
+  Future<void> _batchUpdateApiKeyStatus(List<int> ids, int status) async {
+    if (ids.isEmpty) {
+      _showToast('请至少选择一个API密钥', ToastType.warning);
+      return;
+    }
+
+    // 先乐观更新UI
+    setState(() {
+      for (int i = 0; i < _apiKeys.length; i++) {
+        if (ids.contains(_apiKeys[i]['id'])) {
+          _apiKeys[i]['status'] = status;
+        }
+      }
+      // 清空选择状态
+      _selectedApiKeyIds.clear();
+      _isInBatchDeleteMode = false;
+    });
+
+    try {
+      final result = await _profileServer.batchUpdateApiKeyStatus(
+        ids: ids,
+        status: status,
+      );
+
+      if (mounted) {
+        if (result['success']) {
+          _showToast(result['msg'], ToastType.success);
+        } else {
+          _showToast(result['msg'], ToastType.error);
+          _loadApiKeys(); // 只有失败时才重新加载
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showToast('批量更新API密钥状态失败: $e', ToastType.error);
+        _loadApiKeys(); // 只有出错时才重新加载
+      }
+    }
+  }
+
+  // 一键更新所有API密钥状态
+  Future<void> _updateAllApiKeyStatus(int status) async {
+    // 先乐观更新UI
+    setState(() {
+      for (int i = 0; i < _apiKeys.length; i++) {
+        // 只更新非封禁状态的密钥
+        if (_apiKeys[i]['status'] != 3) {
+          _apiKeys[i]['status'] = status;
+        }
+      }
+    });
+
+    try {
+      final result = await _profileServer.updateAllApiKeyStatus(status: status);
+
+      if (mounted) {
+        if (result['success']) {
+          _showToast(result['msg'], ToastType.success);
+        } else {
+          _showToast(result['msg'], ToastType.error);
+          _loadApiKeys(); // 只有失败时才重新加载
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showToast('一键更新所有API密钥状态失败: $e', ToastType.error);
+        _loadApiKeys(); // 只有出错时才重新加载
+      }
+    }
+  }
+
+  // 一键删除所有封禁的API密钥
+  Future<void> _deleteAllBannedApiKeys() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final result = await _profileServer.deleteAllBannedApiKeys();
+
+      if (mounted) {
+        if (result['success']) {
+          _showToast(result['msg'], ToastType.success);
+          _loadApiKeys();
+        } else {
+          _showToast(result['msg'], ToastType.error);
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showToast('一键删除所有封禁API密钥失败: $e', ToastType.error);
         setState(() {
           _isLoading = false;
         });
@@ -726,6 +831,69 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
     );
   }
 
+  // 显示通用确认对话框
+  Future<void> _showConfirmDialog({
+    required String title,
+    required String content,
+    required VoidCallback onConfirm,
+    bool isDestructive = false,
+  }) async {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r),
+          ),
+          title: Text(
+            title,
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          content: Text(
+            content,
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 14.sp,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                '取消',
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                onConfirm();
+              },
+              child: Text(
+                '确定',
+                style: TextStyle(
+                  color: isDestructive ? Colors.red : AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // 显示Toast消息
   void _showToast(String message, ToastType type) {
     if (!mounted) return;
@@ -744,7 +912,7 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
         statusText = '正常使用';
         statusColor = Colors.green;
         break;
-      case 0:
+      case 2:
         statusText = '暂停使用';
         statusColor = Colors.orange;
         break;
@@ -829,9 +997,9 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
                   onTap: _isInBatchDeleteMode || status == 3
                       ? null
                       : () {
-                          // 切换状态 (1 -> 0 或 0 -> 1)
+                          // 切换状态 (1 -> 2 或 2 -> 1)
                           _updateApiKeyStatus(
-                              apiKey['id'], status == 1 ? 0 : 1);
+                              apiKey['id'], status == 1 ? 2 : 1);
                         },
                   child: Container(
                     padding: EdgeInsets.symmetric(
@@ -1037,18 +1205,68 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
               ),
             ),
           if (_isInBatchDeleteMode)
-            TextButton(
-              onPressed: _selectedApiKeyIds.isEmpty
-                  ? null
-                  : _showBatchDeleteConfirmDialog,
-              child: Text(
-                '删除(${_selectedApiKeyIds.length})',
-                style: TextStyle(
-                  color: _selectedApiKeyIds.isEmpty ? Colors.grey : Colors.red,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.bold,
-                ),
+            PopupMenuButton<String>(
+              icon: Icon(
+                Icons.more_vert,
+                color: AppTheme.textPrimary,
+                size: 20.sp,
               ),
+              enabled: _selectedApiKeyIds.isNotEmpty,
+              onSelected: (value) {
+                final selectedIds = _selectedApiKeyIds.toList();
+                switch (value) {
+                  case 'enable':
+                    _showConfirmDialog(
+                      title: '批量启用',
+                      content: '确定要启用选中的${selectedIds.length}个API密钥吗？',
+                      onConfirm: () => _batchUpdateApiKeyStatus(selectedIds, 1),
+                    );
+                    break;
+                  case 'disable':
+                    _showConfirmDialog(
+                      title: '批量禁用',
+                      content: '确定要禁用选中的${selectedIds.length}个API密钥吗？',
+                      onConfirm: () => _batchUpdateApiKeyStatus(selectedIds, 2),
+                    );
+                    break;
+                  case 'delete':
+                    _showBatchDeleteConfirmDialog();
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'enable',
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green, size: 18.sp),
+                      SizedBox(width: 8.w),
+                      Text('启用(${_selectedApiKeyIds.length})'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'disable',
+                  child: Row(
+                    children: [
+                      Icon(Icons.pause_circle, color: Colors.orange, size: 18.sp),
+                      SizedBox(width: 8.w),
+                      Text('禁用(${_selectedApiKeyIds.length})'),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, color: Colors.red, size: 18.sp),
+                      SizedBox(width: 8.w),
+                      Text('删除(${_selectedApiKeyIds.length})'),
+                    ],
+                  ),
+                ),
+              ],
             ),
           if (!_isInBatchDeleteMode && _apiKeys.isNotEmpty)
             IconButton(
@@ -1065,14 +1283,84 @@ class _ApiKeyManagePageState extends State<ApiKeyManagePage> {
               tooltip: '批量删除',
             ),
           if (!_isInBatchDeleteMode)
-            IconButton(
+            PopupMenuButton<String>(
               icon: Icon(
-                Icons.refresh,
+                Icons.more_vert,
                 color: AppTheme.textPrimary,
                 size: 24.sp,
               ),
-              onPressed: _isLoading ? null : _loadApiKeys,
-              tooltip: '刷新',
+              onSelected: (value) {
+                switch (value) {
+                  case 'enable_all':
+                    _showConfirmDialog(
+                      title: '一键启用',
+                      content: '确定要启用所有API密钥吗？',
+                      onConfirm: () => _updateAllApiKeyStatus(1),
+                    );
+                    break;
+                  case 'disable_all':
+                    _showConfirmDialog(
+                      title: '一键禁用',
+                      content: '确定要禁用所有API密钥吗？',
+                      onConfirm: () => _updateAllApiKeyStatus(2),
+                    );
+                    break;
+                  case 'delete_banned':
+                    _showConfirmDialog(
+                      title: '删除封禁密钥',
+                      content: '确定要删除所有被供应商封禁的API密钥吗？此操作不可恢复。',
+                      onConfirm: _deleteAllBannedApiKeys,
+                      isDestructive: true,
+                    );
+                    break;
+                  case 'refresh':
+                    _loadApiKeys();
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'enable_all',
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green, size: 20.sp),
+                      SizedBox(width: 8.w),
+                      Text('一键启用所有'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'disable_all',
+                  child: Row(
+                    children: [
+                      Icon(Icons.pause_circle, color: Colors.orange, size: 20.sp),
+                      SizedBox(width: 8.w),
+                      Text('一键禁用所有'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'delete_banned',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_forever, color: Colors.red, size: 20.sp),
+                      SizedBox(width: 8.w),
+                      Text('删除封禁密钥'),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'refresh',
+                  child: Row(
+                    children: [
+                      Icon(Icons.refresh, color: AppTheme.textPrimary, size: 20.sp),
+                      SizedBox(width: 8.w),
+                      Text('刷新'),
+                    ],
+                  ),
+                ),
+              ],
             ),
         ],
       ),

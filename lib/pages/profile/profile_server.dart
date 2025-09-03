@@ -636,4 +636,160 @@ class ProfileServer {
       return {'success': false, 'data': [], 'msg': e.toString(), 'code': -1};
     }
   }
+
+  // 切换官方密钥使用状态
+  Future<Map<String, dynamic>> toggleOfficialKey() async {
+    try {
+      final response = await _httpClient.post('/official-key/toggle');
+
+      if (response.data is Map<String, dynamic>) {
+        final responseData = response.data as Map<String, dynamic>;
+
+        if (responseData.containsKey('code')) {
+          return {
+            'success': responseData['code'] == 0,
+            'data': responseData['data'] ?? {},
+            'msg': responseData['msg'] ??
+                (responseData['code'] == 0 ? '官方密钥状态切换成功' : '官方密钥状态切换失败'),
+            'code': responseData['code']
+          };
+        }
+      }
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': {}, 'msg': '官方密钥状态切换成功', 'code': 0};
+      } else {
+        return {
+          'success': false,
+          'data': {},
+          'msg': '${response.statusCode}',
+          'code': response.statusCode
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'data': {}, 'msg': e.toString(), 'code': -1};
+    }
+  }
+
+  // 批量更新API密钥状态
+  Future<Map<String, dynamic>> batchUpdateApiKeyStatus({
+    required List<int> ids,
+    required int status,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'ids': ids,
+        'status': status,
+      };
+
+      final response = await _httpClient.put(
+        '/api-keys/batch/status',
+        data: data,
+      );
+
+      if (response.data is Map<String, dynamic>) {
+        final responseData = response.data as Map<String, dynamic>;
+
+        if (responseData.containsKey('code')) {
+          return {
+            'success': responseData['code'] == 0,
+            'data': responseData['data'],
+            'msg': responseData['msg'] ??
+                (responseData['code'] == 0 ? '批量更新API密钥状态成功' : '批量更新API密钥状态失败'),
+            'code': responseData['code']
+          };
+        }
+      }
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': null, 'msg': '批量更新API密钥状态成功', 'code': 0};
+      } else {
+        return {
+          'success': false,
+          'data': null,
+          'msg': '${response.statusCode}',
+          'code': response.statusCode
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'data': null, 'msg': e.toString(), 'code': -1};
+    }
+  }
+
+  // 一键更新所有API密钥状态
+  Future<Map<String, dynamic>> updateAllApiKeyStatus({
+    required int status,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'status': status,
+      };
+
+      final response = await _httpClient.put(
+        '/api-keys/all/status',
+        data: data,
+      );
+
+      if (response.data is Map<String, dynamic>) {
+        final responseData = response.data as Map<String, dynamic>;
+
+        if (responseData.containsKey('code')) {
+          return {
+            'success': responseData['code'] == 0,
+            'data': responseData['data'],
+            'msg': responseData['msg'] ??
+                (responseData['code'] == 0 ? '一键更新所有API密钥状态成功' : '一键更新所有API密钥状态失败'),
+            'code': responseData['code']
+          };
+        }
+      }
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': null, 'msg': '一键更新所有API密钥状态成功', 'code': 0};
+      } else {
+        return {
+          'success': false,
+          'data': null,
+          'msg': '${response.statusCode}',
+          'code': response.statusCode
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'data': null, 'msg': e.toString(), 'code': -1};
+    }
+  }
+
+  // 一键删除所有封禁的API密钥
+  Future<Map<String, dynamic>> deleteAllBannedApiKeys() async {
+    try {
+      final response = await _httpClient.delete('/api-keys/banned/all');
+
+      if (response.data is Map<String, dynamic>) {
+        final responseData = response.data as Map<String, dynamic>;
+
+        if (responseData.containsKey('code')) {
+          return {
+            'success': responseData['code'] == 0,
+            'data': responseData['data'],
+            'msg': responseData['message'] ?? responseData['msg'] ??
+                (responseData['code'] == 0 ? '一键删除所有封禁API密钥成功' : '一键删除所有封禁API密钥失败'),
+            'code': responseData['code']
+          };
+        }
+      }
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': null, 'msg': '一键删除所有封禁API密钥成功', 'code': 0};
+      } else {
+        return {
+          'success': false,
+          'data': null,
+          'msg': '${response.statusCode}',
+          'code': response.statusCode
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'data': null, 'msg': e.toString(), 'code': -1};
+    }
+  }
 }

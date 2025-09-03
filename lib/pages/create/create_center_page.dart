@@ -12,6 +12,7 @@ import 'character/create_character_page.dart';
 import 'my_creation/my_creation_page.dart';
 import 'draft/draft_page.dart';
 import 'novel/create_novel_page.dart';
+import 'group_chat/create_group_chat_page.dart';
 import '../../widgets/custom_toast.dart';
 import 'author/my_followers_page.dart';
 import 'author/author_push_create_page.dart';
@@ -414,6 +415,53 @@ class _CreateCenterPageState extends State<CreateCenterPage> {
                                 SizedBox(width: 8.w),
                                 Text(
                                   '小说',
+                                  style: TextStyle(
+                                    fontSize: AppTheme.captionSize,
+                                    fontWeight: FontWeight.w500,
+                                    color: textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Container(
+                          width: 1.w,
+                          height: 24.h,
+                          color: textSecondary.withOpacity(0.1),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              // TODO: 临时禁用群聊功能 - 删除此注释并恢复下面的代码以重新启用
+                              CustomToast.show(
+                                context,
+                                message: '群聊功能正在开发中，敬请期待',
+                                type: ToastType.info,
+                              );
+
+                              // 原始跳转代码 - 取消注释以恢复功能
+                              /*
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CreateGroupChatPage(),
+                                ),
+                              );
+                              */
+                            },
+                            behavior: HitTestBehavior.opaque,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Icon(
+                                  Icons.group_add,
+                                  color: Colors.green,
+                                  size: 24.sp,
+                                ),
+                                SizedBox(width: 8.w),
+                                Text(
+                                  '群聊',
                                   style: TextStyle(
                                     fontSize: AppTheme.captionSize,
                                     fontWeight: FontWeight.w500,

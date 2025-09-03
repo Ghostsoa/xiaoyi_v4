@@ -1096,7 +1096,7 @@ class _AuthorUpdatesTabState extends State<_AuthorUpdatesTab> {
         return '角色卡';
       case 'novel_card':
         return '小说卡';
-      case 'chat_card':
+      case 'group_chat_card':
         return '群聊卡';
       default:
         return '未知类型';
@@ -1110,7 +1110,7 @@ class _AuthorUpdatesTabState extends State<_AuthorUpdatesTab> {
         return const Color(0xFF1E88E5); // 更深的蓝色
       case 'novel_card':
         return const Color(0xFFFF9800); // 更暖的橙色
-      case 'chat_card':
+      case 'group_chat_card':
         return const Color(0xFF4CAF50); // 更鲜艳的绿色
       default:
         return Colors.grey;

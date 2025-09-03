@@ -354,6 +354,8 @@ class CardManagementService {
         return '畅玩时长卡';
       case 'vip':
         return 'VIP会员卡';
+      case 'quota_reset':
+        return '配额重置卡';
       default:
         return '未知类型';
     }
@@ -368,6 +370,8 @@ class CardManagementService {
         return '小时';
       case 'vip':
         return '天';
+      case 'quota_reset':
+        return '次';
       default:
         return '';
     }

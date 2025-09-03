@@ -34,6 +34,36 @@ class ModelConfigModule extends StatefulWidget {
 }
 
 class _ModelConfigModuleState extends State<ModelConfigModule> {
+  bool _isCustomModelMode = false;
+  final TextEditingController _customModelController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // 检查当前模型是否为自定义模型（不在预设列表中）
+    _checkIfCustomModel();
+  }
+
+  @override
+  void didUpdateWidget(ModelConfigModule oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 当模型名称变化时重新检查
+    if (oldWidget.modelName != widget.modelName) {
+      _checkIfCustomModel();
+    }
+  }
+
+  @override
+  void dispose() {
+    _customModelController.dispose();
+    super.dispose();
+  }
+
+  void _checkIfCustomModel() {
+    // 默认不进入自定义模式，用户手动点击编辑按钮进入
+    _isCustomModelMode = false;
+  }
+
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: EdgeInsets.only(top: 24.h, bottom: 16.h),
@@ -119,28 +149,102 @@ class _ModelConfigModuleState extends State<ModelConfigModule> {
                       ),
                     ),
                     SizedBox(height: 8.h),
-                    Text(
-                      widget.modelName,
-                      style: AppTheme.bodyStyle,
+                    _isCustomModelMode
+                      ? TextField(
+                          controller: _customModelController,
+                          style: AppTheme.bodyStyle,
+                          decoration: InputDecoration(
+                            hintText: '输入自定义模型名称',
+                            hintStyle: AppTheme.secondaryStyle,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(6.r),
+                              borderSide: BorderSide(
+                                color: AppTheme.textSecondary.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(6.r),
+                              borderSide: BorderSide(
+                                color: AppTheme.primaryColor,
+                                width: 1,
+                              ),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                          ),
+                          onSubmitted: (value) {
+                            if (value.trim().isNotEmpty) {
+                              setState(() {
+                                _isCustomModelMode = false;
+                              });
+                              widget.onModelNameChanged(value.trim());
+                            }
+                          },
+                        )
+                      : Text(
+                          widget.modelName,
+                          style: AppTheme.bodyStyle,
+                        ),
+                  ],
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 编辑按钮（自定义模型）
+                    IconButton(
+                      icon: Icon(
+                        _isCustomModelMode ? Icons.check : Icons.edit,
+                        size: 16.sp,
+                        color: _isCustomModelMode ? Colors.green : AppTheme.textSecondary,
+                      ),
+                      onPressed: () {
+                        if (_isCustomModelMode) {
+                          // 确认自定义输入
+                          if (_customModelController.text.trim().isNotEmpty) {
+                            setState(() {
+                              _isCustomModelMode = false;
+                            });
+                            widget.onModelNameChanged(_customModelController.text.trim());
+                          }
+                        } else {
+                          // 进入编辑模式
+                          setState(() {
+                            _isCustomModelMode = true;
+                            _customModelController.text = widget.modelName;
+                          });
+                        }
+                      },
+                    ),
+                    // 选择按钮（预设模型）
+                    IconButton(
+                      icon: Icon(
+                        _isCustomModelMode ? Icons.close : Icons.arrow_forward_ios,
+                        size: 16.sp,
+                        color: _isCustomModelMode ? Colors.red : AppTheme.textSecondary,
+                      ),
+                      onPressed: () async {
+                        if (_isCustomModelMode) {
+                          // 取消编辑
+                          setState(() {
+                            _isCustomModelMode = false;
+                            _customModelController.clear();
+                          });
+                        } else {
+                          // 选择预设模型
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SelectModelPage(),
+                            ),
+                          );
+                          if (result != null && mounted) {
+                            widget.onModelNameChanged(result);
+                          }
+                        }
+                      },
                     ),
                   ],
                 ),
-                trailing: Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16.sp,
-                  color: AppTheme.textSecondary,
-                ),
-                onTap: () async {
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SelectModelPage(),
-                    ),
-                  );
-                  if (result != null && mounted) {
-                    widget.onModelNameChanged(result);
-                  }
-                },
               ),
               SizedBox(height: 16.h),
               _buildParameterSection(

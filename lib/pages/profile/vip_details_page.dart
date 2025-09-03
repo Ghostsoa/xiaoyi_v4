@@ -23,6 +23,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
 
   bool _isLoading = true;
   bool _isRefreshing = false;
+  bool _isTogglingOfficialKey = false;
   List<ModelQuota> _modelQuotas = [];
   String _formattedExpireTime = '';
 
@@ -50,13 +51,15 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
           dailyLimit: 200,
           usedQuota: 0,
           remainQuota: 0,
+          usingOfficialKey: true,
         ),
         ModelQuota(
           modelName: 'gemini-2.5-flash',
           description: '响应速度更快的AI模型',
-          dailyLimit: 500,
+          dailyLimit: 999,
           usedQuota: 0,
           remainQuota: 0,
+          usingOfficialKey: true,
         ),
         ModelQuota(
           modelName: 'gemini-2.5-flash-lite-preview-06-17',
@@ -64,20 +67,23 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
           dailyLimit: -1,
           usedQuota: 0,
           remainQuota: 0,
+          usingOfficialKey: true,
         ),
         ModelQuota(
           modelName: 'gemini-2.0-flash',
           description: '稳定性更高的AI模型',
-          dailyLimit: 500,
+          dailyLimit: 999,
           usedQuota: 0,
           remainQuota: 0,
+          usingOfficialKey: true,
         ),
         ModelQuota(
           modelName: 'gemini-2.0-flash-exp',
           description: '实验性AI模型，更多新功能',
-          dailyLimit: 500,
+          dailyLimit: 999,
           usedQuota: 0,
           remainQuota: 0,
+          usingOfficialKey: true,
         ),
       ];
       _isLoading = false;
@@ -170,6 +176,7 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
             dailyLimit: model['dailyLimit'] ?? 0,
             usedQuota: model['usedQuota'] ?? 0,
             remainQuota: model['remainQuota'] ?? 0,
+            usingOfficialKey: model['usingOfficialKey'] ?? true,
           ));
         }
 
@@ -212,6 +219,60 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
   void _showToast(String message, ToastType type) {
     if (!mounted) return;
     CustomToast.show(context, message: message, type: type);
+  }
+
+  // 切换官方密钥状态
+  Future<void> _toggleOfficialKey() async {
+    if (!widget.isVip) {
+      _showToast('请先激活契约魔法师特权', ToastType.info);
+      return;
+    }
+
+    if (_isTogglingOfficialKey) return;
+
+    setState(() {
+      _isTogglingOfficialKey = true;
+    });
+
+    try {
+      final result = await _profileServer.toggleOfficialKey();
+
+      if (result['success']) {
+        _showToast(result['msg'], ToastType.success);
+
+        // 切换成功后直接更新本地状态，不刷新数据
+        if (mounted) {
+          setState(() {
+            // 切换所有模型的官方密钥状态
+            for (int i = 0; i < _modelQuotas.length; i++) {
+              _modelQuotas[i] = ModelQuota(
+                modelName: _modelQuotas[i].modelName,
+                description: _modelQuotas[i].description,
+                dailyLimit: _modelQuotas[i].dailyLimit,
+                usedQuota: _modelQuotas[i].usedQuota,
+                remainQuota: _modelQuotas[i].remainQuota,
+                usingOfficialKey: !_modelQuotas[i].usingOfficialKey,
+              );
+            }
+            _isTogglingOfficialKey = false;
+          });
+        }
+      } else {
+        _showToast(result['msg'], ToastType.error);
+        if (mounted) {
+          setState(() {
+            _isTogglingOfficialKey = false;
+          });
+        }
+      }
+    } catch (e) {
+      _showToast('切换官方密钥状态失败: $e', ToastType.error);
+      if (mounted) {
+        setState(() {
+          _isTogglingOfficialKey = false;
+        });
+      }
+    }
   }
 
   // 添加显示配额说明对话框的方法
@@ -691,6 +752,111 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
             ),
           ],
         ),
+
+        // 官方密钥切换开关
+        if (widget.isVip) ...[
+          SizedBox(height: 12.h),
+          Container(
+            padding: EdgeInsets.all(12.w),
+            decoration: BoxDecoration(
+              color: AppTheme.cardBackground,
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(
+                color: Colors.orange.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.vpn_key,
+                  color: Colors.orange,
+                  size: 20.sp,
+                ),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '契约配额模式',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        _modelQuotas.isNotEmpty && _modelQuotas.first.usingOfficialKey
+                            ? '当前使用契约配额，享受稳定服务'
+                            : '当前使用个人密钥池配置，可能受限',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                InkWell(
+                  onTap: _isTogglingOfficialKey ? null : _toggleOfficialKey,
+                  borderRadius: BorderRadius.circular(20.r),
+                  child: Container(
+                    width: 50.w,
+                    height: 28.h,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20.r),
+                      color: _isTogglingOfficialKey
+                          ? Colors.grey.withOpacity(0.3)
+                          : (_modelQuotas.isNotEmpty && _modelQuotas.first.usingOfficialKey
+                              ? Colors.green
+                              : Colors.grey),
+                    ),
+                    child: Stack(
+                      children: [
+                        AnimatedPositioned(
+                          duration: const Duration(milliseconds: 200),
+                          left: _modelQuotas.isNotEmpty && _modelQuotas.first.usingOfficialKey ? 24.w : 2.w,
+                          top: 2.h,
+                          child: Container(
+                            width: 24.w,
+                            height: 24.h,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 2,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: _isTogglingOfficialKey
+                                ? Center(
+                                    child: SizedBox(
+                                      width: 12.w,
+                                      height: 12.h,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.5.w,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
         SizedBox(height: 16.h),
         ...List.generate(
           _modelQuotas.length,
@@ -979,6 +1145,7 @@ class ModelQuota {
   final int dailyLimit;
   final int usedQuota;
   final int remainQuota;
+  final bool usingOfficialKey;
 
   ModelQuota({
     required this.modelName,
@@ -986,5 +1153,6 @@ class ModelQuota {
     required this.dailyLimit,
     required this.usedQuota,
     required this.remainQuota,
+    required this.usingOfficialKey,
   });
 }

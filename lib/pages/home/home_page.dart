@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../services/file_service.dart';
 import 'services/home_service.dart';
 import 'package:shimmer/shimmer.dart';
+
 import 'pages/hot_items_page.dart';
 import 'pages/item_detail_page.dart';
 import 'pages/recommend_items_page.dart';
@@ -15,6 +16,7 @@ import 'pages/tag_items_page.dart';
 import 'pages/favorites_page.dart';
 import 'pages/preferences_page.dart';
 import 'pages/author_updates_page.dart';
+import '../../widgets/draw_cards_dialog.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -157,6 +159,15 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           if (item['cover_uri'] != null) {
             _loadItemImage(item['cover_uri'], forceReload: _forceReload);
           }
+          // 预加载群聊角色头像
+          if (item['item_type'] == 'group_chat_card' && item['role_group'] != null) {
+            final roles = item['role_group']['roles'] as List<dynamic>? ?? [];
+            for (final role in roles) {
+              if (role['avatarUri'] != null) {
+                _loadItemImage(role['avatarUri'], forceReload: _forceReload);
+              }
+            }
+          }
         }
         // 重置强制重新加载标志
         _forceReload = false;
@@ -253,6 +264,15 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             if (item['cover_uri'] != null) {
               _loadItemImage(item['cover_uri'], forceReload: false);
             }
+            // 预加载群聊角色头像
+            if (item['item_type'] == 'group_chat_card' && item['role_group'] != null) {
+              final roles = item['role_group']['roles'] as List<dynamic>? ?? [];
+              for (final role in roles) {
+                if (role['avatarUri'] != null) {
+                  _loadItemImage(role['avatarUri'], forceReload: false);
+                }
+              }
+            }
           }
         }
       }
@@ -301,6 +321,15 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           if (item['cover_uri'] != null) {
             _loadItemImage(item['cover_uri'], forceReload: _forceReload);
           }
+          // 预加载群聊角色头像
+          if (item['item_type'] == 'group_chat_card' && item['role_group'] != null) {
+            final roles = item['role_group']['roles'] as List<dynamic>? ?? [];
+            for (final role in roles) {
+              if (role['avatarUri'] != null) {
+                _loadItemImage(role['avatarUri'], forceReload: _forceReload);
+              }
+            }
+          }
         }
 
         // 打印调试信息
@@ -348,6 +377,15 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         debugPrint('检查作者更新失败: $e');
       }
     }
+  }
+
+  /// 显示抽卡弹窗
+  void _showDrawCardsDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const DrawCardsDialog(),
+    );
   }
 
   @override
@@ -401,80 +439,118 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 发现更多AI角色
+                      // 左侧按钮区域
                       Expanded(
                         flex: 2, // 占据四分之二(即二分之一)的空间
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const AllItemsPage(),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            height: 120.h,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: AppTheme.primaryGradient,
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                transform: GradientRotation(0.4),
-                              ),
-                              borderRadius: BorderRadius.circular(16.r),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.primaryGradient.first
-                                      .withOpacity(0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            padding: EdgeInsets.all(20.w),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.auto_awesome,
-                                      color: Colors.white,
-                                      size: 28.sp,
-                                    ),
-                                    SizedBox(width: 10.w),
-                                    Text(
-                                      '发现更多',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 20.sp,
-                                        fontWeight: FontWeight.bold,
+                        child: SizedBox(
+                          height: 120.h,
+                          child: Column(
+                            children: [
+                              // 随机抽卡按钮 (占据2/3高度)
+                              SizedBox(
+                                height: 76.h,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _showDrawCardsDialog();
+                                  },
+                                  child: Container(
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.purple.shade600,
+                                          Colors.purple.shade400,
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
                                       ),
+                                      borderRadius: BorderRadius.circular(16.r),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.purple.withOpacity(0.3),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                    padding: EdgeInsets.all(16.w),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.casino_outlined,
+                                          color: Colors.white,
+                                          size: 24.sp,
+                                        ),
+                                        SizedBox(width: 8.w),
+                                        Text(
+                                          '随机抽卡',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16.sp,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      '浏览全部AI角色',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
-                                        fontSize: 14.sp,
+                              ),
+
+                              SizedBox(height: 8.h),
+
+                              // 发现更多按钮 (占据1/3高度)
+                              SizedBox(
+                                height: 36.h,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const AllItemsPage(),
                                       ),
+                                    );
+                                  },
+                                  child: Container(
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: AppTheme.primaryGradient,
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12.r),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppTheme.primaryGradient.first
+                                              .withOpacity(0.3),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
                                     ),
-                                    Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: Colors.white,
-                                      size: 24.sp,
+                                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          '浏览全部AI角色',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12.sp,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.chevron_right_rounded,
+                                          color: Colors.white,
+                                          size: 16.sp,
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -1125,6 +1201,10 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Widget _buildItemCard(Map<String, dynamic> item, Color textPrimary,
       {bool isHotItem = false, int? index}) {
     final String? coverUri = item['cover_uri'];
+    final bool isGroupChat = item['item_type'] == 'group_chat_card';
+    final List<dynamic> roles = isGroupChat && item['role_group'] != null 
+        ? (item['role_group']['roles'] as List<dynamic>? ?? [])
+        : [];
 
     return GestureDetector(
       onTap: () {
@@ -1143,8 +1223,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ClipRRect(
               borderRadius: BorderRadius.circular(12.r),
               child: coverUri != null
-                  ? _buildCoverImage(coverUri, item['title'])
-                  : _buildEmptyCover(item['title']),
+                  ? _buildCoverImage(coverUri, item['title'], roles: roles, isGroupChat: isGroupChat)
+                  : _buildEmptyCover(item['title'], roles: roles, isGroupChat: isGroupChat),
             ),
             if (isHotItem && index != null && index < 3)
               Positioned(
@@ -1184,7 +1264,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildCoverImage(String coverUri, String? title) {
+  Widget _buildCoverImage(String coverUri, String? title, {List<dynamic>? roles, bool isGroupChat = false}) {
     if (_imageCache.containsKey(coverUri)) {
       return Stack(
         children: [
@@ -1195,6 +1275,9 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             fit: BoxFit.cover,
           ),
           _buildTitleOverlay(title),
+          // 群聊卡片在右上角显示简化的角色头像
+          if (isGroupChat && roles != null && roles.isNotEmpty)
+            _buildSimpleRoleAvatars(roles),
         ],
       );
     }
@@ -1217,7 +1300,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildEmptyCover(String? title) {
+  Widget _buildEmptyCover(String? title, {List<dynamic>? roles, bool isGroupChat = false}) {
     return Container(
       width: 120.w,
       height: 150.w,
@@ -1231,6 +1314,9 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
           _buildTitleOverlay(title, isDark: false),
+          // 群聊卡片在右上角显示简化的角色头像
+          if (isGroupChat && roles != null && roles.isNotEmpty)
+            _buildSimpleRoleAvatars(roles),
         ],
       ),
     );
@@ -1265,6 +1351,144 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
+      ),
+    );
+  }
+
+  // 构建简化版角色头像（用于今日热门和每日推荐）
+  Widget _buildSimpleRoleAvatars(List<dynamic> roles) {
+    if (roles.isEmpty) return const SizedBox();
+
+    return Positioned(
+      right: 8.w,
+      top: 8.h,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 第一个角色头像（无边框）
+            Container(
+              width: 16.w,
+              height: 16.h,
+              child: ClipOval(
+                child: _buildRoleAvatar(roles[0]['avatarUri']),
+              ),
+            ),
+            // 直接显示+N（如果有多个角色）
+            if (roles.length > 1) ...[
+              SizedBox(width: 4.w),
+              Text(
+                '+${roles.length - 1}',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 构建群聊角色头像堆叠显示（用于最新发布）
+  Widget _buildRoleAvatarsStack(List<dynamic> roles) {
+    if (roles.isEmpty) return const SizedBox();
+
+    const int maxVisibleAvatars = 3;
+    final int visibleCount = roles.length > maxVisibleAvatars ? maxVisibleAvatars : roles.length;
+    final int remainingCount = roles.length > maxVisibleAvatars ? roles.length - maxVisibleAvatars : 0;
+
+    return Positioned(
+      right: 8.w,
+      bottom: 8.h,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 堆叠头像
+            SizedBox(
+              width: (visibleCount * 12.w) + 12.w, // 计算总宽度，考虑重叠
+              height: 20.h,
+              child: Stack(
+                children: [
+                  for (int i = 0; i < visibleCount; i++)
+                    Positioned(
+                      right: i * 12.w, // 每个头像向右偏移12w，创造重叠效果
+                      child: Container(
+                        width: 20.w,
+                        height: 20.h,
+                        child: ClipOval(
+                          child: _buildRoleAvatar(roles[i]['avatarUri']),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            
+            // 直接显示+N（如果有剩余角色）
+            if (remainingCount > 0) ...[
+              SizedBox(width: 4.w),
+              Text(
+                '+$remainingCount',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 构建单个角色头像
+  Widget _buildRoleAvatar(String? avatarUri) {
+    if (avatarUri == null) {
+      return Container(
+        color: AppTheme.cardBackground,
+        child: Icon(
+          Icons.person,
+          color: AppTheme.textSecondary,
+          size: 16.sp,
+        ),
+      );
+    }
+
+    if (_imageCache.containsKey(avatarUri)) {
+      return Image.memory(
+        _imageCache[avatarUri]!,
+        fit: BoxFit.cover,
+        width: 24.w,
+        height: 24.h,
+      );
+    }
+
+    // 如果图片未加载，先加载图片
+    if (_loadingImages[avatarUri] != true) {
+      _loadItemImage(avatarUri);
+    }
+
+    return Container(
+      color: AppTheme.cardBackground,
+      child: Icon(
+        Icons.person,
+        color: AppTheme.textSecondary,
+        size: 16.sp,
       ),
     );
   }
@@ -1679,6 +1903,10 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   // 构建最新内容卡片
   Widget _buildLatestItemCard(Map<String, dynamic> item) {
     final String? coverUri = item['cover_uri'];
+    final bool isGroupChat = item['item_type'] == 'group_chat_card';
+    final List<dynamic> roles = isGroupChat && item['role_group'] != null 
+        ? (item['role_group']['roles'] as List<dynamic>? ?? [])
+        : [];
     final DateTime createdAt =
         DateTime.parse(item['created_at'] ?? DateTime.now().toIso8601String());
     final Duration difference = DateTime.now().difference(createdAt);
@@ -1911,6 +2139,10 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
               ),
+
+              // 群聊卡片显示角色头像
+              if (isGroupChat && roles.isNotEmpty)
+                _buildRoleAvatarsStack(roles),
             ],
           ),
         ),

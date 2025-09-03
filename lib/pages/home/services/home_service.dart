@@ -522,4 +522,19 @@ class HomeService {
       throw Exception('获取我的粉丝列表失败: $e');
     }
   }
+
+  /// 随机抽卡
+  Future<Map<String, dynamic>> drawCards() async {
+    try {
+      final response = await _httpClient.post('/hall/draw-cards');
+
+      if (response.data['code'] == 0) {
+        return response.data;
+      } else {
+        throw Exception(response.data['msg'] ?? '抽卡失败');
+      }
+    } catch (e) {
+      throw Exception('抽卡失败: $e');
+    }
+  }
 }
