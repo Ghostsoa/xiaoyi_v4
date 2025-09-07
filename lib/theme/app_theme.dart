@@ -369,7 +369,7 @@ class AppTheme {
           ),
         ),
         textStyle: WidgetStateProperty.all(
-          linkStyle.copyWith(decoration: TextDecoration.underline),
+          linkStyle.copyWith(decoration: TextDecoration.none),
         ),
       ),
     ),

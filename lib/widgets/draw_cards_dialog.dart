@@ -179,7 +179,7 @@ class _DrawCardsDialogState extends State<DrawCardsDialog>
                     end: Alignment.bottomRight,
                   ).createShader(bounds),
                   child: Icon(
-                    Icons.casino_outlined,
+                    Icons.casino,
                     color: Colors.white,
                     size: 28.sp,
                   ),
@@ -261,7 +261,7 @@ class _DrawCardsDialogState extends State<DrawCardsDialog>
           children: [
             Icon(Icons.auto_awesome, color: AppTheme.primaryColor, size: 16.sp),
             SizedBox(width: 8.w),
-            Icon(Icons.casino_outlined, color: AppTheme.primaryColor, size: 20.sp),
+            Icon(Icons.casino, color: AppTheme.primaryColor, size: 20.sp),
             SizedBox(width: 8.w),
             Icon(Icons.auto_awesome, color: AppTheme.primaryColor, size: 16.sp),
           ],

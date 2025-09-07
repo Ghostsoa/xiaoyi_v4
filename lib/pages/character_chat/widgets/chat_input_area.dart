@@ -1023,7 +1023,7 @@ class _ChatInputAreaState extends State<ChatInputArea>
                   _createTitleController.clear();
                   _createContentController.clear();
                 },
-                child: const Text('取消'),
+                child: const Text('取消', style: TextStyle(decoration: TextDecoration.none)),
               ),
             ],
           ),

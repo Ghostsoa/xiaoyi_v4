@@ -347,7 +347,7 @@ class _SystemSettingsModuleState extends State<SystemSettingsModule> {
               children: [
                 const TextSpan(text: '补充设定具有'),
                 TextSpan(
-                  text: '最高优先级',
+                  text: '较高优先级',
                   style: TextStyle(
                     color: Colors.red,
                     fontWeight: FontWeight.w600,

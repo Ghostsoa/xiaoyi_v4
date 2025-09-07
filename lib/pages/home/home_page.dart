@@ -3,10 +3,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'dart:typed_data';
 import 'dart:async'; // 导入Timer
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_theme.dart';
 import '../../services/file_service.dart';
 import 'services/home_service.dart';
 import 'package:shimmer/shimmer.dart';
+
 
 import 'pages/hot_items_page.dart';
 import 'pages/item_detail_page.dart';
@@ -16,6 +18,7 @@ import 'pages/tag_items_page.dart';
 import 'pages/favorites_page.dart';
 import 'pages/preferences_page.dart';
 import 'pages/author_updates_page.dart';
+import 'pages/category_selection_page.dart';
 import '../../widgets/draw_cards_dialog.dart';
 
 class HomePage extends StatefulWidget {
@@ -38,6 +41,11 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isLoading = true;
   bool _showAllTags = false;
 
+  // 独立加载状态跟踪
+  bool _hotItemsLoading = true;
+  bool _recommendItemsLoading = true;
+  bool _hotTagsLoading = true;
+
   List<dynamic> _hotItems = [];
   List<dynamic> _recommendItems = [];
   List<String> _hotTags = [];
@@ -59,7 +67,11 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    _loadData();
+
+    // 异步独立加载各个部分，不等待
+    _loadHotItems();
+    _loadRecommendItems();
+    _loadHotTags();
     _loadLatestItems(); // 加载最新发布
     _checkAuthorUpdates();
 
@@ -68,6 +80,9 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // 启动推送检查定时器
     _startPushCheckTimer();
+
+    // 异步检查分区偏好设置
+    _checkCategoryPreference();
   }
 
   @override
@@ -131,11 +146,116 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  // 加载热门内容
+  Future<void> _loadHotItems() async {
+    if (!mounted) return;
+
+    try {
+      final result = await _homeService.getHotItems();
+      if (mounted && result['code'] == 0) {
+        setState(() {
+          _hotItems = result['data']['items'] ?? [];
+          _hotItemsLoading = false;
+        });
+
+        // 预加载图片
+        for (final item in _hotItems) {
+          if (item['cover_uri'] != null) {
+            _loadItemImage(item['cover_uri'], forceReload: _forceReload);
+          }
+          // 预加载群聊角色头像
+          if (item['item_type'] == 'group_chat_card' && item['role_group'] != null) {
+            final roles = item['role_group']['roles'] as List<dynamic>? ?? [];
+            for (final role in roles) {
+              if (role['avatarUri'] != null) {
+                _loadItemImage(role['avatarUri'], forceReload: _forceReload);
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('加载热门内容失败: $e');
+      if (mounted) {
+        setState(() {
+          _hotItemsLoading = false;
+        });
+      }
+    }
+  }
+
+  // 加载推荐内容
+  Future<void> _loadRecommendItems() async {
+    if (!mounted) return;
+
+    try {
+      final result = await _homeService.getRecommendItems();
+      if (mounted && result['code'] == 0) {
+        setState(() {
+          _recommendItems = result['data']['items'] ?? [];
+          _recommendItemsLoading = false;
+        });
+
+        // 预加载图片
+        for (final item in _recommendItems) {
+          if (item['cover_uri'] != null) {
+            _loadItemImage(item['cover_uri'], forceReload: _forceReload);
+          }
+          // 预加载群聊角色头像
+          if (item['item_type'] == 'group_chat_card' && item['role_group'] != null) {
+            final roles = item['role_group']['roles'] as List<dynamic>? ?? [];
+            for (final role in roles) {
+              if (role['avatarUri'] != null) {
+                _loadItemImage(role['avatarUri'], forceReload: _forceReload);
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('加载推荐内容失败: $e');
+      if (mounted) {
+        setState(() {
+          _recommendItemsLoading = false;
+        });
+      }
+    }
+  }
+
+  // 加载热门标签
+  Future<void> _loadHotTags() async {
+    if (!mounted) return;
+
+    try {
+      final result = await _homeService.getHotTags();
+      if (mounted && result['code'] == 0) {
+        setState(() {
+          _hotTags = List<String>.from(result['data'] ?? []);
+          _hotTagsLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('加载热门标签失败: $e');
+      if (mounted) {
+        setState(() {
+          _hotTagsLoading = false;
+        });
+      }
+    }
+  }
+
+  // 保留原来的_loadData方法用于刷新
   Future<void> _loadData() async {
     if (!mounted) return;
 
     if (!_isLoading) {
-      setState(() => _isLoading = true);
+      setState(() {
+        _isLoading = true;
+        // 重置加载状态
+        _hotItemsLoading = true;
+        _recommendItemsLoading = true;
+        _hotTagsLoading = true;
+      });
     }
 
     try {
@@ -152,6 +272,10 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           _recommendItems = results[1]['data']['items'] ?? [];
           _hotTags = List<String>.from(results[2]['data'] ?? []);
           _isLoading = false;
+          // 更新加载状态标志
+          _hotItemsLoading = false;
+          _recommendItemsLoading = false;
+          _hotTagsLoading = false;
         });
 
         // 预加载所有图片
@@ -379,6 +503,51 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  /// 检查分区偏好设置
+  Future<void> _checkCategoryPreference() async {
+    try {
+      // 先检查本地是否已经完成过分区选择
+      final prefs = await SharedPreferences.getInstance();
+      final bool categorySelectionCompleted = prefs.getBool('category_selection_completed') ?? false;
+
+      if (categorySelectionCompleted) {
+        // 已经选择过，直接返回
+        return;
+      }
+
+      // 没有本地标记，请求后端检查当前分区设置
+      final result = await _homeService.getUserPreferences();
+      if (result['code'] == 0 && result['data'] != null) {
+        final String? preferredCategory = result['data']['preferred_category'];
+
+        // 如果分区为空或者是"all"，才跳转到选择界面
+        if (preferredCategory == null || preferredCategory.isEmpty || preferredCategory == 'all') {
+          if (mounted) {
+            final selectionResult = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CategorySelectionPage(),
+              ),
+            );
+
+            // 如果用户完成了选择，刷新大厅数据
+            if (selectionResult == true) {
+              _onRefresh();
+            }
+          }
+        } else {
+          // 后端已有具体分区设置，直接保存本地标记，不跳转
+          await prefs.setBool('category_selection_completed', true);
+        }
+      }
+    } catch (e) {
+      // 检查失败，静默处理
+      debugPrint('检查分区偏好失败: $e');
+    }
+  }
+
+
+
   /// 显示抽卡弹窗
   void _showDrawCardsDialog() {
     showDialog(
@@ -458,8 +627,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
                                         colors: [
-                                          Colors.purple.shade600,
-                                          Colors.purple.shade400,
+                                          Color(0xFF6A5ACD), // 星光紫
+                                          Color(0xFF9370DB), // 中等兰花紫
                                         ],
                                         begin: Alignment.topLeft,
                                         end: Alignment.bottomRight,
@@ -467,8 +636,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       borderRadius: BorderRadius.circular(16.r),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.purple.withOpacity(0.3),
-                                          blurRadius: 8,
+                                          color: Color(0xFF6A5ACD).withOpacity(0.4),
+                                          blurRadius: 12,
                                           offset: const Offset(0, 4),
                                         ),
                                       ],
@@ -477,7 +646,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     child: Row(
                                       children: [
                                         Icon(
-                                          Icons.casino_outlined,
+                                          Icons.casino,
                                           color: Colors.white,
                                           size: 24.sp,
                                         ),
@@ -684,6 +853,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   AppTheme.textSecondary,
                   AppTheme.primaryColor,
                   isHotSection: true,
+                  isLoading: _hotItemsLoading,
                 ),
               ),
 
@@ -764,7 +934,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         ),
                       ),
                       SizedBox(height: 16.h),
-                      _isLoading
+                      _hotTagsLoading
                           ? _buildTagsSkeleton()
                           : _showAllTags
                               ? _buildTagsWrapLayout()
@@ -784,6 +954,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   AppTheme.textSecondary,
                   AppTheme.primaryColor,
                   isHotSection: false,
+                  isLoading: _recommendItemsLoading,
                 ),
               ),
 
@@ -949,7 +1120,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       Color textPrimary,
       Color textSecondary,
       Color primaryColor,
-      {required bool isHotSection}) {
+      {required bool isHotSection, required bool isLoading}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1037,7 +1208,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ],
           ),
         ),
-        _isLoading
+        isLoading
             ? _buildItemsSkeleton(isHotSection)
             : items.isEmpty
                 ? _buildEmptyState(title, textSecondary)

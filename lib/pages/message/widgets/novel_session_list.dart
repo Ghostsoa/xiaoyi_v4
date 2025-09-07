@@ -1114,11 +1114,11 @@ class NovelSessionListState extends State<NovelSessionList> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text('取消'),
+              child: Text('取消', style: TextStyle(decoration: TextDecoration.none)),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: Text('删除', style: TextStyle(color: Colors.red)),
+              child: Text('删除', style: TextStyle(color: Colors.red, decoration: TextDecoration.none)),
             ),
           ],
         );

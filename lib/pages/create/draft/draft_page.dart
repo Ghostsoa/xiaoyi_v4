@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shimmer/shimmer.dart';
 import 'dart:typed_data';
+import 'dart:async';
 import '../../../theme/app_theme.dart';
 import '../services/characte_service.dart';
 import '../services/novel_service.dart';
@@ -26,6 +27,8 @@ class _DraftPageState extends State<DraftPage> {
   final _groupChatService = GroupChatService();
   final ScrollController _scrollController = ScrollController();
   final Map<String, Uint8List> _imageCache = {}; // 图片缓存
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounceTimer;
 
   bool _isLoading = false;
   bool _isLoadingMore = false;
@@ -36,6 +39,7 @@ class _DraftPageState extends State<DraftPage> {
   int _currentPage = 1;
   final int _pageSize = 10;
   bool _hasMoreData = true;
+  String _searchKeyword = '';
 
   @override
   void initState() {
@@ -48,6 +52,8 @@ class _DraftPageState extends State<DraftPage> {
   void dispose() {
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
+    _searchController.dispose();
+    _searchDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -84,6 +90,7 @@ class _DraftPageState extends State<DraftPage> {
         page: _currentPage,
         pageSize: _pageSize,
         status: 'draft',
+        keyword: _searchKeyword.isNotEmpty ? _searchKeyword : null,
       );
 
       if (response['code'] == 0) {
@@ -110,6 +117,7 @@ class _DraftPageState extends State<DraftPage> {
         page: _currentPage,
         pageSize: _pageSize,
         status: 'draft',
+        keyword: _searchKeyword.isNotEmpty ? _searchKeyword : null,
       );
 
       if (response['code'] == 0) {
@@ -136,6 +144,7 @@ class _DraftPageState extends State<DraftPage> {
         page: _currentPage,
         pageSize: _pageSize,
         status: 'draft',
+        keyword: _searchKeyword.isNotEmpty ? _searchKeyword : null,
       );
 
       if (response['code'] == 0) {
@@ -195,6 +204,7 @@ class _DraftPageState extends State<DraftPage> {
         page: _currentPage + 1,
         pageSize: _pageSize,
         status: 'draft',
+        keyword: _searchKeyword.isNotEmpty ? _searchKeyword : null,
       );
 
       if (response['code'] == 0) {
@@ -227,6 +237,7 @@ class _DraftPageState extends State<DraftPage> {
         page: _currentPage + 1,
         pageSize: _pageSize,
         status: 'draft',
+        keyword: _searchKeyword.isNotEmpty ? _searchKeyword : null,
       );
 
       if (response['code'] == 0) {
@@ -259,6 +270,7 @@ class _DraftPageState extends State<DraftPage> {
         page: _currentPage + 1,
         pageSize: _pageSize,
         status: 'draft',
+        keyword: _searchKeyword.isNotEmpty ? _searchKeyword : null,
       );
 
       if (response['code'] == 0) {
@@ -288,6 +300,33 @@ class _DraftPageState extends State<DraftPage> {
   void _showToast(String message, {ToastType type = ToastType.info}) {
     if (!mounted) return;
     CustomToast.show(context, message: message, type: type);
+  }
+
+  // 搜索处理方法
+  void _onSearchChanged(String value) {
+    // 取消之前的定时器
+    _searchDebounceTimer?.cancel();
+
+    // 设置新的定时器，500ms后执行搜索
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted && _searchKeyword != value) {
+        setState(() {
+          _searchKeyword = value;
+        });
+        _loadData();
+      }
+    });
+  }
+
+  // 清空搜索
+  void _clearSearch() {
+    _searchController.clear();
+    if (_searchKeyword.isNotEmpty) {
+      setState(() {
+        _searchKeyword = '';
+      });
+      _loadData();
+    }
   }
 
   @override
@@ -349,6 +388,9 @@ class _DraftPageState extends State<DraftPage> {
               ),
             ),
 
+            // 搜索框
+            _buildSearchBox(),
+
             // 内容区域
             Expanded(
               child: _isLoading
@@ -378,6 +420,63 @@ class _DraftPageState extends State<DraftPage> {
           fontSize: 14.sp,
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  // 构建搜索框
+  Widget _buildSearchBox() {
+    return Container(
+      margin: EdgeInsets.fromLTRB(24.w, 0, 24.w, 16.h),
+      child: Container(
+        height: 40.h,
+        decoration: BoxDecoration(
+          color: AppTheme.cardBackground,
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(
+            color: AppTheme.border.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: TextField(
+          controller: _searchController,
+          onChanged: (value) {
+            _onSearchChanged(value);
+            // 触发重建以更新清除按钮显示状态
+            setState(() {});
+          },
+          style: TextStyle(
+            fontSize: 14.sp,
+            color: AppTheme.textPrimary,
+          ),
+          decoration: InputDecoration(
+            hintText: '搜索草稿标题、简介、关键词...',
+            hintStyle: TextStyle(
+              fontSize: 14.sp,
+              color: AppTheme.textSecondary.withOpacity(0.6),
+            ),
+            prefixIcon: Icon(
+              Icons.search,
+              size: 20.sp,
+              color: AppTheme.textSecondary.withOpacity(0.6),
+            ),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? GestureDetector(
+                    onTap: _clearSearch,
+                    child: Icon(
+                      Icons.clear,
+                      size: 20.sp,
+                      color: AppTheme.textSecondary.withOpacity(0.6),
+                    ),
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 16.w,
+              vertical: 10.h,
+            ),
+          ),
         ),
       ),
     );

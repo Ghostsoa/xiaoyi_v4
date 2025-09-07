@@ -31,6 +31,7 @@ class NovelService {
     int page = 1,
     int pageSize = 10,
     String? status,
+    String? keyword,
   }) async {
     try {
       final Map<String, dynamic> queryParams = {
@@ -41,6 +42,11 @@ class NovelService {
       // 添加状态过滤
       if (status != null && status.isNotEmpty) {
         queryParams['status'] = status;
+      }
+
+      // 添加关键词搜索
+      if (keyword != null && keyword.isNotEmpty) {
+        queryParams['keyword'] = keyword;
       }
 
       final response =

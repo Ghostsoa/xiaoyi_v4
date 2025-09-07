@@ -487,6 +487,74 @@ class _NovelBasicInfoModuleState extends State<NovelBasicInfoModule> {
           ),
         ),
         SizedBox(height: 8.h),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '推荐至少添加这些中的一个：',
+              style: TextStyle(
+                fontSize: AppTheme.captionSize,
+                color: textSecondary,
+              ),
+            ),
+            SizedBox(height: 2.h),
+            Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                  decoration: BoxDecoration(
+                    color: Colors.pink.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4.r),
+                    border: Border.all(color: Colors.pink.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    '女性向',
+                    style: TextStyle(
+                      color: Colors.pink,
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4.r),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    '男性向',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4.r),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    '全性向',
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        SizedBox(height: 8.h),
 
         // 自定义标签输入
         _buildCustomTagInput(),

@@ -108,7 +108,7 @@ class CustomTextButton extends StatelessWidget {
             fontSize: AppTheme.captionSize,
             fontWeight: FontWeight.w500,
             color: textColor ?? AppTheme.primaryLight,
-            decoration: TextDecoration.underline,
+            decoration: TextDecoration.none,
           ),
         ),
       ),

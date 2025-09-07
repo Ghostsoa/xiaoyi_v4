@@ -98,6 +98,7 @@ class _SelectModelPageState extends State<SelectModelPage> {
               '确定',
               style: AppTheme.buttonTextStyle.copyWith(
                 color: AppTheme.primaryColor,
+                decoration: TextDecoration.none,
               ),
             ),
           ),

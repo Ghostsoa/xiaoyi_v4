@@ -15,6 +15,7 @@ class PreferenceModel {
   List<String> dislikedKeywords;
   int preferenceStrength;
   int applyToHall;
+  String preferredCategory;
 
   PreferenceModel({
     this.likedTags = const [],
@@ -25,6 +26,7 @@ class PreferenceModel {
     this.dislikedKeywords = const [],
     this.preferenceStrength = 1,
     this.applyToHall = 1,
+    this.preferredCategory = 'all',
   });
 
   factory PreferenceModel.fromJson(Map<String, dynamic> json) {
@@ -37,6 +39,7 @@ class PreferenceModel {
       dislikedKeywords: List<String>.from(json['disliked_keywords'] ?? []),
       preferenceStrength: json['preference_strength'] ?? 1,
       applyToHall: json['apply_to_hall'] ?? 1,
+      preferredCategory: json['preferred_category'] ?? 'all',
     );
   }
 }
@@ -223,6 +226,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
         dislikedKeywords: _preferences.dislikedKeywords,
         preferenceStrength: _preferences.preferenceStrength,
         applyToHall: _preferences.applyToHall,
+        preferredCategory: _preferences.preferredCategory,
       );
 
       if (mounted) {
@@ -481,6 +485,80 @@ class _PreferencesPageState extends State<PreferencesPage> {
                             ),
                             Spacer(),
                           ],
+                        ),
+                      ),
+                    ),
+
+                    // 分区偏好设置
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        child: Card(
+                          color: AppTheme.cardBackground,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16.r),
+                          ),
+                          elevation: 0,
+                          margin: EdgeInsets.only(bottom: 16.h),
+                          child: Padding(
+                            padding: EdgeInsets.all(16.w),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '分区偏好',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18.sp,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 12.h),
+                                Container(
+                                  padding: EdgeInsets.all(12.w),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8.r),
+                                    border: Border.all(
+                                      color: AppTheme.primaryColor.withOpacity(0.3),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.info_outline,
+                                        color: AppTheme.primaryColor,
+                                        size: 16.sp,
+                                      ),
+                                      SizedBox(width: 8.w),
+                                      Expanded(
+                                        child: Text(
+                                          '更改后，刷新大厅生效。偏好设置不会影响热门排行榜。',
+                                          style: TextStyle(
+                                            color: AppTheme.primaryColor,
+                                            fontSize: 12.sp,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(height: 16.h),
+                                Text(
+                                  '选择您偏好的内容分区',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondary,
+                                    fontSize: 14.sp,
+                                  ),
+                                ),
+                                SizedBox(height: 12.h),
+                                _buildCategoryButtons(),
+                                SizedBox(height: 12.h),
+                                _buildCategoryDescriptions(),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -873,6 +951,125 @@ class _PreferencesPageState extends State<PreferencesPage> {
       default:
         return '中';
     }
+  }
+
+  Widget _buildCategoryButtons() {
+    final categories = [
+      {'value': 'all', 'label': '所有'},
+      {'value': 'general', 'label': '全性向'},
+      {'value': 'female', 'label': '女性向'},
+      {'value': 'male', 'label': '男性向'},
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(25.r),
+      ),
+      child: Row(
+        children: categories.map((category) {
+          final isSelected = _preferences.preferredCategory == category['value'];
+          final index = categories.indexOf(category);
+
+          return Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isEditing = true;
+                  _preferences.preferredCategory = category['value']!;
+                });
+              },
+              child: Container(
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppTheme.primaryColor
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(25.r),
+                ),
+                child: Center(
+                  child: Text(
+                    category['label']!,
+                    style: TextStyle(
+                      color: isSelected
+                          ? Colors.white
+                          : AppTheme.textSecondary,
+                      fontSize: 14.sp,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildCategoryDescriptions() {
+    final descriptions = {
+      'all': '显示所有分区的内容',
+      'general': '不区分性别，例如模拟器的卡',
+      'female': '面向女性用户的内容',
+      'male': '面向男性用户的内容',
+    };
+
+    return Container(
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '分区说明：',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          ...descriptions.entries.map((entry) {
+            final categoryLabels = {
+              'all': '所有',
+              'general': '全性向',
+              'female': '女性向',
+              'male': '男性向',
+            };
+
+            return Padding(
+              padding: EdgeInsets.only(bottom: 4.h),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '• ${categoryLabels[entry.key]}：',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      entry.value,
+                      style: TextStyle(
+                        color: AppTheme.textSecondary.withOpacity(0.8),
+                        fontSize: 12.sp,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
   }
 
   Widget _buildPreferenceSection({

@@ -1029,6 +1029,7 @@ class _MyMaterialPageState extends State<MyMaterialPage>
                               style: TextStyle(
                                 color: AppTheme.textSecondary,
                                 fontSize: AppTheme.bodySize,
+                                decoration: TextDecoration.none,
                               ),
                             ),
                           ),
@@ -1040,6 +1041,7 @@ class _MyMaterialPageState extends State<MyMaterialPage>
                               style: TextStyle(
                                 color: Colors.red,
                                 fontSize: AppTheme.bodySize,
+                                decoration: TextDecoration.none,
                               ),
                             ),
                           ),

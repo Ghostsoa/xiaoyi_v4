@@ -111,7 +111,7 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
         Row(
           children: [
             Text('标签', style: AppTheme.secondaryStyle),
-            SizedBox(width: 4.w),
+
             Icon(
               Icons.help_outline,
               size: 16.sp,
@@ -205,7 +205,8 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
                 color: AppTheme.textSecondary,
               ),
               SizedBox(width: 4.w),
-              RichText(
+              Expanded(
+                child: RichText(
                 text: TextSpan(
                   style: TextStyle(
                     color: AppTheme.textSecondary,
@@ -230,6 +231,77 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
                     ),
                   ],
                 ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.only(top: 8.h, left: 12.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '推荐至少添加这些中的一个：',
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 12.sp,
+                ),
+              ),
+              SizedBox(height: 2.h),
+              Wrap(
+                spacing: 6.w,
+                runSpacing: 4.h,
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                    decoration: BoxDecoration(
+                      color: Colors.pink.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4.r),
+                      border: Border.all(color: Colors.pink.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      '女性向',
+                      style: TextStyle(
+                        color: Colors.pink,
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4.r),
+                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      '男性向',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4.r),
+                      border: Border.all(color: Colors.green.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      '全性向',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

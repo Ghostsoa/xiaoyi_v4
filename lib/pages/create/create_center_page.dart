@@ -433,22 +433,12 @@ class _CreateCenterPageState extends State<CreateCenterPage> {
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
-                              // TODO: 临时禁用群聊功能 - 删除此注释并恢复下面的代码以重新启用
-                              CustomToast.show(
-                                context,
-                                message: '群聊功能正在开发中，敬请期待',
-                                type: ToastType.info,
-                              );
-
-                              // 原始跳转代码 - 取消注释以恢复功能
-                              /*
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => const CreateGroupChatPage(),
                                 ),
                               );
-                              */
                             },
                             behavior: HitTestBehavior.opaque,
                             child: Row(
@@ -1007,15 +997,17 @@ class _CreateCenterPageState extends State<CreateCenterPage> {
                   ),
                   SizedBox(height: 8.h),
 
-                  // 兑换全部 (仅当时长>10小时时可用)
+                  // 兑换全部 (仅当时长>=10小时时可用)
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: maxHours > 10.0
+                      onPressed: maxHours >= 10.0
                           ? () => _claimAndCloseDialog(null)
                           : null,
                       icon: Icon(Icons.done_all, size: 18.sp),
-                      label: Text('兑换全部 (${hours.toStringAsFixed(2)}小时)'),
+                      label: Text(maxHours >= 10.0
+                          ? '兑换全部 (${hours.toStringAsFixed(2)}小时)'
+                          : '兑换全部 (10小时起)'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,
@@ -1025,6 +1017,7 @@ class _CreateCenterPageState extends State<CreateCenterPage> {
                         padding: EdgeInsets.symmetric(vertical: 10.h),
                         disabledBackgroundColor:
                             AppTheme.primaryColor.withOpacity(0.3),
+                        disabledForegroundColor: Colors.white.withOpacity(0.7),
                       ),
                     ),
                   ),

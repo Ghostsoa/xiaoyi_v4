@@ -239,6 +239,7 @@ class HomeService {
     required List<String> dislikedKeywords,
     required int preferenceStrength,
     required int applyToHall,
+    required String preferredCategory,
   }) async {
     try {
       final response = await _httpClient.put(
@@ -252,6 +253,7 @@ class HomeService {
           'disliked_keywords': dislikedKeywords,
           'preference_strength': preferenceStrength,
           'apply_to_hall': applyToHall,
+          'preferred_category': preferredCategory,
         },
       );
       return response.data;
@@ -267,6 +269,21 @@ class HomeService {
       return response.data;
     } catch (e) {
       throw Exception('重置偏好设置失败: $e');
+    }
+  }
+
+  /// 更新用户分区偏好
+  Future<Map<String, dynamic>> updateHallPreferencesCategory(String category) async {
+    try {
+      final response = await _httpClient.put(
+        '/hall/preferences/category',
+        data: {
+          'category': category,
+        },
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception('更新分区偏好失败: $e');
     }
   }
 

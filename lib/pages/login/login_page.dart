@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -392,9 +393,30 @@ class _LoginPageState extends State<LoginPage> {
 
                   // 登录按钮
                   _isLoading
-                      ? Center(
-                          child: CircularProgressIndicator(
-                            color: AppTheme.primaryColor,
+                      ? Container(
+                          height: 50.h,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8.r),
+                            border: Border.all(
+                              color: AppTheme.primaryColor.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Center(
+                            child: Shimmer.fromColors(
+                              baseColor: AppTheme.primaryColor.withOpacity(0.5),
+                              highlightColor: AppTheme.primaryColor,
+                              period: Duration(milliseconds: 1200),
+                              child: Text(
+                                '登录中...',
+                                style: TextStyle(
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                            ),
                           ),
                         )
                       : CustomButton(
@@ -447,6 +469,7 @@ class _LoginPageState extends State<LoginPage> {
                         style: TextStyle(
                           color: AppTheme.textSecondary,
                           fontSize: 14.sp,
+                          decoration: TextDecoration.none,
                         ),
                       ),
                       style: TextButton.styleFrom(
