@@ -14,36 +14,48 @@ class CategorySelectionPage extends StatefulWidget {
 
 class _CategorySelectionPageState extends State<CategorySelectionPage> {
   final HomeService _homeService = HomeService();
-  String? _selectedCategory;
+  List<String> _selectedCategories = [];
   bool _isLoading = false;
 
-  final List<Map<String, String>> _categories = [
+  final List<Map<String, dynamic>> _categories = [
     {
       'value': 'all',
       'label': '全部',
       'description': '显示所有分区的内容',
+      'icon': Icons.apps_rounded,
+      'gradient': [Color(0xFF667eea), Color(0xFF764ba2)],
+      'isSpecial': true,
     },
     {
       'value': 'general',
       'label': '全性向',
       'description': '适合所有用户的内容',
+      'icon': Icons.diversity_3_rounded,
+      'gradient': [Color(0xFF11998e), Color(0xFF38ef7d)],
+      'isSpecial': false,
     },
     {
       'value': 'female',
       'label': '女性向',
       'description': '主要面向女性用户的内容',
+      'icon': Icons.female_rounded,
+      'gradient': [Color(0xFFf093fb), Color(0xFFf5576c)],
+      'isSpecial': false,
     },
     {
       'value': 'male',
       'label': '男性向',
       'description': '主要面向男性用户的内容',
+      'icon': Icons.male_rounded,
+      'gradient': [Color(0xFF4facfe), Color(0xFF00f2fe)],
+      'isSpecial': false,
     },
   ];
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => false, // 禁止返回
+    return PopScope(
+      canPop: false, // 禁止返回
       child: Scaffold(
         backgroundColor: AppTheme.background,
         body: SafeArea(
@@ -52,48 +64,111 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
             child: Column(
               children: [
                 Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // 标题区域
-                      Column(
-                        children: [
-                          Text(
-                            '选择内容分区',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 28.sp,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: 12.h),
-                          Text(
-                            '请选择您偏好的内容分区类型',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppTheme.textSecondary,
-                              fontSize: 16.sp,
-                              height: 1.4,
-                            ),
-                          ),
-                          SizedBox(height: 8.h),
-                          Text(
-                            '这将影响为您展示的内容',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppTheme.textSecondary.withOpacity(0.7),
-                              fontSize: 14.sp,
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
-                      ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        SizedBox(height: 40.h),
 
-                      SizedBox(height: 40.h),
+                        // 标题区域
+                        Column(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(16.w),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.tune_rounded,
+                                color: AppTheme.primaryColor,
+                                size: 32.sp,
+                              ),
+                            ),
+                            SizedBox(height: 24.h),
+                            Text(
+                              '选择内容分区',
+                              style: TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontSize: 28.sp,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 12.h),
+                            Text(
+                              '请选择您偏好的内容分区类型',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 16.sp,
+                                height: 1.4,
+                              ),
+                            ),
+                            SizedBox(height: 8.h),
+                            Text(
+                              '这将影响为您展示的内容',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppTheme.textSecondary.withValues(alpha: 0.7),
+                                fontSize: 14.sp,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
 
-                      // 分区选择列表
-                      ...(_categories.map((category) => _buildCategoryCard(category))),
-                    ],
+                        SizedBox(height: 40.h),
+
+                        // 分区选择区域
+                        _buildCategorySelection(),
+
+                        SizedBox(height: 32.h),
+
+                        // 选择规则提示
+                        Container(
+                          padding: EdgeInsets.all(16.w),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12.r),
+                            border: Border.all(
+                              color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    color: AppTheme.primaryColor,
+                                    size: 16.sp,
+                                  ),
+                                  SizedBox(width: 8.w),
+                                  Text(
+                                    '选择规则',
+                                    style: TextStyle(
+                                      color: AppTheme.primaryColor,
+                                      fontSize: 14.sp,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 8.h),
+                              Text(
+                                '• "全部"与其他分区互斥\n• 其他分区可以多选（最多2个）\n• 必须至少选择一个分区',
+                                style: TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontSize: 12.sp,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -103,19 +178,19 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                   height: 56.h,
                   margin: EdgeInsets.only(top: 24.h),
                   child: ElevatedButton(
-                    onPressed: _selectedCategory != null && !_isLoading
+                    onPressed: _selectedCategories.isNotEmpty && !_isLoading
                         ? _confirmSelection
                         : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _selectedCategory != null
+                      backgroundColor: _selectedCategories.isNotEmpty
                           ? AppTheme.primaryColor
                           : Colors.grey.shade600,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16.r),
                       ),
-                      elevation: _selectedCategory != null ? 8 : 0,
-                      shadowColor: AppTheme.primaryColor.withOpacity(0.3),
+                      elevation: _selectedCategories.isNotEmpty ? 8 : 0,
+                      shadowColor: AppTheme.primaryColor.withValues(alpha: 0.3),
                     ),
                     child: _isLoading
                         ? SizedBox(
@@ -127,7 +202,9 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                             ),
                           )
                         : Text(
-                            '确认选择',
+                            _selectedCategories.isEmpty
+                                ? '请选择分区'
+                                : '确认选择 (${_selectedCategories.length})',
                             style: TextStyle(
                               fontSize: 18.sp,
                               fontWeight: FontWeight.bold,
@@ -143,109 +220,155 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
     );
   }
 
-  Widget _buildCategoryCard(Map<String, String> category) {
-    final bool isSelected = _selectedCategory == category['value'];
+  Widget _buildCategorySelection() {
+    return Column(
+      children: [
+        // 所有分区选项 - 每个都占一行，紧凑设计
+        ..._categories.map((category) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: 12.h),
+            child: _buildCompactCategoryCard(category),
+          );
+        }),
+      ],
+    );
+  }
 
-    return Container(
-      width: double.infinity,
-      margin: EdgeInsets.only(bottom: 12.h),
+  Widget _buildCompactCategoryCard(Map<String, dynamic> category) {
+    final isSelected = _selectedCategories.contains(category['value']);
+    final categoryValue = category['value'];
+
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
       child: GestureDetector(
         onTap: () {
           setState(() {
-            _selectedCategory = category['value'];
+            if (categoryValue == 'all') {
+              if (isSelected) {
+                // 如果当前选中"全部"，取消选择
+                _selectedCategories = [];
+              } else {
+                // 选择"全部"，清空其他选择
+                _selectedCategories = ['all'];
+              }
+            } else {
+              // 选择其他分区
+              final hasAllSelected = _selectedCategories.contains('all');
+              final canSelect = !hasAllSelected && (_selectedCategories.length < 2 || isSelected);
+
+              if (canSelect) {
+                List<String> newCategories = List.from(_selectedCategories);
+
+                // 移除"全部"选项
+                newCategories.remove('all');
+
+                if (isSelected) {
+                  // 如果已选中，则取消选择
+                  newCategories.remove(categoryValue);
+                } else {
+                  // 如果未选中，则添加选择
+                  newCategories.add(categoryValue);
+                }
+
+                _selectedCategories = newCategories;
+              }
+            }
           });
         },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.all(20.w),
+        child: Container(
+          padding: EdgeInsets.all(12.w),
           decoration: BoxDecoration(
             gradient: isSelected
                 ? LinearGradient(
-                    colors: [
-                      AppTheme.primaryColor.withOpacity(0.15),
-                      AppTheme.primaryColor.withOpacity(0.05),
-                    ],
+                    colors: category['gradient'],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   )
                 : null,
             color: isSelected ? null : AppTheme.cardBackground,
-            borderRadius: BorderRadius.circular(16.r),
+            borderRadius: BorderRadius.circular(12.r),
             border: Border.all(
               color: isSelected
-                  ? AppTheme.primaryColor
-                  : Colors.white.withOpacity(0.1),
+                  ? Colors.white.withValues(alpha: 0.3)
+                  : AppTheme.textSecondary.withValues(alpha: 0.3),
               width: isSelected ? 2 : 1,
             ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withOpacity(0.2),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+            boxShadow: isSelected ? [
+              BoxShadow(
+                color: category['gradient'][0].withValues(alpha: 0.3),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ] : [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              // 文本内容
+              Container(
+                padding: EdgeInsets.all(8.w),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: isSelected ? 0.2 : 0.1),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Icon(
+                  category['icon'],
+                  color: isSelected ? Colors.white : AppTheme.primaryColor,
+                  size: 18.sp,
+                ),
+              ),
+              SizedBox(width: 12.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      category['label']!,
+                      category['label'],
                       style: TextStyle(
-                        color: isSelected
-                            ? AppTheme.primaryColor
-                            : Colors.white,
-                        fontSize: 18.sp,
+                        color: isSelected ? Colors.white : AppTheme.textPrimary,
+                        fontSize: 15.sp,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 6.h),
+                    SizedBox(height: 2.h),
                     Text(
-                      category['description']!,
+                      category['description'],
                       style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 14.sp,
-                        height: 1.3,
+                        color: isSelected
+                            ? Colors.white.withValues(alpha: 0.8)
+                            : AppTheme.textSecondary,
+                        fontSize: 12.sp,
                       ),
                     ),
                   ],
                 ),
               ),
-              // 选中指示器
               AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 24.w,
-                height: 24.w,
+                duration: Duration(milliseconds: 200),
+                padding: EdgeInsets.all(4.w),
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
                   color: isSelected
-                      ? AppTheme.primaryColor
+                      ? Colors.white.withValues(alpha: 0.2)
                       : Colors.transparent,
+                  shape: BoxShape.circle,
                   border: Border.all(
                     color: isSelected
-                        ? AppTheme.primaryColor
-                        : Colors.white.withOpacity(0.3),
+                        ? Colors.white.withValues(alpha: 0.5)
+                        : AppTheme.textSecondary.withValues(alpha: 0.3),
                     width: 2,
                   ),
                 ),
-                child: isSelected
-                    ? Icon(
-                        Icons.check,
-                        color: Colors.white,
-                        size: 16.sp,
-                      )
-                    : null,
+                child: Icon(
+                  isSelected ? Icons.check_rounded : Icons.radio_button_unchecked,
+                  color: isSelected ? Colors.white : AppTheme.textSecondary,
+                  size: 14.sp,
+                ),
               ),
             ],
           ),
@@ -254,16 +377,28 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
     );
   }
 
+
+
   Future<void> _confirmSelection() async {
-    if (_selectedCategory == null) return;
+    if (_selectedCategories.isEmpty) return;
 
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // 调用API更新分区偏好
-      final result = await _homeService.updateHallPreferencesCategory(_selectedCategory!);
+      // 调用新的API更新分区偏好
+      final result = await _homeService.updateUserPreferences(
+        likedTags: [],
+        dislikedTags: [],
+        likedAuthors: [],
+        dislikedAuthors: [],
+        likedKeywords: [],
+        dislikedKeywords: [],
+        preferenceStrength: 1,
+        applyToHall: 1,
+        preferredCategories: _selectedCategories,
+      );
 
       if (result['code'] == 0) {
         // 更新成功，保存本地标记

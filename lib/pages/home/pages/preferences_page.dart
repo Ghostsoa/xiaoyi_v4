@@ -15,7 +15,7 @@ class PreferenceModel {
   List<String> dislikedKeywords;
   int preferenceStrength;
   int applyToHall;
-  String preferredCategory;
+  List<String> preferredCategories;
 
   PreferenceModel({
     this.likedTags = const [],
@@ -26,10 +26,20 @@ class PreferenceModel {
     this.dislikedKeywords = const [],
     this.preferenceStrength = 1,
     this.applyToHall = 1,
-    this.preferredCategory = 'all',
+    this.preferredCategories = const ['all'],
   });
 
   factory PreferenceModel.fromJson(Map<String, dynamic> json) {
+    // 处理 preferred_category 字段，支持字符串和数组两种格式
+    List<String> categories = ['all'];
+    if (json['preferred_category'] != null) {
+      if (json['preferred_category'] is List) {
+        categories = List<String>.from(json['preferred_category']);
+      } else if (json['preferred_category'] is String) {
+        categories = [json['preferred_category']];
+      }
+    }
+
     return PreferenceModel(
       likedTags: List<String>.from(json['liked_tags'] ?? []),
       dislikedTags: List<String>.from(json['disliked_tags'] ?? []),
@@ -39,7 +49,7 @@ class PreferenceModel {
       dislikedKeywords: List<String>.from(json['disliked_keywords'] ?? []),
       preferenceStrength: json['preference_strength'] ?? 1,
       applyToHall: json['apply_to_hall'] ?? 1,
-      preferredCategory: json['preferred_category'] ?? 'all',
+      preferredCategories: categories,
     );
   }
 }
@@ -226,7 +236,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
         dislikedKeywords: _preferences.dislikedKeywords,
         preferenceStrength: _preferences.preferenceStrength,
         applyToHall: _preferences.applyToHall,
-        preferredCategory: _preferences.preferredCategory,
+        preferredCategories: _preferences.preferredCategories,
       );
 
       if (mounted) {
@@ -464,12 +474,14 @@ class _PreferencesPageState extends State<PreferencesPage> {
                               child: Container(
                                 padding: EdgeInsets.all(8.w),
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.1),
+                                  color: AppTheme.isLightTheme
+                                      ? Colors.white.withValues(alpha: 0.2)
+                                      : Colors.black.withValues(alpha: 0.2),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
                                   Icons.arrow_back_ios_new,
-                                  color: Colors.white,
+                                  color: AppTheme.textPrimary,
                                   size: 20.sp,
                                 ),
                               ),
@@ -478,7 +490,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                             Text(
                               '偏好设置',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AppTheme.textPrimary,
                                 fontSize: 24.sp,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -508,7 +520,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                                 Text(
                                   '分区偏好',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: AppTheme.textPrimary,
                                     fontSize: 18.sp,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -517,10 +529,10 @@ class _PreferencesPageState extends State<PreferencesPage> {
                                 Container(
                                   padding: EdgeInsets.all(12.w),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primaryColor.withOpacity(0.1),
+                                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8.r),
                                     border: Border.all(
-                                      color: AppTheme.primaryColor.withOpacity(0.3),
+                                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
                                       width: 1,
                                     ),
                                   ),
@@ -582,7 +594,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                                 Text(
                                   '应用设置',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: AppTheme.textPrimary,
                                     fontSize: 18.sp,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -617,7 +629,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                                   '说明：开启后，系统将根据您的"不喜欢"设置过滤大厅内容。注意：偏好设置会应用于推荐算法，但不会影响榜单。',
                                   style: TextStyle(
                                     color:
-                                        AppTheme.textSecondary.withOpacity(0.7),
+                                        AppTheme.textSecondary.withValues(alpha: 0.7),
                                     fontSize: 12.sp,
                                     fontStyle: FontStyle.italic,
                                   ),
@@ -636,13 +648,13 @@ class _PreferencesPageState extends State<PreferencesPage> {
                                     Expanded(
                                       child: Slider(
                                         value: _preferences.preferenceStrength
-                                            .toDouble(),
+                                            .toDouble().clamp(1.0, 3.0),
                                         min: 1.0,
                                         max: 3.0,
                                         divisions: 2,
                                         activeColor: AppTheme.primaryColor,
                                         inactiveColor: AppTheme.primaryColor
-                                            .withOpacity(0.3),
+                                            .withValues(alpha: 0.3),
                                         label: _getPreferenceStrengthLabel(
                                             _preferences.preferenceStrength),
                                         onChanged: (value) {
@@ -688,7 +700,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                                   '偏好强度说明：\n· 在推荐算法中，弱、中、强三个强度级别分别对应不同的过滤力度\n· 在大厅列表中，弱和中的效果相同（降低优先级），强则完全排除不喜欢的内容',
                                   style: TextStyle(
                                     color:
-                                        AppTheme.textSecondary.withOpacity(0.7),
+                                        AppTheme.textSecondary.withValues(alpha: 0.7),
                                     fontSize: 12.sp,
                                     fontStyle: FontStyle.italic,
                                   ),
@@ -884,12 +896,12 @@ class _PreferencesPageState extends State<PreferencesPage> {
                 ),
                 SizedBox(width: 16.w),
                 Shimmer.fromColors(
-                  baseColor: Colors.white,
-                  highlightColor: Colors.grey[300]!,
+                  baseColor: AppTheme.textPrimary,
+                  highlightColor: AppTheme.textSecondary,
                   child: Text(
                     '正在加载偏好设置...',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppTheme.textPrimary,
                       fontSize: 24.sp,
                       fontWeight: FontWeight.bold,
                     ),
@@ -906,12 +918,12 @@ class _PreferencesPageState extends State<PreferencesPage> {
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 32.h),
               child: Shimmer.fromColors(
-                baseColor: Colors.white,
-                highlightColor: Colors.grey[300]!,
+                baseColor: AppTheme.textPrimary,
+                highlightColor: AppTheme.textSecondary,
                 child: Text(
                   '加载中，请稍候...',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppTheme.textPrimary,
                     fontSize: 18.sp,
                   ),
                 ),
@@ -927,12 +939,12 @@ class _PreferencesPageState extends State<PreferencesPage> {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 8.h),
       child: Shimmer.fromColors(
-        baseColor: Colors.white,
-        highlightColor: Colors.grey[300]!,
+        baseColor: AppTheme.textPrimary,
+        highlightColor: AppTheme.textSecondary,
         child: Text(
           '搜索中...',
           style: TextStyle(
-            color: Colors.white,
+            color: AppTheme.textPrimary,
             fontSize: 14.sp,
           ),
         ),
@@ -955,57 +967,189 @@ class _PreferencesPageState extends State<PreferencesPage> {
 
   Widget _buildCategoryButtons() {
     final categories = [
-      {'value': 'all', 'label': '所有'},
-      {'value': 'general', 'label': '全性向'},
-      {'value': 'female', 'label': '女性向'},
-      {'value': 'male', 'label': '男性向'},
+      {
+        'value': 'all',
+        'label': '所有',
+        'icon': Icons.apps_rounded,
+        'gradient': [Color(0xFF667eea), Color(0xFF764ba2)],
+        'description': '全部内容'
+      },
+      {
+        'value': 'general',
+        'label': '全性向',
+        'icon': Icons.diversity_3_rounded,
+        'gradient': [Color(0xFF11998e), Color(0xFF38ef7d)],
+        'description': '通用内容'
+      },
+      {
+        'value': 'female',
+        'label': '女性向',
+        'icon': Icons.female_rounded,
+        'gradient': [Color(0xFFf093fb), Color(0xFFf5576c)],
+        'description': '女性用户'
+      },
+      {
+        'value': 'male',
+        'label': '男性向',
+        'icon': Icons.male_rounded,
+        'gradient': [Color(0xFF4facfe), Color(0xFF00f2fe)],
+        'description': '男性用户'
+      },
     ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(25.r),
-      ),
-      child: Row(
-        children: categories.map((category) {
-          final isSelected = _preferences.preferredCategory == category['value'];
-          final index = categories.indexOf(category);
-
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _isEditing = true;
-                  _preferences.preferredCategory = category['value']!;
-                });
-              },
-              child: Container(
-                padding: EdgeInsets.symmetric(vertical: 12.h),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppTheme.primaryColor
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(25.r),
-                ),
-                child: Center(
-                  child: Text(
-                    category['label']!,
-                    style: TextStyle(
-                      color: isSelected
-                          ? Colors.white
-                          : AppTheme.textSecondary,
-                      fontSize: 14.sp,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+    return Column(
+      children: [
+        // 所有分区选项 - 每个都占一行
+        ...categories.map((category) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: 12.h),
+            child: _buildCompactCategoryCard(category),
           );
         }).toList(),
+      ],
+    );
+  }
+
+  Widget _buildCompactCategoryCard(Map<String, dynamic> category) {
+    final isSelected = _preferences.preferredCategories.contains(category['value']);
+    final categoryValue = category['value'];
+
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _isEditing = true;
+
+            if (categoryValue == 'all') {
+              // 选择"全部"，清空其他选择
+              _preferences.preferredCategories = ['all'];
+            } else {
+              // 选择其他分区
+              List<String> newCategories = List.from(_preferences.preferredCategories);
+
+              // 移除"全部"选项
+              newCategories.remove('all');
+
+              if (isSelected) {
+                // 如果已选中，则取消选择
+                newCategories.remove(categoryValue);
+                // 如果没有任何选择，默认选择"全部"
+                if (newCategories.isEmpty) {
+                  newCategories = ['all'];
+                }
+              } else {
+                // 如果未选中，则添加选择
+                newCategories.add(categoryValue);
+              }
+
+              _preferences.preferredCategories = newCategories;
+            }
+          });
+        },
+        child: Container(
+          padding: EdgeInsets.all(12.w),
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? LinearGradient(
+                    colors: category['gradient'],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: isSelected ? null : AppTheme.cardBackground,
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(
+              color: isSelected
+                  ? Colors.white.withValues(alpha: 0.3)
+                  : AppTheme.textSecondary.withValues(alpha: 0.3),
+              width: isSelected ? 2 : 1,
+            ),
+            boxShadow: isSelected ? [
+              BoxShadow(
+                color: category['gradient'][0].withValues(alpha: 0.3),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ] : [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8.w),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: isSelected ? 0.2 : 0.1),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Icon(
+                  category['icon'],
+                  color: isSelected ? Colors.white : AppTheme.primaryColor,
+                  size: 18.sp,
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      category['label'],
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : AppTheme.textPrimary,
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      category['description'],
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white.withValues(alpha: 0.8)
+                            : AppTheme.textSecondary,
+                        fontSize: 12.sp,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedContainer(
+                duration: Duration(milliseconds: 200),
+                padding: EdgeInsets.all(4.w),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected
+                        ? Colors.white.withValues(alpha: 0.5)
+                        : AppTheme.textSecondary.withValues(alpha: 0.3),
+                    width: 2,
+                  ),
+                ),
+                child: Icon(
+                  isSelected ? Icons.check_rounded : Icons.radio_button_unchecked,
+                  color: isSelected ? Colors.white : AppTheme.textSecondary,
+                  size: 14.sp,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
+
+
 
   Widget _buildCategoryDescriptions() {
     final descriptions = {
@@ -1018,7 +1162,9 @@ class _PreferencesPageState extends State<PreferencesPage> {
     return Container(
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.1),
+        color: AppTheme.isLightTheme
+            ? Colors.grey.withValues(alpha: 0.1)
+            : Colors.black.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8.r),
       ),
       child: Column(
@@ -1058,7 +1204,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                     child: Text(
                       entry.value,
                       style: TextStyle(
-                        color: AppTheme.textSecondary.withOpacity(0.8),
+                        color: AppTheme.textSecondary.withValues(alpha: 0.8),
                         fontSize: 12.sp,
                       ),
                     ),
@@ -1105,7 +1251,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                 Text(
                   title,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppTheme.textPrimary,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1134,9 +1280,11 @@ class _PreferencesPageState extends State<PreferencesPage> {
                   decoration: InputDecoration(
                     hintText: likedHint,
                     hintStyle: TextStyle(
-                        color: AppTheme.textSecondary.withOpacity(0.5)),
+                        color: AppTheme.textSecondary.withValues(alpha: 0.5)),
                     filled: true,
-                    fillColor: Colors.black.withOpacity(0.2),
+                    fillColor: AppTheme.isLightTheme
+                        ? Colors.grey.withValues(alpha: 0.1)
+                        : Colors.black.withValues(alpha: 0.2),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8.r),
                       borderSide: BorderSide.none,
@@ -1158,7 +1306,9 @@ class _PreferencesPageState extends State<PreferencesPage> {
                   Container(
                     margin: EdgeInsets.only(top: 4.h),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.3),
+                      color: AppTheme.isLightTheme
+                          ? Colors.grey.withValues(alpha: 0.2)
+                          : Colors.black.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(8.r),
                     ),
                     child: Column(
@@ -1194,7 +1344,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                         child: Text(
                           emptyLikedText,
                           style: TextStyle(
-                            color: AppTheme.textSecondary.withOpacity(0.7),
+                            color: AppTheme.textSecondary.withValues(alpha: 0.7),
                             fontSize: 14.sp,
                             fontStyle: FontStyle.italic,
                           ),
@@ -1216,7 +1366,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                 Text(
                   '注意：喜欢的内容仅用于推荐，不会影响过滤。',
                   style: TextStyle(
-                    color: AppTheme.textSecondary.withOpacity(0.7),
+                    color: AppTheme.textSecondary.withValues(alpha: 0.7),
                     fontSize: 12.sp,
                     fontStyle: FontStyle.italic,
                   ),
@@ -1245,9 +1395,11 @@ class _PreferencesPageState extends State<PreferencesPage> {
                   decoration: InputDecoration(
                     hintText: dislikedHint,
                     hintStyle: TextStyle(
-                        color: AppTheme.textSecondary.withOpacity(0.5)),
+                        color: AppTheme.textSecondary.withValues(alpha: 0.5)),
                     filled: true,
-                    fillColor: Colors.black.withOpacity(0.2),
+                    fillColor: AppTheme.isLightTheme
+                        ? Colors.grey.withValues(alpha: 0.1)
+                        : Colors.black.withValues(alpha: 0.2),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8.r),
                       borderSide: BorderSide.none,
@@ -1269,7 +1421,9 @@ class _PreferencesPageState extends State<PreferencesPage> {
                   Container(
                     margin: EdgeInsets.only(top: 4.h),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.3),
+                      color: AppTheme.isLightTheme
+                          ? Colors.grey.withValues(alpha: 0.2)
+                          : Colors.black.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(8.r),
                     ),
                     child: Column(
@@ -1305,7 +1459,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                         child: Text(
                           emptyDislikedText,
                           style: TextStyle(
-                            color: AppTheme.textSecondary.withOpacity(0.7),
+                            color: AppTheme.textSecondary.withValues(alpha: 0.7),
                             fontSize: 14.sp,
                             fontStyle: FontStyle.italic,
                           ),
@@ -1327,7 +1481,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                 Text(
                   '注意：不喜欢的内容将根据偏好强度进行过滤。',
                   style: TextStyle(
-                    color: AppTheme.textSecondary.withOpacity(0.7),
+                    color: AppTheme.textSecondary.withValues(alpha: 0.7),
                     fontSize: 12.sp,
                     fontStyle: FontStyle.italic,
                   ),
@@ -1350,7 +1504,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
           fontSize: 12.sp,
         ),
       ),
-      backgroundColor: color.withOpacity(0.7),
+      backgroundColor: color.withValues(alpha: 0.7),
       padding: EdgeInsets.symmetric(horizontal: 4.w),
       deleteIcon: Icon(Icons.close, size: 16.sp, color: Colors.white),
       onDeleted: onDeleted,

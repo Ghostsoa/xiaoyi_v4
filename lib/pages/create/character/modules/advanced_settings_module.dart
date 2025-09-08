@@ -565,7 +565,7 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                   trackHeight: 4.h,
                 ),
                 child: Slider(
-                  value: widget.memoryTurns.toDouble(),
+                  value: widget.memoryTurns.toDouble().clamp(1, 500),
                   min: 1,
                   max: 500,
                   divisions: 499,
@@ -622,7 +622,7 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                   trackHeight: 4.h,
                 ),
                 child: Slider(
-                  value: widget.searchDepth.toDouble(),
+                  value: widget.searchDepth.toDouble().clamp(1, 10),
                   min: 1,
                   max: 10,
                   divisions: 9,

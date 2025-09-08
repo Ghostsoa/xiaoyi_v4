@@ -626,8 +626,8 @@ class _ModelConfigCardState extends State<ModelConfigCard> {
               ),
             ),
             child: Slider(
-              value: double.tryParse(controller.text)?.toDouble() ??
-                  (isInt ? min.toInt().toDouble() : min),
+              value: (double.tryParse(controller.text)?.toDouble() ??
+                  (isInt ? min.toInt().toDouble() : min)).clamp(min, max),
               min: min,
               max: max,
               divisions: divisions,

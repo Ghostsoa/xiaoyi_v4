@@ -231,7 +231,7 @@ class _NovelSettingsSheetState extends State<NovelSettingsSheet> {
             trackHeight: 4.h,
           ),
           child: Slider(
-            value: value,
+            value: value.clamp(minValue, maxValue),
             min: minValue,
             max: maxValue,
             divisions: ((maxValue - minValue) * 2).toInt(),

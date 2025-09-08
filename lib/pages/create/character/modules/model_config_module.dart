@@ -294,7 +294,7 @@ class _ModelConfigModuleState extends State<ModelConfigModule> {
                     trackHeight: 4.h,
                   ),
                   child: Slider(
-                    value: widget.temperature,
+                    value: widget.temperature.clamp(0.0, 2.0),
                     min: 0.0,
                     max: 2.0,
                     divisions: 40,
@@ -349,7 +349,7 @@ class _ModelConfigModuleState extends State<ModelConfigModule> {
                     trackHeight: 4.h,
                   ),
                   child: Slider(
-                    value: widget.topP,
+                    value: widget.topP.clamp(0.0, 1.0),
                     min: 0.0,
                     max: 1.0,
                     divisions: 20,
@@ -397,7 +397,7 @@ class _ModelConfigModuleState extends State<ModelConfigModule> {
                     trackHeight: 4.h,
                   ),
                   child: Slider(
-                    value: widget.topK.toDouble(),
+                    value: widget.topK.toDouble().clamp(1, 100),
                     min: 1,
                     max: 100,
                     divisions: 99,
@@ -444,7 +444,7 @@ class _ModelConfigModuleState extends State<ModelConfigModule> {
                     trackHeight: 4.h,
                   ),
                   child: Slider(
-                    value: widget.maxTokens.toDouble(),
+                    value: widget.maxTokens.toDouble().clamp(100, 8192),
                     min: 100,
                     max: 8192,
                     divisions: 81,

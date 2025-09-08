@@ -554,7 +554,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
             ),
           ),
           child: Slider(
-            value: value,
+            value: value.clamp(min, max),
             min: min,
             max: max,
             divisions: 100,

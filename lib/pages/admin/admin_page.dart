@@ -9,6 +9,7 @@ import 'model_management/model_management_page.dart';
 import 'material_management/material_management_page.dart';
 import 'character_management/character_management_page.dart';
 import 'report_management/report_management_page.dart'; // 添加举报管理页面导入
+import 'violation_monitoring/violation_monitoring_page.dart'; // 添加作者保护监测页面导入
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -61,6 +62,11 @@ class _AdminPageState extends State<AdminPage> {
       'title': '举报管理',
       'icon': Icons.report_problem_outlined,
       'page': const ReportManagementPage(),
+    },
+    {
+      'title': '作者保护监测',
+      'icon': Icons.security_outlined,
+      'page': const ViolationMonitoringPage(),
     },
   ];
 

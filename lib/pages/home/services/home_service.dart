@@ -239,7 +239,7 @@ class HomeService {
     required List<String> dislikedKeywords,
     required int preferenceStrength,
     required int applyToHall,
-    required String preferredCategory,
+    required List<String> preferredCategories,
   }) async {
     try {
       final response = await _httpClient.put(
@@ -253,7 +253,7 @@ class HomeService {
           'disliked_keywords': dislikedKeywords,
           'preference_strength': preferenceStrength,
           'apply_to_hall': applyToHall,
-          'preferred_category': preferredCategory,
+          'preferred_category': preferredCategories,
         },
       );
       return response.data;
@@ -278,7 +278,7 @@ class HomeService {
       final response = await _httpClient.put(
         '/hall/preferences/category',
         data: {
-          'category': category,
+          'preferred_category': [category],
         },
       );
       return response.data;

@@ -518,10 +518,21 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       // 没有本地标记，请求后端检查当前分区设置
       final result = await _homeService.getUserPreferences();
       if (result['code'] == 0 && result['data'] != null) {
-        final String? preferredCategory = result['data']['preferred_category'];
+        final dynamic preferredCategoryData = result['data']['preferred_category'];
 
-        // 如果分区为空或者是"all"，才跳转到选择界面
-        if (preferredCategory == null || preferredCategory.isEmpty || preferredCategory == 'all') {
+        // 处理 preferred_category 字段，支持字符串和数组两种格式
+        List<String> preferredCategories = ['all'];
+        if (preferredCategoryData != null) {
+          if (preferredCategoryData is List) {
+            preferredCategories = List<String>.from(preferredCategoryData);
+          } else if (preferredCategoryData is String) {
+            preferredCategories = [preferredCategoryData];
+          }
+        }
+
+        // 如果分区为空或者只包含"all"，才跳转到选择界面
+        if (preferredCategories.isEmpty ||
+            (preferredCategories.length == 1 && preferredCategories.first == 'all')) {
           if (mounted) {
             final selectionResult = await Navigator.push(
               context,
