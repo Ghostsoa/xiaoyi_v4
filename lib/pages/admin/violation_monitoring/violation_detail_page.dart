@@ -406,7 +406,7 @@ class _ViolationDetailPageState extends State<ViolationDetailPage> {
                 ),
               )
             else
-              ...riskLevels.map((risk) => _buildRiskLevelItem(risk)).toList(),
+              ...riskLevels.map((risk) => _buildRiskLevelItem(risk)),
           ],
         ),
       ),
@@ -449,7 +449,7 @@ class _ViolationDetailPageState extends State<ViolationDetailPage> {
                 ),
               )
             else
-              ...involvedContent.map((content) => _buildContentItem(content)).toList(),
+              ...involvedContent.map((content) => _buildContentItem(content)),
           ],
         ),
       ),

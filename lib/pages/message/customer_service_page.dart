@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/custom_toast.dart';
 import 'message_service.dart';
@@ -154,10 +156,12 @@ class _CustomerServicePageState extends State<CustomerServicePage> {
                 )
               : (!isUser && message.content.contains(_toggleKeyTag))
                   ? _buildAssistantRichContent(message, textColor)
-                  : Text(
-                      message.content,
-                      style: AppTheme.bodyStyle.copyWith(color: textColor),
-                    ),
+                  : (!isUser && _containsMarkdownLink(message.content))
+                      ? _buildRichTextWithLinks(message.content, textColor)
+                      : Text(
+                          message.content,
+                          style: AppTheme.bodyStyle.copyWith(color: textColor),
+                        ),
         ),
       ),
     );
@@ -260,6 +264,115 @@ class _CustomerServicePageState extends State<CustomerServicePage> {
               ),
       ),
     );
+  }
+
+  // 检查文本是否包含Markdown格式的链接
+  bool _containsMarkdownLink(String text) {
+    final RegExp linkRegex = RegExp(r'\[([^\]]+)\]\(([^)]+)\)');
+    return linkRegex.hasMatch(text);
+  }
+
+  // 构建包含链接的富文本
+  Widget _buildRichTextWithLinks(String text, Color textColor) {
+    final RegExp linkRegex = RegExp(r'\[([^\]]+)\]\(([^)]+)\)');
+    final List<Widget> children = [];
+    int lastEnd = 0;
+
+    for (final Match match in linkRegex.allMatches(text)) {
+      // 添加链接前的文本
+      if (match.start > lastEnd) {
+        final beforeText = text.substring(lastEnd, match.start);
+        if (beforeText.isNotEmpty) {
+          children.add(Text(
+            beforeText,
+            style: AppTheme.bodyStyle.copyWith(color: textColor),
+          ));
+        }
+      }
+
+      // 添加链接
+      final String linkText = match.group(1) ?? '';
+      final String linkUrl = match.group(2) ?? '';
+
+      children.add(GestureDetector(
+        onTap: () => _launchUrl(linkUrl),
+        onLongPress: () => _copyUrl(linkUrl),
+        child: Text(
+          linkText,
+          style: AppTheme.bodyStyle.copyWith(
+            color: AppTheme.primaryColor,
+            decoration: TextDecoration.underline,
+            decorationColor: AppTheme.primaryColor,
+          ),
+        ),
+      ));
+
+      lastEnd = match.end;
+    }
+
+    // 添加链接后的文本
+    if (lastEnd < text.length) {
+      final afterText = text.substring(lastEnd);
+      if (afterText.isNotEmpty) {
+        children.add(Text(
+          afterText,
+          style: AppTheme.bodyStyle.copyWith(color: textColor),
+        ));
+      }
+    }
+
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: children,
+    );
+  }
+
+  // 启动URL
+  Future<void> _launchUrl(String url) async {
+    try {
+      final Uri uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          CustomToast.show(
+            context,
+            message: '无法打开链接，请长按复制链接地址',
+            type: ToastType.warning,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '打开链接失败，请长按复制链接地址',
+          type: ToastType.warning,
+        );
+      }
+    }
+  }
+
+  // 复制URL到剪贴板
+  Future<void> _copyUrl(String url) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: url));
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '链接已复制到剪贴板',
+          type: ToastType.success,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '复制失败: $e',
+          type: ToastType.error,
+        );
+      }
+    }
   }
 
   Widget _buildInputBar() {

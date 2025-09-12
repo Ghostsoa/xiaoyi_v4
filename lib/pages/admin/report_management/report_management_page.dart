@@ -441,11 +441,19 @@ class _ReportManagementPageState extends State<ReportManagementPage>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '举报时间: ${_formatDateTime(report['created_at'])}',
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      color: AppTheme.textSecondary,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Text(
+                          '举报时间: ${_formatDateTime(report['created_at'])}',
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        SizedBox(width: 8.w),
+                        _buildProcessTypeTag(report['process_type']),
+                      ],
                     ),
                   ),
                   Text(
@@ -460,6 +468,34 @@ class _ReportManagementPageState extends State<ReportManagementPage>
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProcessTypeTag(String? processType) {
+    if (processType == null) return const SizedBox.shrink();
+
+    final bool isAI = processType == 'ai';
+    final String text = isAI ? 'AI处理' : '人工处理';
+    final Color color = isAI ? Colors.purple : Colors.blue;
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 6.w,
+        vertical: 2.h,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(3.r),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 10.sp,
+          color: color,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );

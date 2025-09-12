@@ -1554,7 +1554,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           mainAxisSize: MainAxisSize.min,
           children: [
             // 第一个角色头像（无边框）
-            Container(
+            SizedBox(
               width: 16.w,
               height: 16.h,
               child: ClipOval(
@@ -1608,7 +1608,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   for (int i = 0; i < visibleCount; i++)
                     Positioned(
                       right: i * 12.w, // 每个头像向右偏移12w，创造重叠效果
-                      child: Container(
+                      child: SizedBox(
                         width: 20.w,
                         height: 20.h,
                         child: ClipOval(

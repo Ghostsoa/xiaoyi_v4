@@ -319,6 +319,8 @@ class _ReportDetailPageState extends State<ReportDetailPage> {
             SizedBox(height: 8.h),
             _buildInfoItem('举报内容', _reportDetail?['content'] ?? '无举报内容',
                 isMultiLine: true),
+            SizedBox(height: 8.h),
+            _buildInfoItem('处理类型', _getProcessTypeText(_reportDetail?['process_type'])),
             if (status == ReportStatus.approved ||
                 status == ReportStatus.rejected) ...[
               SizedBox(height: 16.h),
@@ -881,6 +883,17 @@ class _ReportDetailPageState extends State<ReportDetailPage> {
         return '群聊卡';
       default:
         return type ?? '未知类型';
+    }
+  }
+
+  String _getProcessTypeText(String? processType) {
+    switch (processType) {
+      case 'ai':
+        return 'AI自动处理';
+      case 'manual':
+        return '人工处理';
+      default:
+        return processType ?? '未知处理类型';
     }
   }
 }

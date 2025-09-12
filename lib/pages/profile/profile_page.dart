@@ -6,6 +6,7 @@ import '../../widgets/custom_toast.dart';
 import '../../dao/user_dao.dart';
 import '../login/login_page.dart';
 import '../admin/admin_page.dart';
+import '../message/customer_service_page.dart';
 import 'profile_server.dart';
 import 'asset_records_page.dart';
 import 'edit_profile_page.dart';
@@ -14,6 +15,7 @@ import 'theme_settings_page.dart';
 import 'api_key_manage_page.dart';
 import 'network_settings_page.dart';
 import 'exchange_page.dart';
+import 'about_us_page.dart';
 import 'widgets/user_info_widget.dart';
 import 'widgets/user_assets_widget.dart';
 import 'widgets/settings_widget.dart';
@@ -324,11 +326,23 @@ class ProfilePageState extends State<ProfilePage> {
         break;
 
       case SettingItemType.help:
-        _showInfoToast('查看帮助与反馈');
+        // 跳转到客服页面
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const CustomerServicePage(),
+          ),
+        );
         break;
 
       case SettingItemType.about:
-        _showInfoToast('查看关于我们');
+        // 跳转到关于我们页面
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AboutUsPage(),
+          ),
+        );
         break;
 
       case SettingItemType.apiKey:

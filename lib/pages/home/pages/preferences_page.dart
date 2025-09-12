@@ -1005,7 +1005,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
             padding: EdgeInsets.only(bottom: 12.h),
             child: _buildCompactCategoryCard(category),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -1212,7 +1212,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                 ],
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
