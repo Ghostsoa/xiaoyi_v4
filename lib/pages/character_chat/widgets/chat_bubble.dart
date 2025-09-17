@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../theme/app_theme.dart';
-import 'formatters/base_formatter.dart';
 import 'formatters/markdown_formatter.dart';
-import 'formatters/custom_formatter.dart';
 import 'status_bar.dart';
 import 'package:flutter/services.dart';
 import '../../../widgets/custom_toast.dart';
@@ -829,42 +827,29 @@ class _ChatBubbleState extends State<ChatBubble> with TickerProviderStateMixin {
       return const SizedBox.shrink();
     }
 
-    BaseFormatter formatter;
+    // 根据格式模式选择渲染方式
     switch (widget.formatMode) {
-      case 'old':
-        // 使用 MarkdownFormatter 替代原来的 StatusFormatter
-        formatter = MarkdownFormatter(
-          onOptionsChanged: widget.onOptionsChanged,
-          resourceMapping: widget.resourceMapping,
+      case 'webview':
+        // TODO: 实现 WebView 渲染
+        return Text(
+          widget.message,
+          style: baseStyle,
         );
-        break;
+      case 'none':
+        return Text(
+          widget.message,
+          style: baseStyle,
+        );
       case 'markdown':
-        formatter = MarkdownFormatter(
-          onOptionsChanged: widget.onOptionsChanged,
-          resourceMapping: widget.resourceMapping,
-        );
-        break;
-      case 'custom':
-        formatter = CustomFormatter();
-        break;
+      case 'old':
       default:
-        if (widget.formatMode == 'none') {
-          return Text(
-            widget.message,
-            style: baseStyle,
-          );
-        }
-        // 默认使用 MarkdownFormatter
-        formatter = MarkdownFormatter(
+        // 使用 MarkdownFormatter 进行渲染
+        final formatter = MarkdownFormatter(
           onOptionsChanged: widget.onOptionsChanged,
           resourceMapping: widget.resourceMapping,
         );
+        return formatter.format(context, widget.message, baseStyle);
     }
-
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: formatter.format(context, widget.message, baseStyle),
-    );
   }
 
   Widget _buildStatusBar() {

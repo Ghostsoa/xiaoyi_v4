@@ -4,9 +4,10 @@ import 'dart:typed_data';
 import '../../../../theme/app_theme.dart';
 import '../../../../widgets/custom_toast.dart';
 import '../../material/select_image_page.dart';
-import '../../material/select_text_page.dart';
 import '../../../../services/file_service.dart';
 import '../../character/select_model_page.dart';
+import '../../../../widgets/expandable_text_field.dart';
+
 
 class RolesModule extends StatefulWidget {
   final List<Map<String, dynamic>> roles;
@@ -210,36 +211,6 @@ class _RolesModuleState extends State<RolesModule> {
     }
   }
 
-  Future<void> _importRoleSetting(int index) async {
-    try {
-      final result = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const SelectTextPage(
-            source: TextSelectSource.myMaterial,
-            type: TextSelectType.setting,
-          ),
-        ),
-      );
-
-      if (result != null) {
-        // 导入角色设定
-        _updateRole(index, 'setting', result);
-        
-        CustomToast.show(
-          context,
-          message: '已导入角色设定',
-          type: ToastType.success,
-        );
-      }
-    } catch (e) {
-      CustomToast.show(
-        context,
-        message: '设定导入失败: ${e.toString()}',
-        type: ToastType.error,
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -600,133 +571,44 @@ class _RolesModuleState extends State<RolesModule> {
             ),
           ),
           SizedBox(height: 8.h),
-          TextFormField(
-            controller: _descriptionControllers[index],
-            onChanged: (value) => _updateRole(index, 'description', value),
-            decoration: InputDecoration(
-              hintText: '简单描述这个角色的特点...',
-              filled: true,
-              fillColor: AppTheme.cardBackground,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                borderSide: BorderSide(color: AppTheme.primaryColor, width: 1),
-              ),
-              contentPadding: EdgeInsets.all(16.w),
-              hintStyle: TextStyle(
-                color: AppTheme.textSecondary,
-                fontSize: 14.sp,
-              ),
-            ),
-            style: AppTheme.bodyStyle,
-            maxLines: 2,
+          ExpandableTextField(
+            title: '角色描述',
+            controller: _descriptionControllers[index]!,
+            hintText: '简单描述这个角色的特点...',
             maxLength: 200,
-            buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+            previewLines: 2,
+            onChanged: () => _updateRole(index, 'description', _descriptionControllers[index]!.text),
           ),
 
           SizedBox(height: 24.h),
 
           // 角色设定
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+          ExpandableTextField(
+            title: '角色设定',
+            controller: _settingControllers[index]!,
+            hintText: '详细描述角色的性格、背景、说话方式等...',
+            maxLength: 5000,
+            previewLines: 4,
+            description: RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 12.sp,
+                ),
                 children: [
-                  Text('角色设定', style: AppTheme.secondaryStyle),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => _importRoleSetting(index),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                        border: Border.all(
-                          color: AppTheme.primaryColor.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.folder_open,
-                            size: 14.sp,
-                            color: AppTheme.primaryColor,
-                          ),
-                          SizedBox(width: 4.w),
-                          Text(
-                            '从素材库选择',
-                            style: TextStyle(
-                              fontSize: 11.sp,
-                              color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                  const TextSpan(text: '详细描述角色的'),
+                  TextSpan(
+                    text: '性格、背景、说话方式',
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
+                  const TextSpan(text: '等'),
                 ],
               ),
-              SizedBox(height: 4.h),
-              RichText(
-                text: TextSpan(
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 12.sp,
-                  ),
-                  children: [
-                    const TextSpan(text: '详细描述角色的'),
-                    TextSpan(
-                      text: '性格、背景、说话方式',
-                      style: TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const TextSpan(text: '等'),
-                  ],
-                ),
-              ),
-              SizedBox(height: 8.h),
-              TextFormField(
-                controller: _settingControllers[index],
-                onChanged: (value) => _updateRole(index, 'setting', value),
-                decoration: InputDecoration(
-                  hintText: '详细描述角色的性格、背景、说话方式等...',
-                  filled: true,
-                  fillColor: AppTheme.cardBackground,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                    borderSide: BorderSide(color: AppTheme.primaryColor, width: 1),
-                  ),
-                  contentPadding: EdgeInsets.all(16.w),
-                  hintStyle: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 14.sp,
-                  ),
-                ),
-                style: AppTheme.bodyStyle,
-                maxLines: 6,
-                maxLength: 5000,
-                buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-              ),
-            ],
+            ),
+            onChanged: () => _updateRole(index, 'setting', _settingControllers[index]!.text),
           ),
 
           SizedBox(height: 24.h),

@@ -5,10 +5,11 @@ import 'dart:math' as math;
 import '../../../../theme/app_theme.dart';
 import '../../../../widgets/custom_toast.dart';
 import '../../world/select_world_book_page.dart';
-import '../../material/select_text_page.dart';
 import '../../material/select_image_page.dart';
 import '../../../../services/file_service.dart';
 import '../../../../utils/resource_mapping_parser.dart';
+import '../../../../widgets/expandable_text_field.dart';
+import '../../../../widgets/text_editor_page.dart';
 
 class AdvancedSettingsModule extends StatefulWidget {
   final int memoryTurns;
@@ -151,115 +152,27 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
     );
   }
 
-  Widget _buildSelectButton({
-    required String title,
-    required TextSelectType type,
-    required Function(String) onSelected,
-  }) {
-    return GestureDetector(
-      onTap: () async {
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SelectTextPage(
-              source: TextSelectSource.myMaterial,
-              type: type,
-            ),
-          ),
-        );
-        if (result != null && mounted) {
-          onSelected(result);
-          _showToast(
-            '已导入${type == TextSelectType.prefix ? "前缀词" : "后缀词"}',
-            type: ToastType.success,
-          );
-        }
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: AppTheme.buttonGradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(6.r),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.buttonGradient.first.withOpacity(0.3),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.format_quote_outlined,
-              size: 16.sp,
-              color: Colors.white,
-            ),
-            SizedBox(width: 4.w),
-            Text(
-              '选择',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12.sp,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildInputField({
+
+  Widget _buildExpandableTextField({
     required String title,
     required TextEditingController controller,
     required String hintText,
     required TextSelectType type,
+    Widget? description,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(title, style: AppTheme.secondaryStyle),
-            const Spacer(),
-            _buildSelectButton(
-              title: title,
-              type: type,
-              onSelected: (value) {
-                controller.text = value;
-              },
-            ),
-          ],
-        ),
-        SizedBox(height: 8.h),
-        TextFormField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: hintText,
-            filled: true,
-            fillColor: AppTheme.cardBackground,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          minLines: 1,
-          maxLines: null,
-        ),
-      ],
+    return ExpandableTextField(
+      title: title,
+      controller: controller,
+      hintText: hintText,
+      selectType: type,
+      helpIcon: Icon(
+        Icons.help_outline,
+        size: 16.sp,
+        color: AppTheme.textSecondary,
+      ),
+      description: description,
+      onChanged: () => setState(() {}), // 触发界面刷新
     );
   }
 
@@ -631,7 +544,7 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                 ),
               ),
               SizedBox(height: 24.h),
-              _buildInputField(
+              _buildExpandableTextField(
                 title: '前缀词',
                 controller: widget.prefixController,
                 hintText: '可选，例如：(xxx)',
@@ -658,7 +571,7 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                 ),
               ),
               SizedBox(height: 16.h),
-              _buildInputField(
+              _buildExpandableTextField(
                 title: '后缀词',
                 controller: widget.suffixController,
                 hintText: '可选，例如：(xxx)',
@@ -791,7 +704,7 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
               ),
               SizedBox(height: 24.h),
               Text(
-                'UI格式化类型',
+                '界面渲染类型',
                 style: AppTheme.secondaryStyle,
               ),
               SizedBox(height: 4.h),
@@ -823,13 +736,13 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
               Row(
                 children: [
                   _buildUiSettingsButton(
-                      'markdown', 'Markdown\n格式化', Icons.text_fields),
+                      'markdown', '标准\n渲染', Icons.text_fields),
                   SizedBox(width: 8.w),
                   _buildUiSettingsButton(
-                      'disabled', '标准\n模式', Icons.chat_outlined),
+                      'disabled', '不启用\n渲染', Icons.chat_outlined),
                   SizedBox(width: 8.w),
                   _buildUiSettingsButton(
-                      'legacy_bar', '兼容\n模式', Icons.view_stream),
+                      'html', 'HTML\n渲染', Icons.code),
                 ],
               ),
               SizedBox(height: 8.h),
@@ -840,15 +753,15 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                     style: AppTheme.hintStyle.copyWith(fontSize: 11.sp),
                     children: [
                       TextSpan(
-                        text: 'Markdown格式化：',
+                        text: '标准渲染：',
                         style: TextStyle(
                           color: Colors.blue,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const TextSpan(text: '支持富文本格式、增强优化版\n'),
+                      const TextSpan(text: '支持Markdown格式、富文本渲染\n'),
                       TextSpan(
-                        text: '标准模式：',
+                        text: '不启用渲染：',
                         style: TextStyle(
                           color: Colors.green,
                           fontWeight: FontWeight.w600,
@@ -856,13 +769,13 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                       ),
                       const TextSpan(text: '普通聊天界面，无特殊格式化\n'),
                       TextSpan(
-                        text: '新版UI样式：',
+                        text: 'HTML渲染：',
                         style: TextStyle(
                           color: Colors.amber,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const TextSpan(text: '新版UI样式'),
+                      const TextSpan(text: '支持HTML标签渲染，更丰富的显示效果'),
                     ],
                   ),
                 ),

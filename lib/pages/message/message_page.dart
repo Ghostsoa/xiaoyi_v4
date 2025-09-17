@@ -226,6 +226,10 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                     onShowMenu: (context, session, position) {
                       _showSessionMenu(context, session, position);
                     },
+                    onRefresh: () {
+                      // 刷新角色会话列表
+                      _characterListKey.currentState?.onRefresh();
+                    },
                   ),
                   NovelSessionList(
                     key: _novelListKey,

@@ -9,11 +9,19 @@ import 'net/http_client.dart';
 import 'widgets/unfocus_wrapper.dart';
 import 'theme/app_theme.dart';
 import 'services/network_monitor_service.dart';
+import 'services/webview_pool_service.dart';
 import 'theme/custom_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 禁用GPU硬件加速，解决毛玻璃效果在某些设备上的花屏问题
+  // 主要通过平台配置文件实现：
+  // Android: AndroidManifest.xml 中设置 android:hardwareAccelerated="false"
+  // iOS: Info.plist 中设置 FLTEnableImpeller = false
+  debugPrint('[App启动] GPU硬件加速已通过平台配置禁用，使用CPU软件渲染');
+
   await AppTheme.initialize(); // 初始化主题配置
 
   // 请求必要的权限
@@ -24,6 +32,9 @@ void main() async {
 
   // 同步初始化网络监控服务，确保至少有一次节点检查完成
   await initNetworkMonitor();
+
+  // 异步初始化WebView对象池，提高性能
+  initWebViewPool();
 
   // 强制竖屏
   SystemChrome.setPreferredOrientations([
@@ -52,6 +63,20 @@ void main() async {
       child: const MyApp(),
     ),
   );
+}
+
+/// 异步初始化WebView对象池
+/// 不阻塞主线程，在后台预创建WebView实例
+void initWebViewPool() {
+  debugPrint('[App启动] 开始异步初始化WebView对象池...');
+
+  // 异步初始化，不阻塞主线程
+  WebViewPoolService().initialize().then((_) {
+    final status = WebViewPoolService().getPoolStatus();
+    debugPrint('[App启动] WebView对象池初始化完成: $status');
+  }).catchError((e) {
+    debugPrint('[App启动] WebView对象池初始化失败: $e');
+  });
 }
 
 /// 初始化网络监控服务

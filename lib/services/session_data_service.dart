@@ -205,11 +205,15 @@ class SessionDataService {
         data['extra_data'] = jsonEncode(data['extra_data']);
       }
 
-      // 用本地置顶字段覆盖API构造的数据
+      // 用本地置顶字段和存档ID覆盖API构造的数据
       final pinnedRow = localPinned[session.id];
       if (pinnedRow != null) {
         data['is_pinned'] = pinnedRow['is_pinned'] ?? data['is_pinned'];
         data['pinned_at'] = pinnedRow['pinned_at'];
+        // 🔥 关键修复：保留本地的激活存档ID，避免被API数据覆盖
+        if (pinnedRow['active_archive_id'] != null) {
+          data['active_archive_id'] = pinnedRow['active_archive_id'];
+        }
       }
 
       batch.insert(
@@ -246,11 +250,15 @@ class SessionDataService {
         data['extra_data'] = jsonEncode(data['extra_data']);
       }
 
-      // 用本地置顶字段覆盖API构造的数据
+      // 用本地置顶字段和存档ID覆盖API构造的数据
       final pinnedRow = localPinned[session.id];
       if (pinnedRow != null) {
         data['is_pinned'] = pinnedRow['is_pinned'] ?? data['is_pinned'];
         data['pinned_at'] = pinnedRow['pinned_at'];
+        // 🔥 关键修复：保留本地的激活存档ID，避免被API数据覆盖
+        if (pinnedRow['active_archive_id'] != null) {
+          data['active_archive_id'] = pinnedRow['active_archive_id'];
+        }
       }
       
       batch.insert(
@@ -268,7 +276,7 @@ class SessionDataService {
     debugPrint('[SessionDataService] 批量更新小说会话: ${sessions.length} 条');
   }
 
-  /// 读取本地已有置顶状态（id -> {is_pinned, pinned_at}）
+  /// 读取本地已有置顶状态和存档ID（id -> {is_pinned, pinned_at, active_archive_id}）
   Future<Map<int, Map<String, Object?>>> _loadLocalPinnedState(
     String table,
     List<int> ids,
@@ -278,7 +286,7 @@ class SessionDataService {
     // 构造 WHERE IN 子句
     final String placeholders = List.filled(ids.length, '?').join(',');
     final List<Map<String, Object?>> rows = await _database!.rawQuery(
-      'SELECT id, is_pinned, pinned_at FROM $table WHERE id IN ($placeholders)',
+      'SELECT id, is_pinned, pinned_at, active_archive_id FROM $table WHERE id IN ($placeholders)',
       ids,
     );
 
@@ -288,6 +296,7 @@ class SessionDataService {
       result[id] = <String, Object?>{
         'is_pinned': row['is_pinned'],
         'pinned_at': row['pinned_at'],
+        'active_archive_id': row['active_archive_id'],
       };
     }
     return result;

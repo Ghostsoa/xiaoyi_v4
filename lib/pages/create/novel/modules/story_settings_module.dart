@@ -3,6 +3,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../theme/app_theme.dart';
 import '../../world/select_world_book_page.dart';
 import '../../../../widgets/custom_toast.dart';
+import '../../../../widgets/expandable_text_field.dart';
+import '../../../../widgets/text_editor_page.dart';
 
 class NovelStorySettingsModule extends StatefulWidget {
   final TextEditingController storyOutlineController;
@@ -64,157 +66,109 @@ class _NovelStorySettingsModuleState extends State<NovelStorySettingsModule> {
         _buildSectionTitle('主要设定'),
 
         // 故事大纲
-        Text(
-          '故事大纲',
-          style: TextStyle(
-            fontSize: AppTheme.bodySize,
-            fontWeight: FontWeight.w600,
-            color: textPrimary,
-          ),
-        ),
-        SizedBox(height: 4.h),
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontSize: AppTheme.captionSize,
-              color: textSecondary,
-            ),
-            children: [
-              const TextSpan(text: '简述小说的'),
-              TextSpan(
-                text: '主要情节',
-                style: TextStyle(
-                  color: Colors.amber,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: '、'),
-              TextSpan(
-                text: '发展脉络',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: '和'),
-              TextSpan(
-                text: '结局走向',
-                style: TextStyle(
-                  color: Colors.blue,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: '，作为AI创作的'),
-              TextSpan(
-                text: '核心指导',
-                style: TextStyle(
-                  color: Colors.purple,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 8.h),
-        TextFormField(
+        ExpandableTextField(
+          title: '故事大纲',
           controller: widget.storyOutlineController,
-          minLines: 3,
-          maxLines: null,
-          decoration: InputDecoration(
-            hintText: '请输入故事大纲',
-            hintStyle: TextStyle(
-              fontSize: AppTheme.captionSize,
-              color: textSecondary.withOpacity(0.5),
-            ),
-            filled: true,
-            fillColor: AppTheme.cardBackground,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: 16.w,
-              vertical: 12.h,
+          hintText: '请输入故事大纲',
+          selectType: TextSelectType.setting,
+          previewLines: 3,
+          description: RichText(
+            text: TextSpan(
+              style: TextStyle(
+                fontSize: AppTheme.captionSize,
+                color: textSecondary,
+              ),
+              children: [
+                const TextSpan(text: '简述小说的'),
+                TextSpan(
+                  text: '主要情节',
+                  style: TextStyle(
+                    color: Colors.amber,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '、'),
+                TextSpan(
+                  text: '发展脉络',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '和'),
+                TextSpan(
+                  text: '结局走向',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '，作为AI创作的'),
+                TextSpan(
+                  text: '核心指导',
+                  style: TextStyle(
+                    color: Colors.purple,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
+          onChanged: () => setState(() {}),
         ),
         SizedBox(height: 24.h),
 
         // 世界观设定
-        Text(
-          '世界观设定',
-          style: TextStyle(
-            fontSize: AppTheme.bodySize,
-            fontWeight: FontWeight.w600,
-            color: textPrimary,
-          ),
-        ),
-        SizedBox(height: 4.h),
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontSize: AppTheme.captionSize,
-              color: textSecondary,
-            ),
-            children: [
-              const TextSpan(text: '描述故事发生的'),
-              TextSpan(
-                text: '背景世界',
-                style: TextStyle(
-                  color: Colors.amber,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: '，包括'),
-              TextSpan(
-                text: '时代背景',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: '、'),
-              TextSpan(
-                text: '地理环境',
-                style: TextStyle(
-                  color: Colors.blue,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: '、'),
-              TextSpan(
-                text: '社会规则',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: '等'),
-            ],
-          ),
-        ),
-        SizedBox(height: 8.h),
-        TextFormField(
+        ExpandableTextField(
+          title: '世界观设定',
           controller: widget.worldSettingsController,
-          minLines: 3,
-          maxLines: null,
-          decoration: InputDecoration(
-            hintText: '请输入世界观设定',
-            hintStyle: TextStyle(
-              fontSize: AppTheme.captionSize,
-              color: textSecondary.withOpacity(0.5),
-            ),
-            filled: true,
-            fillColor: AppTheme.cardBackground,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: 16.w,
-              vertical: 12.h,
+          hintText: '请输入世界观设定',
+          selectType: TextSelectType.setting,
+          previewLines: 3,
+          description: RichText(
+            text: TextSpan(
+              style: TextStyle(
+                fontSize: AppTheme.captionSize,
+                color: textSecondary,
+              ),
+              children: [
+                const TextSpan(text: '描述故事发生的'),
+                TextSpan(
+                  text: '背景世界',
+                  style: TextStyle(
+                    color: Colors.amber,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '，包括'),
+                TextSpan(
+                  text: '时代背景',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '、'),
+                TextSpan(
+                  text: '地理环境',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '、'),
+                TextSpan(
+                  text: '社会规则',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '等'),
+              ],
             ),
           ),
+          onChanged: () => setState(() {}),
         ),
         SizedBox(height: 24.h),
 

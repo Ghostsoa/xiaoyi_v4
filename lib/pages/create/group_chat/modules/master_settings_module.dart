@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../theme/app_theme.dart';
-import '../../../../widgets/custom_toast.dart';
-import '../../material/select_text_page.dart';
 import '../../character/select_model_page.dart';
+import '../../../../widgets/expandable_text_field.dart';
+
 
 class MasterSettingsModule extends StatefulWidget {
   final TextEditingController masterSettingController;
@@ -90,88 +90,32 @@ class _MasterSettingsModuleState extends State<MasterSettingsModule> {
       children: [
         
         // 主控设定文本框
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        ExpandableTextField(
+          title: '主控设定',
+          controller: widget.masterSettingController,
+          hintText: '请输入主控设定...\n\n例如：\n- 剧情发展方向\n- 关键事件触发条件\n- 重要决策点\n- 故事转折设定等',
+          maxLength: _maxMasterSettingCount,
+          previewLines: 5,
+          description: RichText(
+            text: TextSpan(
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 12.sp,
+              ),
               children: [
-                Text('主控设定', style: AppTheme.secondaryStyle),
-                const Spacer(),
-                _buildMaterialSelector(
-                  type: TextSelectType.setting,
-                  onSelected: (content) {
-                    // 追加到当前内容
-                    final currentText = widget.masterSettingController.text;
-                    final newText = currentText.isEmpty ? content : '$currentText\n\n$content';
-                    widget.masterSettingController.text = newText;
-                  },
+                const TextSpan(text: '用于控制群聊的'),
+                TextSpan(
+                  text: '剧情走向和关键决策',
+                  style: TextStyle(
+                    color: Colors.amber,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
+                const TextSpan(text: '，最多50000字'),
               ],
             ),
-            SizedBox(height: 4.h),
-            RichText(
-              text: TextSpan(
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 12.sp,
-                ),
-                children: [
-                  const TextSpan(text: '用于控制群聊的'),
-                  TextSpan(
-                    text: '剧情走向和关键决策',
-                    style: TextStyle(
-                      color: Colors.amber,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const TextSpan(text: '，最多50000字'),
-                ],
-              ),
-            ),
-            SizedBox(height: 8.h),
-            TextFormField(
-              controller: widget.masterSettingController,
-              decoration: InputDecoration(
-                hintText: '请输入主控设定...\n\n例如：\n- 剧情发展方向\n- 关键事件触发条件\n- 重要决策点\n- 故事转折设定等',
-                filled: true,
-                fillColor: AppTheme.cardBackground,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  borderSide: BorderSide(color: AppTheme.primaryColor, width: 1),
-                ),
-                contentPadding: EdgeInsets.all(16.w),
-                // 添加后缀计数器
-                suffixText: '$_masterSettingCount/$_maxMasterSettingCount',
-                suffixStyle: TextStyle(
-                  color: _masterSettingCount > _maxMasterSettingCount
-                      ? Colors.red
-                      : AppTheme.textSecondary,
-                  fontSize: 12.sp,
-                ),
-                // 添加错误提示
-                errorText: _masterSettingCount > _maxMasterSettingCount
-                    ? '超出最大字数限制'
-                    : null,
-                hintStyle: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 14.sp,
-                ),
-              ),
-              style: AppTheme.bodyStyle,
-              maxLines: 10,
-              maxLength: _maxMasterSettingCount,
-              // 隐藏内置计数器
-              buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-            ),
-          ],
+          ),
+          onChanged: () => setState(() {}),
         ),
 
         SizedBox(height: 24.h),
@@ -353,137 +297,63 @@ class _MasterSettingsModuleState extends State<MasterSettingsModule> {
         SizedBox(height: 24.h),
 
         // 用户角色设定
-        Text('用户角色设定', style: AppTheme.secondaryStyle),
-        SizedBox(height: 4.h),
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 12.sp,
-            ),
-            children: [
-              const TextSpan(text: '定义用户在群聊中的'),
-              TextSpan(
-                text: '身份和行为',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: '，最多5000字'),
-            ],
-          ),
-        ),
-        SizedBox(height: 8.h),
-        TextFormField(
+        ExpandableTextField(
+          title: '用户角色设定',
           controller: widget.userRoleSettingController,
-          decoration: InputDecoration(
-            hintText: '请输入用户角色设定...\n\n例如：\n- 用户的身份背景\n- 与其他角色的关系\n- 行为特点等',
-            filled: true,
-            fillColor: AppTheme.cardBackground,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide(color: AppTheme.primaryColor, width: 1),
-            ),
-            contentPadding: EdgeInsets.all(16.w),
-            // 添加后缀计数器
-            suffixText: '$_userRoleSettingCount/$_maxUserRoleSettingCount',
-            suffixStyle: TextStyle(
-              color: _userRoleSettingCount > _maxUserRoleSettingCount
-                  ? Colors.red
-                  : AppTheme.textSecondary,
-              fontSize: 12.sp,
-            ),
-            // 添加错误提示
-            errorText: _userRoleSettingCount > _maxUserRoleSettingCount
-                ? '超出最大字数限制'
-                : null,
-            hintStyle: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 14.sp,
+          hintText: '请输入用户角色设定...\n\n例如：\n- 用户的身份背景\n- 与其他角色的关系\n- 行为特点等',
+          maxLength: _maxUserRoleSettingCount,
+          previewLines: 4,
+          description: RichText(
+            text: TextSpan(
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 12.sp,
+              ),
+              children: [
+                const TextSpan(text: '定义用户在群聊中的'),
+                TextSpan(
+                  text: '身份和行为',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '，最多5000字'),
+              ],
             ),
           ),
-          style: AppTheme.bodyStyle,
-          maxLines: 8,
-          maxLength: _maxUserRoleSettingCount,
-          // 隐藏内置计数器
-          buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+          onChanged: () => setState(() {}),
         ),
 
         SizedBox(height: 24.h),
 
         // 开场白
-        Text('开场白', style: AppTheme.secondaryStyle),
-        SizedBox(height: 4.h),
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 12.sp,
-            ),
-            children: [
-              const TextSpan(text: '群聊开始时的'),
-              TextSpan(
-                text: '欢迎信息',
-                style: TextStyle(
-                  color: Colors.amber,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: '，最多1000字'),
-            ],
-          ),
-        ),
-        SizedBox(height: 8.h),
-        TextFormField(
+        ExpandableTextField(
+          title: '开场白',
           controller: widget.greetingController,
-          decoration: InputDecoration(
-            hintText: '请输入开场白...\n\n例如：\n欢迎来到这个群聊！这里是一个充满魔法的世界...',
-            filled: true,
-            fillColor: AppTheme.cardBackground,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide(color: AppTheme.primaryColor, width: 1),
-            ),
-            contentPadding: EdgeInsets.all(16.w),
-            // 添加后缀计数器
-            suffixText: '$_greetingCount/$_maxGreetingCount',
-            suffixStyle: TextStyle(
-              color: _greetingCount > _maxGreetingCount
-                  ? Colors.red
-                  : AppTheme.textSecondary,
-              fontSize: 12.sp,
-            ),
-            // 添加错误提示
-            errorText: _greetingCount > _maxGreetingCount
-                ? '超出最大字数限制'
-                : null,
-            hintStyle: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 14.sp,
+          hintText: '请输入开场白...\n\n例如：\n欢迎来到这个群聊！这里是一个充满魔法的世界...',
+          maxLength: _maxGreetingCount,
+          previewLines: 3,
+          description: RichText(
+            text: TextSpan(
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 12.sp,
+              ),
+              children: [
+                const TextSpan(text: '群聊开始时的'),
+                TextSpan(
+                  text: '欢迎信息',
+                  style: TextStyle(
+                    color: Colors.amber,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '，最多1000字'),
+              ],
             ),
           ),
-          style: AppTheme.bodyStyle,
-          maxLines: 6,
-          maxLength: _maxGreetingCount,
-          // 隐藏内置计数器
-          buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+          onChanged: () => setState(() {}),
         ),
 
         SizedBox(height: 24.h),
@@ -538,60 +408,6 @@ class _MasterSettingsModuleState extends State<MasterSettingsModule> {
     );
   }
 
-  Widget _buildMaterialSelector({
-    required TextSelectType type,
-    required Function(String) onSelected,
-  }) {
-    return GestureDetector(
-      onTap: () async {
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SelectTextPage(
-              source: TextSelectSource.myMaterial,
-              type: type,
-            ),
-          ),
-        );
-        if (result != null && mounted) {
-          onSelected(result);
-          CustomToast.show(
-            context,
-            message: '已导入设定内容',
-            type: ToastType.success,
-          );
-        }
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(
-            color: AppTheme.primaryColor.withOpacity(0.3),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.folder_open,
-              size: 14.sp,
-              color: AppTheme.primaryColor,
-            ),
-            SizedBox(width: 4.w),
-            Text(
-              '从素材库选择',
-              style: TextStyle(
-                fontSize: 11.sp,
-                color: AppTheme.primaryColor,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 }
 

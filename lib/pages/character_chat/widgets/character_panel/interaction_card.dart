@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../theme/app_theme.dart';
+import '../../../../widgets/expandable_text_field.dart';
+import '../../../../widgets/text_editor_page.dart';
 
 class InteractionCard extends StatelessWidget {
   final Map<String, dynamic> sessionData;
@@ -65,94 +67,41 @@ class InteractionCard extends StatelessWidget {
   }) {
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBackground.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(8.r),
-        border: Border(left: BorderSide(color: accentColor, width: 3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(6.w),
-                decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(6.r),
-                ),
-                child: Icon(
-                  _getIconForField(field),
-                  color: accentColor,
-                  size: 16.sp,
-                ),
-              ),
-              SizedBox(width: 12.w),
-              Text(
-                label,
-                style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(width: 4.w),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 6.w,
-                  vertical: 2.h,
-                ),
-                decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(4.r),
-                ),
-                child: Text(
-                  '可编辑',
-                  style: TextStyle(
-                    color: accentColor,
-                    fontSize: 10.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
+      child: ExpandableTextField(
+        title: label,
+        controller: controller,
+        hintText: _getHintForField(field),
+        selectType: _getSelectType(field),
+        previewLines: isMultiLine ? 4 : 1,
+        helpIcon: Container(
+          padding: EdgeInsets.all(4.w),
+          decoration: BoxDecoration(
+            color: accentColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(4.r),
           ),
-          SizedBox(height: 10.h),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-            decoration: BoxDecoration(
-              color: AppTheme.background.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(8.r),
-              border: Border.all(color: accentColor.withOpacity(0.3), width: 1),
-            ),
-            child: TextFormField(
-              controller: controller,
-              style: TextStyle(
-                fontSize: 15.sp,
-                color: AppTheme.textPrimary,
-              ),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                fillColor: Colors.transparent,
-                hintText: _getHintForField(field),
-                hintStyle: TextStyle(
-                  fontSize: 14.sp,
-                  color: AppTheme.textHint,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-              onChanged: (value) => onUpdateField(field, value),
-              maxLines: isMultiLine ? null : 1,
-            ),
+          child: Icon(
+            _getIconForField(field),
+            color: accentColor,
+            size: 12.sp,
           ),
-        ],
+        ),
+        onChanged: () {
+          onUpdateField(field, controller.text);
+        },
       ),
     );
+  }
+
+  // 根据字段类型返回对应的选择类型
+  TextSelectType? _getSelectType(String field) {
+    switch (field) {
+      case 'prefix':
+        return TextSelectType.prefix;
+      case 'suffix':
+        return TextSelectType.suffix;
+      default:
+        return null;
+    }
   }
 
   String _getHintForField(String field) {
@@ -279,7 +228,7 @@ class InteractionCard extends StatelessWidget {
               ),
               SizedBox(width: 12.w),
               Text(
-                'UI格式化类型',
+                '界面渲染类型',
                 style: TextStyle(
                   color: AppTheme.textPrimary,
                   fontSize: 16.sp,
@@ -318,12 +267,12 @@ class InteractionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildUiSettingOption(
-                    'markdown', 'Markdown模式', AppTheme.success),
+                    'markdown', '标准渲染', AppTheme.success),
                 SizedBox(height: 8.h),
-                _buildUiSettingOption('disabled', '不启用状态栏', AppTheme.error),
+                _buildUiSettingOption('disabled', '不启用渲染', AppTheme.error),
                 SizedBox(height: 8.h),
                 _buildUiSettingOption(
-                    'legacy_bar', '兼容模式', AppTheme.primaryLight),
+                    'html', 'HTML渲染', AppTheme.primaryLight),
               ],
             ),
           ),
@@ -420,8 +369,8 @@ class InteractionCard extends StatelessWidget {
         return Icons.text_format;
       case 'disabled':
         return Icons.chat_outlined;
-      case 'legacy_bar':
-        return Icons.view_stream;
+      case 'html':
+        return Icons.code;
       default:
         return Icons.settings;
     }
@@ -430,11 +379,11 @@ class InteractionCard extends StatelessWidget {
   String _getUiSettingsDescription() {
     switch (uiSettings) {
       case 'markdown':
-        return '使用Markdown模式渲染状态栏';
+        return '使用标准渲染模式，支持Markdown格式';
       case 'disabled':
-        return '不启用状态栏功能';
-      case 'legacy_bar':
-        return '兼容旧版格式，使用Markdown渲染器处理状态标签';
+        return '不启用渲染功能';
+      case 'html':
+        return '使用HTML渲染，支持更丰富的显示效果';
       default:
         return '';
     }

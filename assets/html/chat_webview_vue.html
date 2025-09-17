@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vue3 Chat WebView</title>
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: transparent;
+        }
+
+
+
+        #app {
+            min-height: 100vh; /* 最小高度，允许内容超出时滚动 */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* 内容从底部开始 */
+            padding: 8px;
+            box-sizing: border-box;
+            color: inherit; /* 确保继承颜色 */
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column-reverse; /* 反转列表，最新消息在底部 */
+            gap: 8px;
+            max-width: 100%;
+        }
+        
+        .message-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .message-item.user {
+            align-items: flex-end;
+        }
+        
+        .message-item.ai {
+            align-items: flex-start;
+        }
+        
+        .message-bubble {
+            max-width: 100%;
+            min-width: fit-content;
+            padding: 8px 12px;
+            border-radius: 10px;
+            word-wrap: break-word;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: block;
+            width: auto;
+        }
+
+
+        
+        .message-content {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* 消息内容继承气泡颜色 */
+        .message-content {
+            color: inherit;
+        }
+
+        /* 混合内容也继承气泡颜色，但允许HTML标签覆盖 */
+        .mixed-content {
+            color: inherit;
+        }
+        
+        .message-actions {
+            margin-top: 8px;
+            display: flex;
+            align-items: flex-start; /* 统一顶部对齐 */
+            gap: 8px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            min-height: 28px; /* 确保折叠和展开状态高度一致 */
+        }
+
+        /* 用户消息的操作按钮右对齐 */
+        .message-item.user .message-actions {
+            justify-content: flex-end;
+        }
+
+        /* AI消息的操作按钮左对齐 */
+        .message-item.ai .message-actions {
+            justify-content: flex-start;
+        }
+
+        .actions-collapsed {
+            width: auto;
+        }
+
+        .actions-expanded {
+            width: 100%;
+        }
+
+        .function-btn {
+            padding: 2px 6px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 9px;
+            background: rgba(0, 0, 0, 0.1);
+            color: #666;
+            transition: all 0.2s;
+            height: 20px;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .function-btn:hover {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .expanded-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /* AI消息展开后的按钮左对齐 */
+        .message-item.ai .expanded-actions {
+            justify-content: flex-start;
+        }
+
+        /* 用户消息展开后的按钮右对齐 */
+        .message-item.user .expanded-actions {
+            justify-content: flex-end;
+        }
+
+        .collapse-btn {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 10px;
+            background: rgba(255, 0, 0, 0.1);
+            color: #666;
+            transition: all 0.2s;
+            height: 28px;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .collapse-btn:hover {
+            background: rgba(255, 0, 0, 0.2);
+        }
+        
+        .action-btn {
+            padding: 2px 6px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 9px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            background: rgba(0, 0, 0, 0.1);
+            color: #666;
+            height: 20px;
+            box-sizing: border-box;
+        }
+        
+        .action-btn:hover {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        /* 思考状态样式 */
+        .thinking-message {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .thinking-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            animation: shimmer-pulse 1.2s ease-in-out infinite;
+        }
+
+        .thinking-text {
+            animation: shimmer-pulse 1.2s ease-in-out infinite;
+            font-weight: 500;
+        }
+
+        @keyframes shimmer-pulse {
+            0%, 100% {
+                opacity: 0.5;
+            }
+            50% {
+                opacity: 1;
+            }
+        }
+
+        /* 思考动画 */
+        .thinking-animation {
+            animation: thinking 1.5s ease-in-out infinite;
+        }
+
+        @keyframes thinking {
+            0%, 100% {
+                opacity: 0.5;
+            }
+            50% {
+                opacity: 1;
+            }
+        }
+
+        /* 加载状态的消息气泡 */
+        .message-bubble.loading {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .message-bubble.loading::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.2),
+                transparent
+            );
+            animation: loading-shimmer 1.5s infinite;
+        }
+
+        @keyframes loading-shimmer {
+            0% {
+                left: -100%;
+            }
+            100% {
+                left: 100%;
+            }
+        }
+
+
+
+
+
+        /* HTML iframe - 初始渲染后固定高度 */
+        .html-iframe {
+            width: 100%;
+            max-width: 100%;
+            height: 400px;       /* 默认高度，会被JS动态设置 */
+            border: none;
+            background: transparent;
+            display: block;
+            margin: 0;
+            padding: 0;
+            overflow: auto;      /* 内容超出时显示滚动条 */
+        }
+
+        /* 嵌套iframe - 在气泡内的iframe，看起来天然 */
+        .nested-iframe {
+            width: 100%;
+            max-width: 100%;
+            height: auto;           /* 自动高度 */
+            min-height: 100px;      /* 最小高度 */
+            border: none;           /* 去掉边框 */
+            background: transparent;
+            display: block;
+            margin: 0;              /* 去掉边距 */
+            padding: 0;
+            overflow: hidden;       /* 防止滚动条 */
+        }
+
+        /* 混合内容样式 - 继承气泡样式 */
+        .mixed-content {
+            /* 继承父元素的文字颜色和字体 */
+            color: inherit;
+            font-size: inherit;
+            font-family: inherit;
+            line-height: inherit;
+
+            /* 防止内容溢出 */
+            overflow: hidden;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        /* 混合内容中的代码块样式 */
+        .mixed-content code {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        /* 混合内容中的所有元素 - 彻底去掉所有间距 */
+        .mixed-content * {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* 混合内容默认继承气泡颜色，JavaScript会处理具体的颜色设置 */
+
+        /* 只保留列表的左边距用于编号/符号 */
+        .mixed-content ul,
+        .mixed-content ol {
+            padding-left: 20px !important;
+            overflow: hidden;
+        }
+
+        /* 保留必要的功能样式 */
+        .mixed-content li {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            list-style-position: inside; /* 确保编号在内部 */
+        }
+
+        .mixed-content summary {
+            cursor: pointer;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            outline: none;
+            display: block; /* 确保块级显示 */
+        }
+
+        .mixed-content details {
+            overflow: hidden;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="chat-container">
+            <div
+                v-for="message in messages"
+                :key="message.msgId"
+                :class="['message-item', message.isUser ? 'user' : 'ai']"
+                :data-msg-id="message.msgId"
+            >
+                <!-- HTML内容独立渲染（懒加载） -->
+                <iframe
+                    v-if="!message.isLoading && !message.status && isHtmlContent(message.content) && isMessageVisible(message.msgId)"
+                    :srcdoc="createIsolatedHtml(message.content)"
+                    class="html-iframe"
+                    frameborder="0"
+                    @load="resizeIframe"
+                ></iframe>
+
+                <!-- 占位符（未加载的HTML内容） -->
+                <div
+                    v-else-if="!message.isLoading && !message.status && isHtmlContent(message.content)"
+                    class="message-placeholder"
+                    :style="{ minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }"
+                >
+                    HTML内容加载中...
+                </div>
+
+                <!-- 普通消息气泡 -->
+                <div
+                    v-else
+                    :class="['message-bubble', { 'loading': message.isLoading || message.status === 'streaming' }]"
+                    :style="{
+                        backgroundColor: message.isUser
+                            ? hexToRgba(message.userBubbleColor, message.userBubbleOpacity)
+                            : hexToRgba(message.bubbleColor, message.bubbleOpacity),
+                        color: message.isUser ? message.userTextColor : message.textColor,
+                        fontSize: message.fontSize + 'px'
+                    }"
+                >
+                    <!-- 消息内容显示 -->
+                    <div class="message-content">
+                        <!-- 思考状态显示 -->
+                        <div v-if="message.isLoading || message.status === 'streaming'" class="thinking-message">
+                            <div
+                                class="thinking-dot"
+                                :style="{ backgroundColor: message.isUser ? message.userTextColor : message.textColor }"
+                            ></div>
+                            <span
+                                class="thinking-text"
+                                :style="{ color: message.isUser ? message.userTextColor : message.textColor }"
+                            >
+                                正在生成...
+                            </span>
+                        </div>
+
+                        <!-- 消息内容 -->
+                        <template v-else>
+                            <!-- 混合内容：HTML标签+文本，在气泡内用iframe渲染（懒加载） -->
+                            <iframe
+                                v-if="hasMixedContent(message.content) && isMessageVisible(message.msgId)"
+                                :srcdoc="createColoredIsolatedHtml(message.content, message.isUser ? message.userTextColor : message.textColor)"
+                                class="nested-iframe"
+                                frameborder="0"
+                                @load="resizeIframe"
+                            ></iframe>
+
+                            <!-- 占位符（未加载的混合内容） -->
+                            <div
+                                v-else-if="hasMixedContent(message.content)"
+                                class="mixed-placeholder"
+                                :style="{ minHeight: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7 }"
+                            >
+                                内容加载中...
+                            </div>
+
+                            <!-- 纯文本内容 -->
+                            <template v-else>
+                                {{ message.content }}
+                            </template>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- 操作按钮（思考状态时隐藏） -->
+                <div v-if="!message.isLoading && message.status !== 'streaming'" class="message-actions">
+                    <!-- AI消息：展开按钮在前，操作按钮在后 -->
+                    <template v-if="!message.isUser">
+                        <button
+                            class="function-btn"
+                            @click="toggleActions(message.msgId)"
+                            :style="{
+                                backgroundColor: hexToRgba(message.bubbleColor, message.bubbleOpacity),
+                                color: message.textColor
+                            }"
+                        >
+                            {{ isActionsExpanded(message.msgId) ? '收起' : '操作' }}
+                        </button>
+
+                        <template v-if="isActionsExpanded(message.msgId)">
+                            <button
+                                class="action-btn"
+                                @click="regenerateMessage(message.msgId)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.bubbleColor, message.bubbleOpacity),
+                                    color: message.textColor
+                                }"
+                            >
+                                🔄 重新生成
+                            </button>
+                            <button
+                                class="action-btn"
+                                @click="deleteMessage(message.msgId)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.bubbleColor, message.bubbleOpacity),
+                                    color: message.textColor
+                                }"
+                            >
+                                🗑️ 删除
+                            </button>
+                            <button
+                                class="action-btn"
+                                @click="copyMessage(message.content)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.bubbleColor, message.bubbleOpacity),
+                                    color: message.textColor
+                                }"
+                            >
+                                📋 复制
+                            </button>
+                            <button
+                                class="action-btn"
+                                @click="editMessage(message.msgId, message.content)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.bubbleColor, message.bubbleOpacity),
+                                    color: message.textColor
+                                }"
+                            >
+                                ✏️ 编辑
+                            </button>
+                        </template>
+                    </template>
+
+                    <!-- 用户消息：操作按钮在前，展开按钮在后 -->
+                    <template v-else>
+                        <template v-if="isActionsExpanded(message.msgId)">
+                            <button
+                                class="action-btn"
+                                @click="revokeMessage(message.msgId)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.userBubbleColor, message.userBubbleOpacity),
+                                    color: message.userTextColor
+                                }"
+                            >
+                                ↩️ 撤销
+                            </button>
+                            <button
+                                class="action-btn"
+                                @click="deleteMessage(message.msgId)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.userBubbleColor, message.userBubbleOpacity),
+                                    color: message.userTextColor
+                                }"
+                            >
+                                🗑️ 删除
+                            </button>
+                            <button
+                                class="action-btn"
+                                @click="copyMessage(message.content)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.userBubbleColor, message.userBubbleOpacity),
+                                    color: message.userTextColor
+                                }"
+                            >
+                                📋 复制
+                            </button>
+                            <button
+                                class="action-btn"
+                                @click="editMessage(message.msgId, message.content)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.userBubbleColor, message.userBubbleOpacity),
+                                    color: message.userTextColor
+                                }"
+                            >
+                                ✏️ 编辑
+                            </button>
+                        </template>
+
+                        <button
+                            class="function-btn"
+                            @click="toggleActions(message.msgId)"
+                            :style="{
+                                backgroundColor: hexToRgba(message.userBubbleColor, message.userBubbleOpacity),
+                                color: message.userTextColor
+                            }"
+                        >
+                            {{ isActionsExpanded(message.msgId) ? '收起' : '操作' }}
+                        </button>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, nextTick } = Vue;
+        
+        createApp({
+            setup() {
+                const messages = ref([]);
+                const expandedActions = ref(new Set()); // 存储展开的消息ID
+                const visibleMessages = ref(new Set()); // 存储可见的消息ID
+
+                // 将十六进制颜色转换为带透明度的rgba
+                const hexToRgba = (hex, opacity) => {
+                    // 移除#号
+                    hex = hex.replace('#', '');
+
+                    // 解析RGB值
+                    const r = parseInt(hex.substr(0, 2), 16);
+                    const g = parseInt(hex.substr(2, 2), 16);
+                    const b = parseInt(hex.substr(4, 2), 16);
+
+                    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                };
+
+                // 检测内容是否需要iframe独立渲染（复杂HTML）
+                const isComplexHtmlContent = (content) => {
+                    if (!content || typeof content !== 'string') return false;
+
+                    const trimmed = content.trim().toLowerCase();
+
+                    // 完整的HTML文档使用iframe
+                    if (trimmed.startsWith('<!doctype html') || trimmed.startsWith('<html')) {
+                        return true;
+                    }
+
+                    // 或者包含head和body标签的完整结构
+                    if (trimmed.includes('<head') && trimmed.includes('<body')) {
+                        return true;
+                    }
+
+
+
+
+
+                    return false;
+                };
+
+                // 检测内容是否包含简单HTML标签（在气泡内渲染）
+                const hasSimpleHtmlContent = (content) => {
+                    if (!content || typeof content !== 'string') return false;
+
+                    // 如果是复杂HTML，不算简单内容
+                    if (isComplexHtmlContent(content)) return false;
+
+                    // 检测是否包含HTML标签，如果包含就在气泡内渲染
+                    const htmlTagRegex = /<[^>]+>/;
+                    return htmlTagRegex.test(content);
+                };
+
+
+
+                // 为了兼容性，保留原来的函数名
+                const isHtmlContent = isComplexHtmlContent;
+                const hasMixedContent = hasSimpleHtmlContent;
+
+
+
+                // 本地渲染，不需要清理HTML内容
+                const sanitizeHtml = (content) => {
+                    // 直接返回原始内容，支持所有HTML标签和功能
+                    return content;
+                };
+
+                // 简单的HTML内容缓存
+                const htmlCache = new Map();
+                const maxCacheSize = 20; // 最大缓存20个
+
+                // 创建隔离的HTML文档（用于独立iframe）
+                const createIsolatedHtml = (content) => {
+                    const cacheKey = `isolated_${content.length}_${content.substring(0, 50)}`;
+
+                    // 检查缓存
+                    if (htmlCache.has(cacheKey)) {
+                        return htmlCache.get(cacheKey);
+                    }
+
+                    const html = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <style>
+                                body {
+                                    margin: 0;
+                                    padding: 0;
+                                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                                    font-size: 14px;
+                                    line-height: 1.5;
+                                    background: transparent;
+                                    overflow: auto;
+                                }
+
+                                /* 确保内容适应iframe宽度 */
+                                .terminal {
+                                    max-width: 100% !important;
+                                    width: 100% !important;
+                                    margin: 0 !important;
+                                }
+
+                                /* 隐藏滚动条但保留滚动功能 */
+                                ::-webkit-scrollbar {
+                                    display: none;
+                                }
+                                * {
+                                    scrollbar-width: none;
+                                    -ms-overflow-style: none;
+                                }
+
+
+                            </style>
+                        </head>
+                        <body>
+                            ${content}
+
+                            <script>
+                                function resizeParent() {
+                                    const height = document.body.scrollHeight;
+                                    window.parent.postMessage({
+                                        type: 'resize',
+                                        height: height
+                                    }, '*');
+                                }
+
+                                window.addEventListener('load', function() {
+                                    resizeParent();
+                                });
+
+                                // 监听高度变化
+                                const observer = new MutationObserver(function() {
+                                    resizeParent();
+                                });
+                                observer.observe(document.body, {
+                                    childList: true,
+                                    subtree: true,
+                                    attributes: true
+                                });
+
+                                setTimeout(function() {
+                                    resizeParent();
+                                }, 100);
+                            <\/script>
+                        </body>
+                        </html>
+                    `;
+
+                    // 缓存结果
+                    if (htmlCache.size >= maxCacheSize) {
+                        const firstKey = htmlCache.keys().next().value;
+                        htmlCache.delete(firstKey);
+                    }
+                    htmlCache.set(cacheKey, html);
+
+                    return html;
+                };
+
+                // 创建带颜色的隔离HTML文档（用于嵌套iframe）
+                const createColoredIsolatedHtml = (content, textColor) => {
+                    const cacheKey = `colored_${content.length}_${textColor}_${content.substring(0, 50)}`;
+
+                    // 检查缓存
+                    if (htmlCache.has(cacheKey)) {
+                        return htmlCache.get(cacheKey);
+                    }
+
+                    const html = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <style>
+                                body {
+                                    margin: 0;
+                                    padding: 0;
+                                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                                    font-size: 14px;
+                                    line-height: 1.5;
+                                    background: transparent;
+                                    overflow-x: auto;
+                                    overflow-y: hidden;
+                                    color: ${textColor} !important;
+                                }
+
+                                /* 确保所有元素默认继承文本颜色 */
+                                * {
+                                    color: inherit;
+                                }
+
+                                /* 确保内容适应iframe宽度 */
+                                .terminal {
+                                    max-width: 100% !important;
+                                    width: 100% !important;
+                                    margin: 0 !important;
+                                }
+
+                                /* 隐藏滚动条但保留滚动功能 */
+                                ::-webkit-scrollbar {
+                                    display: none;
+                                }
+                                * {
+                                    scrollbar-width: none;
+                                    -ms-overflow-style: none;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            ${content}
+
+                            <script>
+                                function resizeParent() {
+                                    const height = document.body.scrollHeight;
+                                    window.parent.postMessage({
+                                        type: 'resize',
+                                        height: height
+                                    }, '*');
+                                }
+
+                                window.addEventListener('load', function() {
+                                    resizeParent();
+                                });
+
+                                // 监听高度变化
+                                const observer = new MutationObserver(function() {
+                                    resizeParent();
+                                });
+                                observer.observe(document.body, {
+                                    childList: true,
+                                    subtree: true,
+                                    attributes: true
+                                });
+
+                                setTimeout(function() {
+                                    resizeParent();
+                                }, 100);
+                            <\/script>
+                        </body>
+                        </html>
+                    `;
+
+                    // 缓存结果
+                    if (htmlCache.size >= maxCacheSize) {
+                        const firstKey = htmlCache.keys().next().value;
+                        htmlCache.delete(firstKey);
+                    }
+                    htmlCache.set(cacheKey, html);
+
+                    return html;
+                };
+
+                // iframe自动调整大小
+                const resizeIframe = (event) => {
+                    const iframe = event.target;
+                    const isNested = iframe.classList.contains('nested-iframe');
+
+                    // 独立iframe：初始渲染后确定高度，后续不再变化
+                    if (!isNested) {
+                        setTimeout(() => {
+                            try {
+                                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                                if (doc && doc.body) {
+                                    const initialHeight = Math.min(doc.body.scrollHeight, window.innerHeight * 1.1);
+                                    iframe.style.height = initialHeight + 'px';
+                                    // 设置后不再监听resize消息，保持固定高度
+                                }
+                            } catch (e) {
+                                // 如果无法访问，使用默认高度
+                                iframe.style.height = '400px';
+                            }
+                        }, 100);
+                        return;
+                    }
+
+                    // 嵌套iframe保持原有的自适应逻辑
+                    const handleMessage = (e) => {
+                        if (e.source === iframe.contentWindow && e.data && e.data.type === 'resize') {
+                            const newHeight = e.data.height;
+                            iframe.style.height = newHeight + 'px';
+                        }
+                    };
+
+                    window.addEventListener('message', handleMessage);
+
+                    // 清理事件监听器
+                    iframe.addEventListener('beforeunload', () => {
+                        window.removeEventListener('message', handleMessage);
+                    });
+                };
+                // 发送消息到Flutter
+                const sendToFlutter = (action, data = {}) => {
+                    console.log('Sending to Flutter:', action, data);
+                    if (window.FlutterBridge) {
+                        window.FlutterBridge.postMessage(JSON.stringify({
+                            action: action,
+                            ...data
+                        }));
+                    } else {
+                        console.error('FlutterBridge not available');
+                    }
+                };
+                
+                // 更新消息列表
+                const updateMessages = (newMessages, shouldScrollToBottom = false) => {
+                    const oldLength = messages.value.length;
+                    const newLength = newMessages.length;
+
+                    // 如果是初始加载（从0条消息开始），延迟滚动到底部
+                    if (oldLength === 0 && newLength > 0) {
+                        messages.value = newMessages;
+                        setTimeout(() => {
+                            window.scrollTo(0, document.body.scrollHeight);
+                        }, 0);
+                        return;
+                    }
+
+                    // 如果是分页加载（历史消息增加），记录当前滚动位置
+                    let shouldMaintainPosition = false;
+                    let oldScrollHeight = 0;
+
+                    if (newLength > oldLength && !shouldScrollToBottom) {
+                        shouldMaintainPosition = true;
+                        oldScrollHeight = document.documentElement.scrollHeight;
+                    }
+
+                    messages.value = newMessages;
+
+                    // 处理滚动位置
+                    if (shouldScrollToBottom) {
+                        scrollToBottom();
+                    } else if (shouldMaintainPosition) {
+                        // 使用 nextTick 确保 DOM 完全更新后再调整滚动位置
+                        Vue.nextTick(() => {
+                            const newScrollHeight = document.documentElement.scrollHeight;
+                            const heightDiff = newScrollHeight - oldScrollHeight;
+                            window.scrollTo({
+                                top: window.scrollY + heightDiff,
+                                behavior: 'instant'
+                            });
+                        });
+                    }
+                };
+
+                // 滚动到底部（最新消息位置）
+                const scrollToBottom = () => {
+                    // 由于使用了column-reverse，需要滚动到页面底部
+                    window.scrollTo({
+                        top: document.documentElement.scrollHeight,
+                        behavior: 'instant' // 立即滚动，不要动画
+                    });
+                };
+
+                // 滚动监听，实现分页加载
+                const handleScroll = () => {
+                    // 检查是否滚动到顶部（需要加载更多历史消息）
+                    if (window.scrollY <= 100) { // 距离顶部100px时触发
+                        sendToFlutter('loadMore', {});
+                    }
+                };
+
+                // 添加滚动监听
+                window.addEventListener('scroll', handleScroll);
+                
+                // 编辑消息 - 调用Flutter原生编辑页面
+                const editMessage = (msgId, content) => {
+                    sendToFlutter('editMessage', { msgId, content });
+                };
+
+                // 复制消息
+                const copyMessage = (content) => {
+                    sendToFlutter('copyMessage', { content });
+                };
+
+                // 删除消息
+                const deleteMessage = (msgId) => {
+                    sendToFlutter('deleteMessage', { msgId });
+                };
+
+                // 撤销消息
+                const revokeMessage = (msgId) => {
+                    sendToFlutter('revokeMessage', { msgId });
+                };
+
+                // 重新生成消息
+                const regenerateMessage = (msgId) => {
+                    sendToFlutter('regenerateMessage', { msgId });
+                };
+
+                // 切换操作按钮的展开/收起状态
+                const toggleActions = (msgId) => {
+                    if (expandedActions.value.has(msgId)) {
+                        expandedActions.value.delete(msgId);
+                    } else {
+                        expandedActions.value.add(msgId);
+                    }
+                    // 触发响应式更新
+                    expandedActions.value = new Set(expandedActions.value);
+                };
+
+                // 检查操作按钮是否展开
+                const isActionsExpanded = (msgId) => {
+                    return expandedActions.value.has(msgId);
+                };
+
+                // 检查消息是否可见（暂时全部可见）
+                const isMessageVisible = (msgId) => {
+                    return true; // 暂时全部显示
+                };
+
+                // 应用混合内容样式，确保没有颜色设置的元素继承气泡颜色
+                const applyMixedContentStyles = (element, message) => {
+                    if (!element) return;
+
+                    const textColor = message.isUser ? message.userTextColor : message.textColor;
+
+                    // 递归处理所有子元素
+                    const processElement = (el) => {
+                        if (el.nodeType === Node.ELEMENT_NODE) {
+                            // 检查元素是否有明确的颜色设置
+                            const hasColorStyle = el.style.color || el.getAttribute('color');
+
+                            if (!hasColorStyle) {
+                                // 没有颜色设置，使用气泡颜色
+                                el.style.color = textColor;
+                            }
+
+                            // 递归处理子元素
+                            for (let child of el.children) {
+                                processElement(child);
+                            }
+                        }
+                    };
+
+                    // 处理混合内容容器的所有子元素
+                    for (let child of element.children) {
+                        processElement(child);
+                    }
+                };
+
+                // 暴露给全局，供Flutter调用
+                window.updateMessages = updateMessages;
+                
+                return {
+                    messages,
+                    expandedActions,
+                    visibleMessages,
+                    hexToRgba,
+                    isHtmlContent,
+                    hasMixedContent,
+                    sanitizeHtml,
+                    createIsolatedHtml,
+                    createColoredIsolatedHtml,
+                    resizeIframe,
+                    editMessage,
+                    copyMessage,
+                    deleteMessage,
+                    revokeMessage,
+                    regenerateMessage,
+                    toggleActions,
+                    isActionsExpanded,
+                    isMessageVisible,
+                    applyMixedContentStyles
+                };
+            },
+
+        }).mount('#app');
+    </script>
+</body>
+</html>

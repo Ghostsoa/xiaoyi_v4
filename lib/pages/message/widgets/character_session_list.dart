@@ -20,12 +20,14 @@ class CharacterSessionList extends StatefulWidget {
     required this.selectedIds,
     required this.onSelectionChanged,
     required this.onShowMenu,
+    this.onRefresh,
   });
 
   final bool isMultiSelectMode;
   final Set<int> selectedIds;
   final ValueChanged<int> onSelectionChanged;
   final Function(BuildContext, Map<String, dynamic>, Offset) onShowMenu; // 🔥 添加位置参数
+  final VoidCallback? onRefresh; // 刷新回调
 
   @override
   CharacterSessionListState createState() => CharacterSessionListState();
@@ -691,7 +693,12 @@ class CharacterSessionListState extends State<CharacterSessionList> {
                     characterData: session,
                   ),
                 ),
-              );
+              ).then((result) {
+                // 如果返回值为 true，说明需要刷新列表
+                if (result == true) {
+                  widget.onRefresh?.call();
+                }
+              });
             }
           },
           onLongPressStart: widget.isMultiSelectMode

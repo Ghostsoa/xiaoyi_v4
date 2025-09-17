@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:typed_data';
+import 'dart:io';
+import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/custom_toast.dart';
 import '../../../widgets/cache_pull_dialog.dart';
@@ -469,6 +472,263 @@ class _ChatArchivePageState extends State<ChatArchivePage>
           type: ToastType.error
         );
       }
+    }
+  }
+
+  /// 导出存档为txt文件（仅导出本地缓存数据）
+  Future<void> _exportArchiveToTxt(String archiveId, String archiveName) async {
+    try {
+      // 弹窗询问是否自定义文件名
+      final customFileName = await _showFileNameDialog(archiveName);
+      if (customFileName == null) {
+        // 用户取消了导出
+        return;
+      }
+
+      // 显示导出进度
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '正在导出存档...',
+          type: ToastType.info
+        );
+      }
+
+      await _messageCacheService.initDatabase();
+
+      // 获取所有本地缓存的消息数据
+      List<Map<String, dynamic>> allMessages = [];
+      int currentPage = 1;
+      const int pageSize = 100;
+      bool hasMoreData = true;
+
+      while (hasMoreData) {
+        final result = await _messageCacheService.getArchiveMessages(
+          sessionId: int.parse(widget.sessionId),
+          archiveId: archiveId,
+          page: currentPage,
+          pageSize: pageSize,
+        );
+
+        final List<dynamic> messages = result['list'] ?? [];
+        if (messages.isEmpty) {
+          hasMoreData = false;
+        } else {
+          allMessages.addAll(messages.cast<Map<String, dynamic>>());
+          currentPage++;
+        }
+      }
+
+      if (allMessages.isEmpty) {
+        if (mounted) {
+          CustomToast.show(
+            context,
+            message: '本地缓存中没有消息数据',
+            type: ToastType.warning
+          );
+        }
+        return;
+      }
+
+      // 按时间正序排列（最早的在前）
+      allMessages.sort((a, b) {
+        final timeA = DateTime.tryParse(a['createdAt'] ?? '') ?? DateTime.now();
+        final timeB = DateTime.tryParse(b['createdAt'] ?? '') ?? DateTime.now();
+        return timeA.compareTo(timeB);
+      });
+
+      // 生成txt内容
+      final txtContent = _generateTxtContent(allMessages, archiveName);
+
+      // 保存文件
+      await _saveToFile(txtContent, customFileName);
+
+    } catch (e) {
+      debugPrint('[ChatArchivePage] ❌ 导出存档失败: $e');
+
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '导出失败: $e',
+          type: ToastType.error
+        );
+      }
+    }
+  }
+
+  /// 显示文件名输入对话框
+  Future<String?> _showFileNameDialog(String defaultName) async {
+    // 生成默认文件名（包含时间戳）
+    final timestamp = DateTime.now().toString().substring(0, 19).replaceAll(':', '-');
+    final defaultFileName = '存档_${defaultName}_$timestamp';
+    final TextEditingController controller = TextEditingController(text: defaultFileName);
+
+    return showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('导出文件名'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: '输入文件名',
+              border: OutlineInputBorder(),
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(null),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final fileName = controller.text.trim();
+                Navigator.of(context).pop(fileName.isEmpty ? defaultFileName : fileName);
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 生成txt文件内容
+  String _generateTxtContent(List<Map<String, dynamic>> messages, String archiveName) {
+    final buffer = StringBuffer();
+
+    // 添加文件头
+    buffer.writeln('='.padRight(40, '='));
+    buffer.writeln('存档名称: $archiveName');
+    buffer.writeln('导出时间: ${DateTime.now().toString().substring(0, 19)}');
+    buffer.writeln('消息总数: ${messages.length}');
+    buffer.writeln('='.padRight(40, '='));
+    buffer.writeln();
+
+    // 按轮次组织对话内容
+    List<List<Map<String, dynamic>>> rounds = [];
+    List<Map<String, dynamic>> currentRound = [];
+
+    // 检查第一条消息是否是AI开场白
+    bool hasOpeningMessage = false;
+    if (messages.isNotEmpty && messages[0]['role'] == 'assistant') {
+      hasOpeningMessage = true;
+      // 开场白单独作为一轮
+      rounds.add([messages[0]]);
+    }
+
+    // 从第二条消息开始（如果有开场白）或第一条开始组织轮次
+    int startIndex = hasOpeningMessage ? 1 : 0;
+
+    for (int i = startIndex; i < messages.length; i++) {
+      final message = messages[i];
+      final role = message['role'] ?? 'unknown';
+
+      if (role == 'user') {
+        // 遇到用户消息，开始新的一轮
+        if (currentRound.isNotEmpty) {
+          rounds.add(List.from(currentRound));
+          currentRound.clear();
+        }
+        currentRound.add(message);
+      } else if (role == 'assistant') {
+        // AI消息加入当前轮次
+        currentRound.add(message);
+      } else {
+        // 系统消息等其他消息也加入当前轮次
+        currentRound.add(message);
+      }
+    }
+
+    // 添加最后一轮（如果有）
+    if (currentRound.isNotEmpty) {
+      rounds.add(currentRound);
+    }
+
+    // 输出格式化的对话内容
+    for (int roundIndex = 0; roundIndex < rounds.length; roundIndex++) {
+      final round = rounds[roundIndex];
+
+      if (roundIndex == 0 && hasOpeningMessage) {
+        // 开场白特殊处理
+        buffer.writeln('---------------【开场白】---------------');
+        final openingMessage = round[0];
+        final content = openingMessage['content'] ?? '';
+        buffer.writeln('【AI】：');
+        buffer.writeln(content);
+        buffer.writeln();
+      } else {
+        // 正常轮次
+        final roundNumber = hasOpeningMessage ? roundIndex : roundIndex + 1;
+        buffer.writeln('---------------【$roundNumber】---------------');
+
+        for (final message in round) {
+          final role = message['role'] ?? 'unknown';
+          final content = message['content'] ?? '';
+
+          String roleLabel = '';
+          switch (role) {
+            case 'user':
+              roleLabel = '【用户】';
+              break;
+            case 'assistant':
+              roleLabel = '【AI】';
+              break;
+            case 'system':
+              roleLabel = '【系统】';
+              break;
+            default:
+              roleLabel = '【未知】';
+          }
+
+          buffer.writeln('$roleLabel：');
+          buffer.writeln(content);
+          buffer.writeln();
+        }
+      }
+    }
+
+    return buffer.toString();
+  }
+
+  /// 保存文件到手机存储
+  Future<void> _saveToFile(String content, String archiveName) async {
+    try {
+      Directory? directory;
+
+      // 尝试获取Downloads目录
+      if (Platform.isAndroid) {
+        directory = Directory('/storage/emulated/0/Download');
+        if (!await directory.exists()) {
+          directory = await getExternalStorageDirectory();
+        }
+      } else if (Platform.isIOS) {
+        directory = await getApplicationDocumentsDirectory();
+      }
+
+      if (directory == null) {
+        throw '无法获取存储目录';
+      }
+
+      // 严格按照用户输入的文件名（移除特殊字符）
+      final sanitizedName = archiveName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+      final fileName = '$sanitizedName.txt';
+
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsString(content, encoding: utf8);
+
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '导出成功！\n文件保存至: ${file.path}',
+          type: ToastType.success
+        );
+      }
+
+      debugPrint('[ChatArchivePage] ✅ 文件导出成功: ${file.path}');
+    } catch (e) {
+      throw '保存文件失败: $e';
     }
   }
 
@@ -1168,6 +1428,18 @@ class _ChatArchivePageState extends State<ChatArchivePage>
                                               ],
                                             ),
                                           ),
+                                        // 导出txt选项（只有有缓存的存档才显示）
+                                        if (saveSlot['hasCache'] == true)
+                                          PopupMenuItem(
+                                            value: 'export_txt',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.file_download, size: 18.sp, color: Colors.blue),
+                                                SizedBox(width: 8.w),
+                                                Text('导出txt', style: TextStyle(color: Colors.blue)),
+                                              ],
+                                            ),
+                                          ),
                                         if (!isActive)
                                           PopupMenuItem(
                                             value: 'delete',
@@ -1200,6 +1472,12 @@ class _ChatArchivePageState extends State<ChatArchivePage>
                                             break;
                                           case 'clear_cache':
                                             _showClearCacheConfirmDialog(
+                                              saveSlot['id'],
+                                              saveSlot['saveName'] ?? '未命名存档',
+                                            );
+                                            break;
+                                          case 'export_txt':
+                                            _exportArchiveToTxt(
                                               saveSlot['id'],
                                               saveSlot['saveName'] ?? '未命名存档',
                                             );

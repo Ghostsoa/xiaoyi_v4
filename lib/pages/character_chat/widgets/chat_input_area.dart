@@ -33,7 +33,6 @@ class ChatInputArea extends StatefulWidget {
 
   final VoidCallback onOpenCharacterPanel;
   final VoidCallback onOpenChatSettings;
-  final VoidCallback onOpenUiSettings;
   final Future<void> Function() onResetSession;
   final VoidCallback onOpenArchive;
 
@@ -62,7 +61,6 @@ class ChatInputArea extends StatefulWidget {
     required this.onInlineSearch,
     required this.onOpenCharacterPanel,
     required this.onOpenChatSettings,
-    required this.onOpenUiSettings,
     required this.onResetSession,
     required this.onOpenArchive,
     required this.fetchInspirationSuggestions,
@@ -1497,7 +1495,7 @@ class _ChatInputAreaState extends State<ChatInputArea>
                 ),
               ),
               child: GridView.count(
-                crossAxisCount: 5,
+                crossAxisCount: 4,
                 padding: EdgeInsets.symmetric(vertical: 4.h),
                 mainAxisSpacing: 2.h,
                 crossAxisSpacing: 2.w,
@@ -1513,11 +1511,6 @@ class _ChatInputAreaState extends State<ChatInputArea>
                     icon: Icons.palette,
                     label: '界面',
                     onTap: widget.onOpenChatSettings,
-                  ),
-                  _buildExpandedFunctionButton(
-                    icon: Icons.format_paint,
-                    label: '消息渲染',
-                    onTap: widget.onOpenUiSettings,
                   ),
                   _buildExpandedFunctionButton(
                     icon: Icons.restart_alt,

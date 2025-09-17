@@ -57,6 +57,7 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
   final _negativeDialogController = TextEditingController();
   final _supplementSettingController = TextEditingController();
   String _uiSettings = 'markdown';
+  String _originalUiSettings = 'markdown'; // 保存原始的UI设置，用于检测变化
 
   final List<String> _pageNames = [
     '基本信息',
@@ -145,6 +146,7 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
       _supplementSettingController.text = data['supplement_setting'] ?? '';
 
       _uiSettings = data['ui_settings'] ?? 'markdown';
+      _originalUiSettings = _uiSettings; // 保存原始值
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -225,11 +227,17 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
         type: ToastType.success,
       );
 
-      // 设置刷新状态标志
-      setState(() {
-        _isSaving = false;
+      // 检查UI设置是否发生变化
+      if (_originalUiSettings != _uiSettings) {
+        // 显示需要刷新的提示弹窗
+        _showRefreshDialog();
+      } else {
+        // 设置刷新状态标志
+        setState(() {
+          _isSaving = false;
         _isRefreshing = true;
-      });
+        });
+      }
 
       // 重新加载数据
       await _loadSessionData();
@@ -245,6 +253,32 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
       );
       setState(() => _isSaving = false);
     }
+  }
+
+  // 显示需要刷新的提示弹窗
+  void _showRefreshDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // 不允许点击外部关闭
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('设置已更新'),
+          content: const Text('界面渲染类型已更改，需要退出当前页面后重新进入才能生效。'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                // 关闭弹窗
+                Navigator.of(context).pop();
+                // 连续返回2次页面，回到聊天列表，并传递刷新标志
+                Navigator.of(context).pop(true); // 返回到聊天页面，传递刷新标志
+                Navigator.of(context).pop(true); // 返回到聊天列表，传递刷新标志
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _updateField(String field, dynamic value) {

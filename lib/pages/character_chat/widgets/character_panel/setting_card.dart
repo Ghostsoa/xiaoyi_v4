@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../theme/app_theme.dart';
+import '../../../../widgets/expandable_text_field.dart';
+import '../../../../widgets/text_editor_page.dart';
 
 class SettingCard extends StatefulWidget {
   final Map<String, dynamic> sessionData;
@@ -32,9 +34,6 @@ class SettingCard extends StatefulWidget {
 }
 
 class _SettingCardState extends State<SettingCard> {
-  // 保存每个字段的展开状态
-  final Map<String, bool> _expandedState = {};
-
   // 全局可编辑状态
   bool get _isEditable => widget.sessionData['setting_editable'] == true;
 
@@ -100,18 +99,7 @@ class _SettingCardState extends State<SettingCard> {
     super.dispose();
   }
 
-  // 切换展开/折叠状态
-  void _toggleExpand(String field) {
-    setState(() {
-      _expandedState[field] = !(_expandedState[field] ?? false);
-    });
-  }
 
-  // 获取文本的行数
-  int _getLineCount(String text) {
-    if (text.isEmpty) return 0;
-    return '\n'.allMatches(text).length + 1;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -229,170 +217,53 @@ class _SettingCardState extends State<SettingCard> {
     required Color accentColor,
     String? description,
   }) {
-    final text = controller.text;
-    final lineCount = _getLineCount(text);
-    final needsCollapse = lineCount > 4; // 只有超过4行才需要折叠
-    final isExpanded = _expandedState[field] ?? false;
-
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBackground.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(8.r),
-        border: Border(left: BorderSide(color: accentColor, width: 3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 标题栏
-          Padding(
-            padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 8.h),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(6.w),
-                  decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(6.r),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: accentColor,
-                    size: 16.sp,
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 6.w,
-                    vertical: 2.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(4.r),
-                  ),
-                  child: Text(
-                    '可编辑',
-                    style: TextStyle(
-                      color: accentColor,
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+      child: ExpandableTextField(
+        title: label,
+        controller: controller,
+        hintText: '点击这里编辑$label...',
+        selectType: _getSelectType(field),
+        previewLines: 4,
+        helpIcon: Container(
+          padding: EdgeInsets.all(4.w),
+          decoration: BoxDecoration(
+            color: accentColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(4.r),
           ),
-
-          // 描述文本
-          if (description != null)
-            Padding(
-              padding: EdgeInsets.only(left: 44.w, right: 12.w, bottom: 8.h),
-              child: Text(
-                description,
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 12.sp,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
-
-          // 内容区
-          Padding(
-            padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
-            child: InkWell(
-              onTap: needsCollapse ? () => _toggleExpand(field) : null,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 内容显示/编辑区
-                  Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                    decoration: BoxDecoration(
-                      color: AppTheme.background.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(8.r),
-                      border: Border.all(
-                        color: accentColor.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: TextField(
-                      controller: controller,
-                      style: TextStyle(
-                        fontSize: 15.sp,
-                        color: AppTheme.textPrimary,
-                      ),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        fillColor: Colors.transparent,
-                        hintText: text.isEmpty ? '点击这里编辑$label...' : null,
-                        hintStyle: TextStyle(
-                          fontSize: 14.sp,
-                          color: AppTheme.textHint,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                      maxLines: needsCollapse && !isExpanded ? 4 : null,
-                    ),
-                  ),
-
-                  // 展开/折叠按钮
-                  if (needsCollapse)
-                    Align(
-                      alignment: Alignment.center,
-                      child: TextButton(
-                        onPressed: () => _toggleExpand(field),
-                        style: ButtonStyle(
-                          minimumSize: WidgetStateProperty.all(Size(0, 24.h)),
-                          padding: WidgetStateProperty.all(
-                              EdgeInsets.symmetric(horizontal: 8.w)),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          foregroundColor: WidgetStateProperty.all(accentColor),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              isExpanded ? '收起' : '展开编辑',
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                color: accentColor,
-                              ),
-                            ),
-                            Icon(
-                              isExpanded
-                                  ? Icons.keyboard_arrow_up
-                                  : Icons.keyboard_arrow_down,
-                              color: accentColor,
-                              size: 14.sp,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+          child: Icon(
+            icon,
+            color: accentColor,
+            size: 12.sp,
           ),
-        ],
+        ),
+        description: description != null ? Text(
+          description,
+          style: TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: 12.sp,
+            fontStyle: FontStyle.italic,
+          ),
+        ) : null,
+        onChanged: () {
+          widget.onUpdateField(field, controller.text);
+        },
       ),
     );
+  }
+
+  // 根据字段类型返回对应的选择类型
+  TextSelectType? _getSelectType(String field) {
+    switch (field) {
+      case 'setting':
+        return TextSelectType.setting;
+      case 'prefix':
+        return TextSelectType.prefix;
+      case 'suffix':
+        return TextSelectType.suffix;
+      default:
+        return null;
+    }
   }
 
   // 构建用户设定字段（没有高度限制）
@@ -401,117 +272,34 @@ class _SettingCardState extends State<SettingCard> {
 
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBackground.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(8.r),
-        border: Border(left: BorderSide(color: accentColor, width: 3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 标题栏
-          Padding(
-            padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 8.h),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(6.w),
-                  decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(6.r),
-                  ),
-                  child: Icon(
-                    Icons.person_outline,
-                    color: accentColor,
-                    size: 16.sp,
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Text(
-                    '用户设定',
-                    style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 6.w,
-                    vertical: 2.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(4.r),
-                  ),
-                  child: Text(
-                    '可编辑',
-                    style: TextStyle(
-                      color: accentColor,
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+      child: ExpandableTextField(
+        title: '用户设定',
+        controller: widget.userSettingController,
+        hintText: '点击这里编辑用户设定...',
+        previewLines: 6, // 用户设定显示更多行
+        helpIcon: Container(
+          padding: EdgeInsets.all(4.w),
+          decoration: BoxDecoration(
+            color: accentColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(4.r),
           ),
-
-          // 描述文本
-          Padding(
-            padding: EdgeInsets.only(left: 44.w, right: 12.w, bottom: 8.h),
-            child: Text(
-              '设定用户的身份、特点等信息，帮助角色更好地理解用户',
-              style: TextStyle(
-                color: AppTheme.textSecondary,
-                fontSize: 12.sp,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
+          child: Icon(
+            Icons.person_outline,
+            color: accentColor,
+            size: 12.sp,
           ),
-
-          // 内容区 - 用户设定没有折叠限制
-          Padding(
-            padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-              decoration: BoxDecoration(
-                color: AppTheme.background.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(8.r),
-                border: Border.all(
-                  color: accentColor.withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: TextField(
-                controller: widget.userSettingController,
-                style: TextStyle(
-                  fontSize: 15.sp,
-                  color: AppTheme.textPrimary,
-                ),
-                decoration: InputDecoration(
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  fillColor: Colors.transparent,
-                  hintText: widget.userSettingController.text.isEmpty
-                      ? '点击这里编辑用户设定...'
-                      : null,
-                  hintStyle: TextStyle(
-                    fontSize: 14.sp,
-                    color: AppTheme.textHint,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-                maxLines: null, // 没有行数限制
-              ),
-            ),
+        ),
+        description: Text(
+          '设定用户的身份、特点等信息，帮助角色更好地理解用户',
+          style: TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: 12.sp,
+            fontStyle: FontStyle.italic,
           ),
-        ],
+        ),
+        onChanged: () {
+          widget.onUpdateField('user_setting', widget.userSettingController.text);
+        },
       ),
     );
   }

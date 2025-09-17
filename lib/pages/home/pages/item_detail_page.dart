@@ -761,61 +761,58 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                                       ],
                                     ),
                                   ),
-                                  // 如果是角色卡，添加举报按钮
-                                  if (widget.item["item_type"] ==
-                                      "character_card") ...[
-                                    SizedBox(width: 8.w),
-                                    InkWell(
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                ReportItemPage(
-                                              itemId:
-                                                  widget.item['id'].toString(),
-                                              itemTitle: widget.item['title'] ??
-                                                  '未命名内容',
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                      child: Container(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 12.w,
-                                          vertical: 6.h,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.red.shade100,
-                                          borderRadius: BorderRadius.circular(
-                                              AppTheme.radiusSmall),
-                                          border: Border.all(
-                                            color: Colors.red.shade300,
-                                            width: 1,
+                                  // 添加举报按钮（所有类型的卡都支持举报）
+                                  SizedBox(width: 8.w),
+                                  InkWell(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              ReportItemPage(
+                                            itemId:
+                                                widget.item['id'].toString(),
+                                            itemTitle: widget.item['title'] ??
+                                                '未命名内容',
                                           ),
                                         ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.report_problem_rounded,
-                                              size: 16.sp,
-                                              color: Colors.red.shade700,
-                                            ),
-                                            SizedBox(width: 4.w),
-                                            Text(
-                                              '举报',
-                                              style: TextStyle(
-                                                fontSize: 14.sp,
-                                                color: Colors.red.shade700,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 12.w,
+                                        vertical: 6.h,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.shade100,
+                                        borderRadius: BorderRadius.circular(
+                                            AppTheme.radiusSmall),
+                                        border: Border.all(
+                                          color: Colors.red.shade300,
+                                          width: 1,
                                         ),
                                       ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.report_problem_rounded,
+                                            size: 16.sp,
+                                            color: Colors.red.shade700,
+                                          ),
+                                          SizedBox(width: 4.w),
+                                          Text(
+                                            '举报',
+                                            style: TextStyle(
+                                              fontSize: 14.sp,
+                                              color: Colors.red.shade700,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ],
+                                  ),
                                 ],
                               ),
                               SizedBox(height: 24.h),

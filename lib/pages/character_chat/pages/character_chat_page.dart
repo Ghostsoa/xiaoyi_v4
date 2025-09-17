@@ -16,11 +16,12 @@ import '../services/character_service.dart';
 import '../models/sse_response.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/chat_input_area.dart';
+import '../widgets/chat_webview.dart';
 import 'character_panel_page.dart';
 import 'chat_settings_page.dart';
 import '../../../widgets/custom_toast.dart';
 import '../../../widgets/confirmation_dialog.dart';
-import 'ui_settings_page.dart';
+
 import '../../../pages/login/login_page.dart';
 import '../../../pages/home/pages/item_detail_page.dart';
 import 'chat_archive_page.dart';
@@ -135,6 +136,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   // 双模式相关
   bool _isLocalMode = false; // 是否为本地模式
   String? _activeArchiveId; // 当前激活的存档ID
+
+  // WebView 聊天模式控制 - 根据 ui_settings 动态决定
+  bool get _useWebViewChat => _formatMode == 'webview';
 
   // 后台预加载相关
   final List<Map<String, dynamic>> _allLoadedMessages = []; // 所有已加载的消息
@@ -602,6 +606,15 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         });
         _backToBottomAnimationController.reverse();
       }
+    }
+  }
+
+  // WebView模式下的加载更多方法
+  void _handleLoadMoreFromWebView() {
+    debugPrint('WebView请求加载更多，当前页: $_currentPage, 总页数: $_totalPages');
+    if (_currentPage < _totalPages && !_isLoadingHistory) {
+      _currentPage++;
+      _loadMoreMessages();
     }
   }
 
@@ -1745,10 +1758,10 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   }
 
   /// 处理消息删除（包含幽灵消息处理和正常删除后的UI刷新）
-  Future<void> _handleMessageDeleted(String? msgId) async {
+  Future<void> _handleMessageDeleted(String msgId) async {
     debugPrint('[CharacterChatPage] 处理消息删除，msgId: $msgId, 模式: ${_isLocalMode ? "本地" : "在线"}');
 
-    if (_isLocalMode && _activeArchiveId != null && msgId != null) {
+    if (_isLocalMode && _activeArchiveId != null) {
       // 本地模式：处理幽灵消息，删除本地缓存并重新加载
       await _handleGhostMessage(msgId, '删除');
     } else {
@@ -1759,13 +1772,13 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   }
 
   /// 处理消息撤销（包含幽灵消息处理和正常撤销后的UI刷新）
-  Future<void> _handleMessageRevoked(String? msgId) async {
+  Future<void> _handleMessageRevoked(String msgId) async {
     debugPrint('[CharacterChatPage] 处理消息撤销，msgId: $msgId, 模式: ${_isLocalMode ? "本地" : "在线"}');
 
     // 先找到要撤销的消息，如果是用户消息则将内容放回输入框
     await _restoreRevokedMessageToInput(msgId);
 
-    if (_isLocalMode && _activeArchiveId != null && msgId != null) {
+    if (_isLocalMode && _activeArchiveId != null) {
       // 本地模式：处理幽灵消息，删除本地缓存并重新加载
       await _handleGhostMessageRevoke(msgId);
     } else {
@@ -1776,8 +1789,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   }
 
   /// 将撤销的用户消息内容恢复到输入框
-  Future<void> _restoreRevokedMessageToInput(String? msgId) async {
-    if (msgId == null) return;
+  Future<void> _restoreRevokedMessageToInput(String msgId) async {
 
     try {
       // 在当前消息列表中查找要撤销的消息
@@ -1895,12 +1907,12 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         case 'disabled':
           mode = 'none';
           break;
-        case 'legacy_bar':
-          mode = 'old';
+        case 'html':
+          mode = 'webview';
           break;
         default:
-          // 如果ui_settings不是预期的值，从存储中加载
-          mode = await _settingsDao.getUiMode();
+          // 如果ui_settings不是预期的值，使用默认的markdown模式
+          mode = 'markdown';
       }
 
       if (mounted) {
@@ -1909,11 +1921,10 @@ class _CharacterChatPageState extends State<CharacterChatPage>
         });
       }
     } else {
-      // 如果没有ui_settings字段，从存储中加载默认设置
-      final mode = await _settingsDao.getUiMode();
+      // 如果没有ui_settings字段，使用默认的markdown模式
       if (mounted) {
         setState(() {
-          _formatMode = mode;
+          _formatMode = 'markdown';
         });
       }
     }
@@ -2070,6 +2081,9 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   // 改进的滚动到底部方法，添加边界检查和错误处理
   void _scrollToBottom({bool immediate = false}) {
     if (!mounted || _messages.isEmpty) return;
+
+    // WebView模式下不执行滚动操作，WebView内部自己处理滚动
+    if (_useWebViewChat) return;
 
     try {
       // 确保索引在有效范围内
@@ -2751,160 +2765,187 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                 ),
               ),
 
-              // 中间可拖拽的消息区域（占满剩余空间）
+              // 中间消息区域（占满剩余空间）
               Expanded(
-                child: GestureDetector(
-                  onVerticalDragStart: (details) {
-                    setState(() {
-                      _isDragging = true;
-                    });
-                  },
-                  onVerticalDragUpdate: (details) {
-                    setState(() {
-                      _drawerOffset += details.delta.dy;
-                      // 限制抽屉范围
-                      if (_drawerOffset < 0) _drawerOffset = 0;
-                      if (_drawerOffset > _maxDrawerOffset) {
-                        _drawerOffset = _maxDrawerOffset;
-                      }
-                    });
-                  },
-                  onVerticalDragEnd: (details) {
-                    // 保持在当前位置，不自动收起或展开
-                    setState(() {
-                      _isDragging = false;
+                child: _useWebViewChat
+                  ? // WebView模式：直接显示WebView，无抽屉功能
+                    ChatWebView(
+                      messages: _messages,
+                      sessionId: widget.sessionData['id'].toString(),
+                      onMessageEdit: _handleMessageEdit,
+                      onMessageDeleted: _handleMessageDeleted,
+                      onMessageRevoked: _handleMessageRevoked,
+                      onMessageRegenerate: _handleRegenerateMessage,
+                      onLoadMore: _handleLoadMoreFromWebView,
+                      isLoadingMore: _isLoadingHistory,
+                      fontSize: _fontSize,
+                      bubbleColor: _bubbleColor,
+                      bubbleOpacity: _bubbleOpacity,
+                      textColor: _textColor,
+                      userBubbleColor: _userBubbleColor,
+                      userBubbleOpacity: _userBubbleOpacity,
+                      userTextColor: _userTextColor,
+                      formatMode: _formatMode,
+                    )
+                  : // 传统模式：带抽屉功能的消息列表
+                    GestureDetector(
+                      onVerticalDragStart: (details) {
+                        setState(() {
+                          _isDragging = true;
+                        });
+                      },
+                      onVerticalDragUpdate: (details) {
+                        setState(() {
+                          _drawerOffset += details.delta.dy;
+                          // 限制抽屉范围
+                          if (_drawerOffset < 0) _drawerOffset = 0;
+                          if (_drawerOffset > _maxDrawerOffset) {
+                            _drawerOffset = _maxDrawerOffset;
+                          }
+                        });
+                      },
+                      onVerticalDragEnd: (details) {
+                        // 保持在当前位置，不自动收起或展开
+                        setState(() {
+                          _isDragging = false;
 
-                      // 设置动画的起始值为当前位置
-                      _drawerAnimation = Tween<double>(
-                        begin: _drawerOffset,
-                        end: _drawerOffset,
-                      ).animate(
-                        CurvedAnimation(
-                          parent: _drawerAnimationController,
-                          curve: Curves.easeOut,
-                        ),
-                      );
-
-                      // 如果有较大的滑动速度，则根据速度方向决定展开或收起
-                      if (details.velocity.pixelsPerSecond.dy.abs() > 500) {
-                        if (details.velocity.pixelsPerSecond.dy > 0) {
-                          // 向下滑动，展开到最大
+                          // 设置动画的起始值为当前位置
                           _drawerAnimation = Tween<double>(
                             begin: _drawerOffset,
-                            end: _maxDrawerOffset,
+                            end: _drawerOffset,
                           ).animate(
                             CurvedAnimation(
                               parent: _drawerAnimationController,
                               curve: Curves.easeOut,
                             ),
                           );
-                        } else {
-                          // 向上滑动，收起
-                          _drawerAnimation = Tween<double>(
-                            begin: _drawerOffset,
-                            end: 0,
-                          ).animate(
-                            CurvedAnimation(
-                              parent: _drawerAnimationController,
-                              curve: Curves.easeOut,
-                            ),
-                          );
-                        }
-                        // 重置动画并开始
-                        _drawerAnimationController.reset();
-                        _drawerAnimationController.forward();
-                      }
-                    });
-                  },
-                  child: Container(
-                    margin: EdgeInsets.only(top: _drawerOffset),
-                    decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(20.r),
-                        topRight: Radius.circular(20.r),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        // 抽屉指示条
-                        Container(
-                          margin: EdgeInsets.symmetric(vertical: 8.h),
-                          width: 60.w,
-                          height: 4.h,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(2.r),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 2,
-                                spreadRadius: 0.5,
-                              ),
-                            ],
+
+                          // 如果有较大的滑动速度，则根据速度方向决定展开或收起
+                          if (details.velocity.pixelsPerSecond.dy.abs() > 500) {
+                            if (details.velocity.pixelsPerSecond.dy > 0) {
+                              // 向下滑动，展开到最大
+                              _drawerAnimation = Tween<double>(
+                                begin: _drawerOffset,
+                                end: _maxDrawerOffset,
+                              ).animate(
+                                CurvedAnimation(
+                                  parent: _drawerAnimationController,
+                                  curve: Curves.easeOut,
+                                ),
+                              );
+                            } else {
+                              // 向上滑动，收起
+                              _drawerAnimation = Tween<double>(
+                                begin: _drawerOffset,
+                                end: 0,
+                              ).animate(
+                                CurvedAnimation(
+                                  parent: _drawerAnimationController,
+                                  curve: Curves.easeOut,
+                                ),
+                              );
+                            }
+                            // 重置动画并开始
+                            _drawerAnimationController.reset();
+                            _drawerAnimationController.forward();
+                          }
+                        });
+                      },
+                      child: Container(
+                        margin: EdgeInsets.only(top: _drawerOffset),
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(20.r),
+                            topRight: Radius.circular(20.r),
                           ),
                         ),
-                        // 消息列表 - 占用抽屉区域的大部分空间，但不是全部
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.vertical(
-                                top: Radius.circular(20.r)),
-                            child: ScrollablePositionedList.builder(
-                              reverse: true, // 反转列表,新消息在底部
-                              itemScrollController: _itemScrollController,
-                              itemPositionsListener: _itemPositionsListener,
-                              padding: EdgeInsets.only(
-                                top: 16.h,
-                                bottom: 16.h,
+                        child: Column(
+                          children: [
+                            // 抽屉指示条
+                            Container(
+                              margin: EdgeInsets.symmetric(vertical: 8.h),
+                              width: 60.w,
+                              height: 4.h,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.6),
+                                borderRadius: BorderRadius.circular(2.r),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    blurRadius: 2,
+                                    spreadRadius: 0.5,
+                                  ),
+                                ],
                               ),
-                              itemCount: _messages.length,
-                              itemBuilder: (context, index) {
-                                // 添加边界检查，防止重置时的索引错误
-                                if (index < 0 || index >= _messages.length) {
-                                  return SizedBox.shrink();
-                                }
-                                final message = _messages[index];
-                                return ChatBubble(
-                                  key: ValueKey(
-                                      message['msgId'] ?? message['timestamp']),
-                                  message: message['content'],
-                                  isUser: message['isUser'],
-                                  isLoading: message['isLoading'] ?? false,
-                                  status: message['status'],
-                                  bubbleColor: message['isUser']
-                                      ? _userBubbleColor
-                                      : _bubbleColor,
-                                  bubbleOpacity: message['isUser']
-                                      ? _userBubbleOpacity
-                                      : _bubbleOpacity,
-                                  textColor: message['isUser']
-                                      ? _userTextColor
-                                      : _textColor,
-                                  msgId: message['msgId'],
-                                  onEdit: _handleMessageEdit,
-                                  formatMode: _formatMode,
-                                  statusBar: message['statusBar'],
-                                  enhance: message['enhanced'],
-                                  fontSize: _fontSize, // 传递字体大小设置
-                                  sessionId: widget.sessionData['id'], // 添加会话ID
-                                  onMessageDeleted: () {
-                                    // 消息删除成功后刷新消息列表
-                                    _handleMessageDeleted(message['msgId']);
-                                  },
-                                  onMessageRevoked: () {
-                                    // 消息撤销成功后刷新消息列表
-                                    _handleMessageRevoked(message['msgId']);
-                                  },
-                                  onMessageRegenerate: !message['isUser']
-                                      ? _handleRegenerateMessage
-                                      : null, // 只对AI消息添加重新生成功能
-                                  onOptionsChanged: _onOptionsChanged, // 传递选项变化回调
-                                  createdAt: message['createdAt'], // 添加创建时间
-                                  keywords: message['keywords'], // 传递关键词数组
-                                  resourceMapping: widget.sessionData['resourceMapping'] ?? widget.sessionData['resource_mapping'],
-                                );
-                              },
                             ),
+                            // 消息列表
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(20.r)),
+                                child: ScrollablePositionedList.builder(
+                                  reverse: true, // 反转列表,新消息在底部
+                                  itemScrollController: _itemScrollController,
+                                  itemPositionsListener: _itemPositionsListener,
+                                  padding: EdgeInsets.only(
+                                    top: 16.h,
+                                    bottom: 16.h,
+                                  ),
+                                  itemCount: _messages.length,
+                                  itemBuilder: (context, index) {
+                                    // 添加边界检查，防止重置时的索引错误
+                                    if (index < 0 || index >= _messages.length) {
+                                      return SizedBox.shrink();
+                                    }
+                                    final message = _messages[index];
+                                    return ChatBubble(
+                                      key: ValueKey(
+                                          message['msgId'] ?? message['timestamp']),
+                                      message: message['content'],
+                                      isUser: message['isUser'],
+                                      isLoading: message['isLoading'] ?? false,
+                                      status: message['status'],
+                                      bubbleColor: message['isUser']
+                                          ? _userBubbleColor
+                                          : _bubbleColor,
+                                      bubbleOpacity: message['isUser']
+                                          ? _userBubbleOpacity
+                                          : _bubbleOpacity,
+                                      textColor: message['isUser']
+                                          ? _userTextColor
+                                          : _textColor,
+                                      msgId: message['msgId'],
+                                      onEdit: _handleMessageEdit,
+                                      formatMode: _formatMode,
+                                      statusBar: message['statusBar'],
+                                      enhance: message['enhanced'],
+                                      fontSize: _fontSize, // 传递字体大小设置
+                                      sessionId: widget.sessionData['id'], // 添加会话ID
+                                      onMessageDeleted: () {
+                                        // 消息删除成功后刷新消息列表
+                                        final msgId = message['msgId'];
+                                        if (msgId != null) {
+                                          _handleMessageDeleted(msgId);
+                                        }
+                                      },
+                                      onMessageRevoked: () {
+                                        // 消息撤销成功后刷新消息列表
+                                        final msgId = message['msgId'];
+                                        if (msgId != null) {
+                                          _handleMessageRevoked(msgId);
+                                        }
+                                      },
+                                      onMessageRegenerate: !message['isUser']
+                                          ? _handleRegenerateMessage
+                                          : null, // 只对AI消息添加重新生成功能
+                                      onOptionsChanged: _onOptionsChanged, // 传递选项变化回调
+                                      createdAt: message['createdAt'], // 添加创建时间
+                                      keywords: message['keywords'], // 传递关键词数组
+                                      resourceMapping: widget.sessionData['resourceMapping'] ?? widget.sessionData['resource_mapping'],
+                                    );
+                                  },
+                                ),
                           ),
                         ),
                       ],
@@ -2969,19 +3010,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
                           ),
                         );
                       },
-                      onOpenUiSettings: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => UiSettingsPage(
-                              backgroundOpacity: _backgroundOpacity,
-                              onSettingsChanged: () {
-                                _loadFormatMode();
-                                setState(() {});
-                              },
-                            ),
-                          ),
-                        );
-                      },
+
                       onResetSession: _handleResetSession,
                       onOpenArchive: _navigateToChatArchive,
                       fetchInspirationSuggestions: () async {

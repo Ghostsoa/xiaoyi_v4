@@ -5,6 +5,7 @@ import '../../../../theme/app_theme.dart';
 import '../../../../services/file_service.dart';
 import '../../material/select_image_page.dart';
 import '../../../../widgets/custom_toast.dart';
+import '../../../../widgets/expandable_text_field.dart';
 
 class BasicInfoModule extends StatefulWidget {
   final TextEditingController nameController;
@@ -38,13 +39,20 @@ class BasicInfoModule extends StatefulWidget {
 
 class _BasicInfoModuleState extends State<BasicInfoModule> {
   final _fileService = FileService();
-  final TextEditingController _tagInputController = TextEditingController();
-  final FocusNode _tagFocusNode = FocusNode();
+  final TextEditingController _customTagController = TextEditingController();
+  final FocusNode _customTagFocusNode = FocusNode();
   List<String> _tags = [];
 
   // 当前描述字数
   int _descriptionCount = 0;
   final int _maxDescriptionCount = 1500;
+
+  // 推荐标签
+  final List<String> _genreTags = [
+    '男性向',
+    '女性向',
+    '全性向'
+  ];
 
   @override
   void initState() {
@@ -64,8 +72,8 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
 
   @override
   void dispose() {
-    _tagInputController.dispose();
-    _tagFocusNode.dispose();
+    _customTagController.dispose();
+    _customTagFocusNode.dispose();
     // 移除监听器
     widget.descriptionController.removeListener(_updateDescriptionCount);
     super.dispose();
@@ -78,21 +86,6 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
     });
   }
 
-  void _addTag(String tag) {
-    final trimmedTag = tag.trim();
-    // 如果用户输入了#号，去掉它，我们会统一添加
-    final cleanTag = trimmedTag.startsWith('#') ? trimmedTag.substring(1) : trimmedTag;
-
-    if (cleanTag.length >= 2 && !_tags.contains(cleanTag)) {
-      setState(() {
-        _tags.add(cleanTag);
-        widget.tagsController.text = _tags.join(',');
-      });
-    } else if (cleanTag.isNotEmpty && cleanTag.length < 2) {
-      _showToast('标签至少需要2个字', type: ToastType.warning);
-    }
-    _tagInputController.clear();
-  }
 
   void _removeTag(String tag) {
     setState(() {
@@ -101,20 +94,50 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
     });
   }
 
+  void _toggleTag(String tag) {
+    setState(() {
+      if (_tags.contains(tag)) {
+        _tags.remove(tag);
+      } else {
+        _tags.add(tag);
+      }
+      widget.tagsController.text = _tags.join(',');
+    });
+  }
+
+  void _addCustomTag(String tag) {
+    if (tag.isEmpty) return;
+
+    final trimmedTag = tag.trim();
+    if (trimmedTag.length < 2 || trimmedTag.length > 4) {
+      _showToast('标签长度需要在2-4个字之间', type: ToastType.warning);
+      return;
+    }
+
+    if (_tags.contains(trimmedTag)) {
+      _showToast('标签已存在', type: ToastType.warning);
+      return;
+    }
+
+    setState(() {
+      _tags.add(trimmedTag);
+      widget.tagsController.text = _tags.join(',');
+    });
+    _customTagController.clear();
+  }
+
   Widget _buildTagInput() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text('标签', style: AppTheme.secondaryStyle),
-            SizedBox(width: 4.w),
-            Icon(
-              Icons.help_outline,
-              size: 16.sp,
-              color: AppTheme.textSecondary,
-            ),
-          ],
+        // 标签标题
+        Text(
+          '群聊标签',
+          style: TextStyle(
+            fontSize: AppTheme.bodySize,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimary,
+          ),
         ),
         SizedBox(height: 4.h),
         RichText(
@@ -124,217 +147,162 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
               fontSize: 12.sp,
             ),
             children: [
-              const TextSpan(text: '输入后按'),
+              const TextSpan(text: '为群聊添加'),
               TextSpan(
-                text: '空格',
-                style: TextStyle(
-                  color: Colors.amber,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: '或'),
-              TextSpan(
-                text: '回车',
-                style: TextStyle(
-                  color: Colors.amber,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: '添加标签，无需手动输入'),
-              TextSpan(
-                text: '#号',
+                text: '分类标签',
                 style: TextStyle(
                   color: Colors.blue,
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              const TextSpan(text: '，帮助用户'),
+              TextSpan(
+                text: '快速了解',
+                style: TextStyle(
+                  color: Colors.amber,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const TextSpan(text: '群聊内容'),
             ],
           ),
         ),
         SizedBox(height: 8.h),
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.cardBackground,
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_tags.isNotEmpty)
-                Padding(
-                  padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 0),
-                  child: Wrap(
-                    spacing: 8.w,
-                    runSpacing: 8.h,
-                    children: _tags.map((tag) => _buildTagChip(tag)).toList(),
-                  ),
-                ),
-              TextField(
-                controller: _tagInputController,
-                focusNode: _tagFocusNode,
-                decoration: InputDecoration(
-                  hintText: '添加标签... (如: 治愈系)',
-                  hintStyle: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 14.sp,
-                  ),
-                  contentPadding: EdgeInsets.all(12.w),
-                  border: InputBorder.none,
-                ),
-                style: AppTheme.bodyStyle,
-                onSubmitted: (value) => _addTag(value),
-                onChanged: (value) {
-                  if (value.endsWith(' ')) {
-                    _addTag(value);
-                  }
-                },
-              ),
-            ],
+
+        // 自定义标签输入
+        _buildCustomTagInput(),
+
+        // 已选标签展示
+        _buildSelectedTags(),
+
+        // 推荐标签
+        Text(
+          '推荐标签',
+          style: TextStyle(
+            fontSize: AppTheme.captionSize,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textSecondary,
           ),
         ),
-        Padding(
-          padding: EdgeInsets.only(top: 8.h, left: 12.w),
-          child: Row(
-            children: [
-              Icon(
-                Icons.info_outline,
-                size: 14.sp,
-                color: AppTheme.textSecondary,
-              ),
-              SizedBox(width: 4.w),
-              Expanded(
-                child: RichText(
-                text: TextSpan(
+        SizedBox(height: 8.h),
+        Wrap(
+          spacing: 8.w,
+          runSpacing: 8.h,
+          children: _genreTags.map((tag) {
+            final isSelected = _tags.contains(tag);
+            return GestureDetector(
+              onTap: () => _toggleTag(tag),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppTheme.primaryColor
+                      : AppTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                ),
+                child: Text(
+                  tag,
                   style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 12.sp,
+                    fontSize: AppTheme.smallSize,
+                    color: isSelected ? Colors.white : AppTheme.textPrimary,
                   ),
-                  children: [
-                    const TextSpan(text: '每个标签至少'),
-                    TextSpan(
-                      text: '2个字',
-                      style: TextStyle(
-                        color: Colors.amber,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const TextSpan(text: '，将自动添加'),
-                    TextSpan(
-                      text: '#号',
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
                 ),
               ),
-            ],
-          ),
+            );
+          }).toList(),
         ),
-        Padding(
-          padding: EdgeInsets.only(top: 8.h, left: 12.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '推荐至少添加这些中的一个：',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 12.sp,
-                ),
-              ),
-              SizedBox(height: 2.h),
-              Wrap(
-                spacing: 6.w,
-                runSpacing: 4.h,
-                children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                    decoration: BoxDecoration(
-                      color: Colors.pink.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4.r),
-                      border: Border.all(color: Colors.pink.withOpacity(0.3)),
-                    ),
-                    child: Text(
-                      '女性向',
-                      style: TextStyle(
-                        color: Colors.pink,
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4.r),
-                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                    ),
-                    child: Text(
-                      '男性向',
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4.r),
-                      border: Border.all(color: Colors.green.withOpacity(0.3)),
-                    ),
-                    child: Text(
-                      '全性向',
-                      style: TextStyle(
-                        color: Colors.green,
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+
       ],
     );
   }
 
-  Widget _buildTagChip(String tag) {
+
+
+  Widget _buildCustomTagInput() {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      margin: EdgeInsets.only(bottom: 16.h),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor,
-        borderRadius: BorderRadius.circular(4.r),
+        color: AppTheme.cardBackground,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '#$tag',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
+          Expanded(
+            child: TextField(
+              controller: _customTagController,
+              focusNode: _customTagFocusNode,
+              decoration: InputDecoration(
+                hintText: '添加自定义标签 (2-4个字)',
+                hintStyle: TextStyle(
+                  fontSize: AppTheme.captionSize,
+                  color: AppTheme.textSecondary.withOpacity(0.5),
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16.w,
+                  vertical: 12.h,
+                ),
+              ),
+              onSubmitted: _addCustomTag,
+              textInputAction: TextInputAction.done,
             ),
           ),
-          SizedBox(width: 4.w),
           GestureDetector(
-            onTap: () => _removeTag(tag),
-            child: Icon(
-              Icons.close,
-              size: 16.sp,
-              color: Colors.white,
+            onTap: () => _addCustomTag(_customTagController.text),
+            child: Container(
+              padding: EdgeInsets.all(12.w),
+              child: Icon(
+                Icons.add_circle_outline,
+                color: AppTheme.primaryColor,
+                size: 20.sp,
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedTags() {
+    if (_tags.isEmpty) {
+      return SizedBox(height: 8.h);
+    }
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 16.h),
+      child: Wrap(
+        spacing: 8.w,
+        runSpacing: 8.h,
+        children: _tags.map((tag) {
+          return Container(
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor,
+              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  tag,
+                  style: TextStyle(
+                    fontSize: AppTheme.smallSize,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(width: 4.w),
+                GestureDetector(
+                  onTap: () => _removeTag(tag),
+                  child: Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 16.sp,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -391,71 +359,13 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
           },
         ),
         SizedBox(height: 16.h),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('群聊描述',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 14.sp,
-                )),
-            SizedBox(height: 8.h),
-            TextFormField(
-              controller: widget.descriptionController,
-              decoration: InputDecoration(
-                hintText: '请输入群聊描述',
-                filled: true,
-                fillColor: AppTheme.cardBackground,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  borderSide:
-                      BorderSide(color: AppTheme.primaryColor, width: 1),
-                ),
-                // 添加后缀计数器
-                suffixText: '$_descriptionCount/$_maxDescriptionCount',
-                suffixStyle: TextStyle(
-                  color: _descriptionCount > _maxDescriptionCount
-                      ? Colors.red
-                      : AppTheme.textSecondary,
-                  fontSize: 12.sp,
-                ),
-                // 添加错误提示
-                errorText: _descriptionCount > _maxDescriptionCount
-                    ? '超出最大字数限制'
-                    : null,
-                hintStyle: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 14.sp,
-                ),
-              ),
-              style: AppTheme.bodyStyle,
-              minLines: 3,
-              maxLines: null,
-              // 添加输入限制
-              maxLength: _maxDescriptionCount,
-              // 隐藏内置计数器
-              buildCounter: (context,
-                      {required currentLength,
-                      required isFocused,
-                      maxLength}) =>
-                  null,
-              // 添加验证
-              validator: (value) {
-                if (value != null && value.length > _maxDescriptionCount) {
-                  return '群聊描述不能超过$_maxDescriptionCount字';
-                }
-                return null;
-              },
-            ),
-          ],
+        ExpandableTextField(
+          title: '群聊描述',
+          controller: widget.descriptionController,
+          hintText: '请输入群聊描述',
+          maxLength: _maxDescriptionCount,
+          previewLines: 3,
+          onChanged: () => setState(() {}),
         ),
         SizedBox(height: 16.h),
         _buildTagInput(),

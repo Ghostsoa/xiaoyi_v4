@@ -4,6 +4,7 @@ import '../../../../theme/app_theme.dart';
 import '../../material/select_image_page.dart';
 import '../../../../widgets/custom_toast.dart';
 import '../../../../services/file_service.dart';
+import '../../../../widgets/expandable_text_field.dart';
 
 class NovelBasicInfoModule extends StatefulWidget {
   final TextEditingController titleController;
@@ -34,18 +35,10 @@ class NovelBasicInfoModule extends StatefulWidget {
 class _NovelBasicInfoModuleState extends State<NovelBasicInfoModule> {
   final List<String> _statusOptions = ['draft', 'published', 'private'];
   final List<String> _genreTags = [
-    '奇幻',
-    '科幻',
-    '武侠',
-    '言情',
-    '悬疑',
-    '历史',
-    '现代',
-    '都市',
-    '校园',
-    '游戏',
-    '轻小说',
-    '其他'
+    '男性向',
+    '女性向',
+    '全性向'
+
   ];
   final _fileService = FileService();
   final TextEditingController _customTagController = TextEditingController();
@@ -360,77 +353,46 @@ class _NovelBasicInfoModuleState extends State<NovelBasicInfoModule> {
         SizedBox(height: 24.h),
 
         // 小说简介
-        Text(
-          '小说简介',
-          style: TextStyle(
-            fontSize: AppTheme.bodySize,
-            fontWeight: FontWeight.w600,
-            color: textPrimary,
-          ),
-        ),
-        SizedBox(height: 4.h),
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontSize: AppTheme.captionSize,
-              color: textSecondary,
-            ),
-            children: [
-              const TextSpan(text: '简明扼要地介绍'),
-              TextSpan(
-                text: '故事背景',
-                style: TextStyle(
-                  color: Colors.blue,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: '和'),
-              TextSpan(
-                text: '核心看点',
-                style: TextStyle(
-                  color: Colors.amber,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: '，让读者产生'),
-              TextSpan(
-                text: '阅读兴趣',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 8.h),
-        TextFormField(
+        ExpandableTextField(
+          title: '小说简介',
           controller: widget.descriptionController,
-          minLines: 3,
-          maxLines: null,
-          decoration: InputDecoration(
-            hintText: '请输入小说简介',
-            hintStyle: TextStyle(
-              fontSize: AppTheme.captionSize,
-              color: textSecondary.withOpacity(0.5),
-            ),
-            filled: true,
-            fillColor: AppTheme.cardBackground,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: 16.w,
-              vertical: 12.h,
+          hintText: '请输入小说简介',
+          previewLines: 3,
+          description: RichText(
+            text: TextSpan(
+              style: TextStyle(
+                fontSize: AppTheme.captionSize,
+                color: textSecondary,
+              ),
+              children: [
+                const TextSpan(text: '简明扼要地介绍'),
+                TextSpan(
+                  text: '故事背景',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '和'),
+                TextSpan(
+                  text: '核心看点',
+                  style: TextStyle(
+                    color: Colors.amber,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '，让读者产生'),
+                TextSpan(
+                  text: '阅读兴趣',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return '请输入小说简介';
-            }
-            return null;
-          },
+          onChanged: () => setState(() {}),
         ),
         SizedBox(height: 24.h),
 
@@ -485,74 +447,6 @@ class _NovelBasicInfoModuleState extends State<NovelBasicInfoModule> {
               ),
             ],
           ),
-        ),
-        SizedBox(height: 8.h),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '推荐至少添加这些中的一个：',
-              style: TextStyle(
-                fontSize: AppTheme.captionSize,
-                color: textSecondary,
-              ),
-            ),
-            SizedBox(height: 2.h),
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                  decoration: BoxDecoration(
-                    color: Colors.pink.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4.r),
-                    border: Border.all(color: Colors.pink.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    '女性向',
-                    style: TextStyle(
-                      color: Colors.pink,
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 8.w),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4.r),
-                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    '男性向',
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 8.w),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4.r),
-                    border: Border.all(color: Colors.green.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    '全性向',
-                    style: TextStyle(
-                      color: Colors.green,
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ),
         SizedBox(height: 8.h),
 

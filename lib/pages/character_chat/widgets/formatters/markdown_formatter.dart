@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:ui';
-import 'base_formatter.dart';
 import 'custom_tags/custom_tag_parser.dart';
 
-class MarkdownFormatter extends BaseFormatter {
+class MarkdownFormatter {
   // 选项选中状态回调
   final Function(String groupId, String title, List<String> selectedOptions)? onOptionsChanged;
   // 资源映射字符串（预留给 role 标签解析使用）
