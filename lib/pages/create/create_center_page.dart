@@ -17,6 +17,9 @@ import '../../widgets/custom_toast.dart';
 import 'author/my_followers_page.dart';
 import 'author/author_push_create_page.dart';
 import 'author/author_push_list_page.dart';
+import 'author/access_protection_whitelist_page.dart';
+import 'html/public_html_repo_page.dart';
+import 'html/my_html_repo_page.dart';
 
 class CreateCenterPage extends StatefulWidget {
   const CreateCenterPage({super.key});
@@ -34,10 +37,16 @@ class _CreateCenterPageState extends State<CreateCenterPage> {
   bool _isRefreshing = false;
   bool _showRefreshSuccess = false;
 
+  // 访问保护相关
+  bool _accessProtectionEnabled = false;
+  List<String> _whitelist = [];
+  bool _isLoadingAccessProtection = false;
+
   @override
   void initState() {
     super.initState();
     _loadStatistics();
+    _loadAccessProtection();
   }
 
   Future<void> _loadStatistics() async {
@@ -54,6 +63,124 @@ class _CreateCenterPageState extends State<CreateCenterPage> {
         _isLoading = false;
       });
       // TODO: 处理错误
+    }
+  }
+
+  // 加载访问保护配置
+  Future<void> _loadAccessProtection() async {
+    setState(() => _isLoadingAccessProtection = true);
+    
+    try {
+      final config = await _authorService.getAccessProtection();
+      if (mounted) {
+        setState(() {
+          _accessProtectionEnabled = config['enabled'] ?? false;
+          _whitelist = List<String>.from(config['whitelist'] ?? []);
+          _isLoadingAccessProtection = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingAccessProtection = false);
+      }
+      // 静默处理错误
+    }
+  }
+
+  // 切换访问保护开关
+  Future<void> _toggleAccessProtection(bool value) async {
+    setState(() => _isLoadingAccessProtection = true);
+    
+    try {
+      if (value) {
+        await _authorService.enableAccessProtection();
+      } else {
+        await _authorService.disableAccessProtection();
+      }
+      
+      if (mounted) {
+        setState(() {
+          _accessProtectionEnabled = value;
+          _isLoadingAccessProtection = false;
+        });
+        
+        CustomToast.show(
+          context,
+          message: value ? '访问保护已启用' : '访问保护已禁用',
+          type: ToastType.success,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingAccessProtection = false);
+        
+        CustomToast.show(
+          context,
+          message: '操作失败: ${e.toString()}',
+          type: ToastType.error,
+        );
+      }
+    }
+  }
+
+  // 打开白名单编辑页面
+  void _showWhitelistDialog() async {
+    final result = await Navigator.push<List<String>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AccessProtectionWhitelistPage(
+          initialWhitelist: _whitelist,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      await _updateWhitelist(result);
+    }
+  }
+
+  // 更新白名单
+  Future<void> _updateWhitelist(List<String> newWhitelist) async {
+    setState(() => _isLoadingAccessProtection = true);
+
+    try {
+      // 找出要删除的项
+      final toRemove = _whitelist.where((item) => !newWhitelist.contains(item)).toList();
+      // 找出要添加的项
+      final toAdd = newWhitelist.where((item) => !_whitelist.contains(item)).toList();
+
+      // 批量删除
+      if (toRemove.isNotEmpty) {
+        await _authorService.removeWhitelist(toRemove);
+      }
+
+      // 批量添加
+      if (toAdd.isNotEmpty) {
+        await _authorService.addWhitelist(toAdd);
+      }
+
+      if (mounted) {
+        setState(() {
+          _whitelist = newWhitelist;
+          _isLoadingAccessProtection = false;
+        });
+
+        CustomToast.show(
+          context,
+          message: '白名单更新成功',
+          type: ToastType.success,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingAccessProtection = false);
+
+        CustomToast.show(
+          context,
+          message: '更新失败: ${e.toString()}',
+          type: ToastType.error,
+        );
+      }
     }
   }
 
@@ -702,6 +829,120 @@ class _CreateCenterPageState extends State<CreateCenterPage> {
               ),
             ),
 
+            // 作品访问保护
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.w),
+                child: Container(
+                  padding: EdgeInsets.all(16.w),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardBackground,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.shadowColor.withOpacity(0.05),
+                        blurRadius: 8.r,
+                        offset: Offset(0, 2.h),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.security,
+                            color: AppTheme.primaryColor,
+                            size: 20.sp,
+                          ),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Text(
+                              '作品访问保护',
+                              style: TextStyle(
+                                fontSize: AppTheme.bodySize,
+                                fontWeight: FontWeight.w600,
+                                color: textPrimary,
+                              ),
+                            ),
+                          ),
+                          _isLoadingAccessProtection
+                              ? SizedBox(
+                                  width: 20.w,
+                                  height: 20.w,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppTheme.primaryColor),
+                                  ),
+                                )
+                              : Switch(
+                                  value: _accessProtectionEnabled,
+                                  onChanged: _toggleAccessProtection,
+                                  activeColor: AppTheme.primaryColor,
+                                ),
+                        ],
+                      ),
+                      if (_accessProtectionEnabled) ...[
+                        SizedBox(height: 12.h),
+                        GestureDetector(
+                          onTap: _showWhitelistDialog,
+                          child: Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16.w,
+                              vertical: 12.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.background,
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusSmall),
+                              border: Border.all(
+                                color: AppTheme.border.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.edit,
+                                  color: AppTheme.primaryColor,
+                                  size: 18.sp,
+                                ),
+                                SizedBox(width: 8.w),
+                                Expanded(
+                                  child: Text(
+                                    '编辑白名单',
+                                    style: TextStyle(
+                                      fontSize: AppTheme.bodySize,
+                                      color: textPrimary,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: textSecondary,
+                                  size: 18.sp,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // 分割线
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(24.w, 32.h, 24.w, 32.h),
+                child:
+                    Divider(height: 1.h, color: textSecondary.withOpacity(0.1)),
+              ),
+            ),
+
             // 素材库
             SliverToBoxAdapter(
               child: Padding(
@@ -799,6 +1040,59 @@ class _CreateCenterPageState extends State<CreateCenterPage> {
                     context,
                     MaterialPageRoute(
                         builder: (context) => const MyWorldBookPage()),
+                  );
+                },
+                topPadding: 0,
+                bottomPadding: 24.h,
+              ),
+            ),
+
+            // HTML模板仓库标题
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 0),
+                child: Text(
+                  'HTML模板仓库',
+                  style: TextStyle(
+                    fontSize: AppTheme.bodySize,
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary,
+                  ),
+                ),
+              ),
+            ),
+
+            // 公共HTML模板仓库
+            SliverToBoxAdapter(
+              child: _buildListRow(
+                icon: Icons.code,
+                iconColor: Colors.deepOrange,
+                title: '公共HTML模板仓库',
+                subtitle: '浏览公共HTML模板',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PublicHtmlRepoPage(),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // 我的HTML模板仓库
+            SliverToBoxAdapter(
+              child: _buildListRow(
+                icon: Icons.code,
+                iconColor: Colors.pink,
+                title: '我的HTML模板仓库',
+                subtitle: '管理你的HTML模板',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MyHtmlRepoPage(),
+                    ),
                   );
                 },
                 topPadding: 0,

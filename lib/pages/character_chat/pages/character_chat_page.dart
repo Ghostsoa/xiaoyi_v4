@@ -4,6 +4,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../../services/file_service.dart';
 import '../../../services/message_cache_service.dart';
 import '../../../services/session_data_service.dart';
+import '../../../services/html_template_cache_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../dao/chat_settings_dao.dart';
 import '../../../dao/user_dao.dart';
@@ -73,6 +74,7 @@ class _CharacterChatPageState extends State<CharacterChatPage>
   final CharacterService _characterService = CharacterService();
   final MessageCacheService _messageCacheService = MessageCacheService();
   final SessionDataService _sessionDataService = SessionDataService();
+  final HtmlTemplateCacheService _htmlTemplateCacheService = HtmlTemplateCacheService();
   final ChatSettingsDao _settingsDao = ChatSettingsDao();
   final UserDao _userDao = UserDao();
   final TextEditingController _messageController = TextEditingController();
@@ -274,9 +276,159 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     }
   }
 
+  /// 检查并准备 HTML 模板缓存
+  Future<void> _checkAndPrepareHtmlTemplates() async {
+    try {
+      // 获取 html_templates 字段
+      final htmlTemplates = widget.sessionData['html_templates']?.toString() ?? '';
+      
+      if (htmlTemplates.isEmpty) {
+        debugPrint('[CharacterChatPage] 无需准备 HTML 模板缓存');
+        return;
+      }
+
+      debugPrint('[CharacterChatPage] 检查 HTML 模板缓存: $htmlTemplates');
+
+      // 检查是否都已缓存
+      final allCached = await _htmlTemplateCacheService.checkAllCached(htmlTemplates);
+
+      if (allCached) {
+        debugPrint('[CharacterChatPage] HTML 模板已全部缓存');
+        return;
+      }
+
+      // 延迟到下一帧显示不可关闭的加载弹窗
+      if (!mounted) return;
+      
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showHtmlTemplateCachingDialog(htmlTemplates);
+        }
+      });
+    } catch (e) {
+      debugPrint('[CharacterChatPage] 准备 HTML 模板缓存失败: $e');
+    }
+  }
+
+  /// 显示 HTML 模板缓存加载弹窗（不可关闭）
+  Future<void> _showHtmlTemplateCachingDialog(String htmlTemplates) async {
+    if (!mounted) return;
+
+    final ids = htmlTemplates.split(',')
+        .map((e) => int.tryParse(e.trim()))
+        .where((e) => e != null)
+        .toList();
+    
+    final total = ids.length;
+
+    // 使用 ValueNotifier 来更新进度
+    final progressNotifier = ValueNotifier<int>(0);
+
+    // 显示弹窗（不等待）
+    showDialog(
+      context: context,
+      barrierDismissible: false, // 不可关闭
+      builder: (BuildContext context) {
+        return ValueListenableBuilder<int>(
+          valueListenable: progressNotifier,
+          builder: (context, current, child) {
+            return WillPopScope(
+              onWillPop: () async => false, // 禁止返回键关闭
+              child: Dialog(
+                backgroundColor: AppTheme.cardBackground,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(24.w),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.code,
+                        size: 48.sp,
+                        color: AppTheme.primaryColor,
+                      ),
+                      SizedBox(height: 16.h),
+                      Text(
+                        '准备HTML模板',
+                        style: TextStyle(
+                          fontSize: AppTheme.titleSize,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 8.h),
+                      Text(
+                        '正在缓存模板代码，请稍候...',
+                        style: TextStyle(
+                          fontSize: AppTheme.bodySize,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      SizedBox(height: 24.h),
+                      
+                      // 进度条
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                        child: LinearProgressIndicator(
+                          value: total > 0 ? current / total : 0,
+                          backgroundColor: AppTheme.border.withOpacity(0.2),
+                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                          minHeight: 8.h,
+                        ),
+                      ),
+                      SizedBox(height: 12.h),
+                      
+                      // 进度文本
+                      Text(
+                        '$current / $total',
+                        style: TextStyle(
+                          fontSize: AppTheme.bodySize,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    // 在后台执行缓存准备
+    try {
+      await _htmlTemplateCacheService.prepareTemplatesWithProgress(
+        htmlTemplates,
+        onProgress: (current, total) {
+          progressNotifier.value = current;
+        },
+      );
+
+      debugPrint('[CharacterChatPage] HTML 模板缓存完成');
+    } catch (e) {
+      debugPrint('[CharacterChatPage] HTML 模板缓存失败: $e');
+    } finally {
+      // 清理
+      progressNotifier.dispose();
+    }
+
+    // 关闭弹窗
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    
+    // 检查并准备 HTML 模板缓存
+    _checkAndPrepareHtmlTemplates();
+    
     // 先检查模式，再加载设置和其他内容
     _checkAndInitializeMode().then((_) {
       _loadSettings().then((_) {

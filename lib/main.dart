@@ -16,11 +16,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 禁用GPU硬件加速，解决毛玻璃效果在某些设备上的花屏问题
-  // 主要通过平台配置文件实现：
-  // Android: AndroidManifest.xml 中设置 android:hardwareAccelerated="false"
-  // iOS: Info.plist 中设置 FLTEnableImpeller = false
-  debugPrint('[App启动] GPU硬件加速已通过平台配置禁用，使用CPU软件渲染');
+  // GPU硬件加速已启用，提供更好的渲染性能
+  // Android: AndroidManifest.xml 中设置 android:hardwareAccelerated="true"
+  // iOS: Info.plist 中设置 FLTEnableImpeller = true
+  debugPrint('[App启动] GPU硬件加速已启用，使用GPU渲染提升性能');
 
   await AppTheme.initialize(); // 初始化主题配置
 

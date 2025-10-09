@@ -18,11 +18,10 @@
             margin: 0;
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: transparent;
+            background: transparent !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
         }
-
-
-
         #app {
             min-height: 100vh; /* 最小高度，允许内容超出时滚动 */
             display: flex;
@@ -31,6 +30,9 @@
             padding: 8px;
             box-sizing: border-box;
             color: inherit; /* 确保继承颜色 */
+            background: transparent !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
         }
 
         .chat-container {
@@ -267,17 +269,25 @@
 
 
 
-        /* HTML iframe - 初始渲染后固定高度 */
+        /* HTML iframe容器 - 纯粹的包装容器，无任何样式 */
+        .html-iframe-container {
+            width: 100%;
+            /* 完全自适应，无任何限制 */
+        }
+
+        /* HTML iframe - 完全自适应高度 */
         .html-iframe {
             width: 100%;
             max-width: 100%;
-            height: 400px;       /* 默认高度，会被JS动态设置 */
+            height: auto;         /* 自适应高度 */
             border: none;
-            background: transparent;
+            background: transparent !important;
             display: block;
             margin: 0;
             padding: 0;
-            overflow: auto;      /* 内容超出时显示滚动条 */
+            overflow: hidden;     /* 不显示滚动条，完全展示内容 */
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
         }
 
         /* 嵌套iframe - 在气泡内的iframe，看起来天然 */
@@ -363,13 +373,17 @@
                 :data-msg-id="message.msgId"
             >
                 <!-- HTML内容独立渲染（懒加载） -->
-                <iframe
+                <div
                     v-if="!message.isLoading && !message.status && isHtmlContent(message.content) && isMessageVisible(message.msgId)"
-                    :srcdoc="createIsolatedHtml(message.content)"
-                    class="html-iframe"
-                    frameborder="0"
-                    @load="resizeIframe"
-                ></iframe>
+                    class="html-iframe-container"
+                >
+                    <iframe
+                        :srcdoc="createIsolatedHtml(message.content)"
+                        class="html-iframe"
+                        frameborder="0"
+                        @load="resizeIframe"
+                    ></iframe>
+                </div>
 
                 <!-- 占位符（未加载的HTML内容） -->
                 <div
@@ -474,7 +488,7 @@
                             </button>
                             <button
                                 class="action-btn"
-                                @click="copyMessage(message.content)"
+                                @click="copyMessage(message.originalContent || message.content)"
                                 :style="{
                                     backgroundColor: hexToRgba(message.bubbleColor, message.bubbleOpacity),
                                     color: message.textColor
@@ -484,7 +498,7 @@
                             </button>
                             <button
                                 class="action-btn"
-                                @click="editMessage(message.msgId, message.content)"
+                                @click="editMessage(message.msgId, message.originalContent || message.content)"
                                 :style="{
                                     backgroundColor: hexToRgba(message.bubbleColor, message.bubbleOpacity),
                                     color: message.textColor
@@ -520,7 +534,7 @@
                             </button>
                             <button
                                 class="action-btn"
-                                @click="copyMessage(message.content)"
+                                @click="copyMessage(message.originalContent || message.content)"
                                 :style="{
                                     backgroundColor: hexToRgba(message.userBubbleColor, message.userBubbleOpacity),
                                     color: message.userTextColor
@@ -530,7 +544,7 @@
                             </button>
                             <button
                                 class="action-btn"
-                                @click="editMessage(message.msgId, message.content)"
+                                @click="editMessage(message.msgId, message.originalContent || message.content)"
                                 :style="{
                                     backgroundColor: hexToRgba(message.userBubbleColor, message.userBubbleOpacity),
                                     color: message.userTextColor
@@ -594,10 +608,6 @@
                         return true;
                     }
 
-
-
-
-
                     return false;
                 };
 
@@ -613,13 +623,9 @@
                     return htmlTagRegex.test(content);
                 };
 
-
-
                 // 为了兼容性，保留原来的函数名
                 const isHtmlContent = isComplexHtmlContent;
                 const hasMixedContent = hasSimpleHtmlContent;
-
-
 
                 // 本地渲染，不需要清理HTML内容
                 const sanitizeHtml = (content) => {
@@ -640,75 +646,89 @@
                         return htmlCache.get(cacheKey);
                     }
 
-                    const html = `
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <meta charset="UTF-8">
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                            <style>
-                                body {
-                                    margin: 0;
-                                    padding: 0;
-                                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                                    font-size: 14px;
-                                    line-height: 1.5;
-                                    background: transparent;
-                                    overflow: auto;
-                                }
+                    // 检测是否为完整的HTML文档
+                    const trimmed = content.trim().toLowerCase();
+                    const isFullHtml = trimmed.startsWith('<!doctype html') || 
+                                     trimmed.startsWith('<html') || 
+                                     (trimmed.includes('<head') && trimmed.includes('<body>'));
 
-                                /* 确保内容适应iframe宽度 */
-                                .terminal {
-                                    max-width: 100% !important;
-                                    width: 100% !important;
-                                    margin: 0 !important;
-                                }
+                    let html;
+                    
+                    if (isFullHtml) {
+                        // 如果是完整的HTML文档，直接使用原始内容
+                        html = content;
+                    } else {
+                        // 对于非完整HTML，使用原来的包装方式
+                        html = `
+                            <!DOCTYPE html>
+                            <html style="background: transparent !important;">
+                            <head>
+                                <meta charset="UTF-8">
+                                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                                <style>
+                                    html, body {
+                                        margin: 0;
+                                        padding: 0;
+                                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                                        font-size: 14px;
+                                        line-height: 1.5;
+                                        background: transparent !important;
+                                        backdrop-filter: none !important;
+                                        -webkit-backdrop-filter: none !important;
+                                        overflow: auto;
+                                    }
 
-                                /* 隐藏滚动条但保留滚动功能 */
-                                ::-webkit-scrollbar {
-                                    display: none;
-                                }
-                                * {
-                                    scrollbar-width: none;
-                                    -ms-overflow-style: none;
-                                }
+                                    /* 确保内容适应iframe宽度 */
+                                    .terminal {
+                                        max-width: 100% !important;
+                                        width: 100% !important;
+                                        margin: 0 !important;
+                                    }
 
+                                    /* 隐藏滚动条但保留滚动功能 */
+                                    ::-webkit-scrollbar {
+                                        display: none;
+                                    }
+                                    * {
+                                        scrollbar-width: none;
+                                        -ms-overflow-style: none;
+                                    }
+                                </style>
+                            </head>
+                            <body>
+                                ${content}
 
-                            </style>
-                        </head>
-                        <body>
-                            ${content}
+                                <script>
+                                    function resizeParent() {
+                                        const height = document.body.scrollHeight;
+                                        window.parent.postMessage({
+                                            type: 'resize',
+                                            height: height
+                                        }, '*');
+                                    }
 
-                            <script>
-                                function resizeParent() {
-                                    const height = document.body.scrollHeight;
-                                    window.parent.postMessage({
-                                        type: 'resize',
-                                        height: height
-                                    }, '*');
-                                }
+                                    window.addEventListener('load', function() {
+                                        resizeParent();
+                                    });
 
-                                window.addEventListener('load', function() {
-                                    resizeParent();
-                                });
+                                    // 监听高度变化
+                                    const observer = new MutationObserver(function() {
+                                        resizeParent();
+                                    });
+                                    observer.observe(document.body, {
+                                        childList: true,
+                                        subtree: true,
+                                        attributes: true
+                                    });
 
-                                // 监听高度变化
-                                const observer = new MutationObserver(function() {
-                                    resizeParent();
-                                });
-                                observer.observe(document.body, {
-                                    childList: true,
-                                    subtree: true,
-                                    attributes: true
-                                });
-
-                                setTimeout(function() {
-                                    resizeParent();
-                                }, 100);
-                            <\/script>
-                        </body>
-                        </html>
-                    `;
+                                    setTimeout(function() {
+                                        resizeParent();
+                                    }, 100);
+                                <\/script>
+                            </body>
+                            </html>
+                        `;
+                    }
 
                     // 缓存结果
                     if (htmlCache.size >= maxCacheSize) {
@@ -731,18 +751,20 @@
 
                     const html = `
                         <!DOCTYPE html>
-                        <html>
+                        <html style="background: transparent !important;">
                         <head>
                             <meta charset="UTF-8">
                             <meta name="viewport" content="width=device-width, initial-scale=1.0">
                             <style>
-                                body {
+                                html, body {
                                     margin: 0;
                                     padding: 0;
                                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                                     font-size: 14px;
                                     line-height: 1.5;
-                                    background: transparent;
+                                    background: transparent !important;
+                                    backdrop-filter: none !important;
+                                    -webkit-backdrop-filter: none !important;
                                     overflow-x: auto;
                                     overflow-y: hidden;
                                     color: ${textColor} !important;
@@ -819,15 +841,15 @@
                     const iframe = event.target;
                     const isNested = iframe.classList.contains('nested-iframe');
 
-                    // 独立iframe：初始渲染后确定高度，后续不再变化
+                    // 独立iframe：完全自适应高度，无任何限制
                     if (!isNested) {
                         setTimeout(() => {
                             try {
                                 const doc = iframe.contentDocument || iframe.contentWindow.document;
                                 if (doc && doc.body) {
-                                    const initialHeight = Math.min(doc.body.scrollHeight, window.innerHeight * 1.1);
-                                    iframe.style.height = initialHeight + 'px';
-                                    // 设置后不再监听resize消息，保持固定高度
+                                    const contentHeight = doc.body.scrollHeight;
+                                    // 直接设置iframe高度为内容高度，无任何限制
+                                    iframe.style.height = contentHeight + 'px';
                                 }
                             } catch (e) {
                                 // 如果无法访问，使用默认高度
@@ -865,14 +887,242 @@
                     }
                 };
                 
+                // ========== HTML模板渲染相关 ==========
+                
+                // 模板缓存（templateId -> htmlTemplate）
+                const templateCache = new Map();
+                
+                // 等待模板的 Promise 缓存（templateId -> Promise）
+                const templatePromises = new Map();
+                
+                // 从 Flutter 接收模板的回调
+                window.receiveTemplate = (response) => {
+                    console.log('[HTML] 收到模板响应:', response);
+                    const { templateId, htmlTemplate, error } = response;
+                    
+                    if (error) {
+                        console.error('[HTML] 获取模板失败:', error);
+                        // 缓存失败结果，避免重复请求
+                        templateCache.set(templateId, null);
+                    } else {
+                        // 缓存模板
+                        templateCache.set(templateId, htmlTemplate);
+                    }
+                    
+                    // 解决等待的 Promise
+                    const resolve = templatePromises.get(templateId);
+                    if (resolve) {
+                        resolve(htmlTemplate || null);
+                        templatePromises.delete(templateId);
+                    }
+                };
+                
+                // 从 Flutter 获取模板
+                const getTemplate = (templateId) => {
+                    // 检查缓存
+                    if (templateCache.has(templateId)) {
+                        return Promise.resolve(templateCache.get(templateId));
+                    }
+                    
+                    // 检查是否已经有pending的请求
+                    if (templatePromises.has(templateId)) {
+                        return new Promise((resolve) => {
+                            // 多个请求共享同一个Promise
+                            const existingResolve = templatePromises.get(templateId);
+                            templatePromises.set(templateId, (result) => {
+                                existingResolve(result);
+                                resolve(result);
+                            });
+                        });
+                    }
+                    
+                    // 创建新的Promise
+                    return new Promise((resolve) => {
+                        templatePromises.set(templateId, resolve);
+                        
+                        // 向 Flutter 请求模板
+                        sendToFlutter('getTemplate', { templateId });
+                        
+                        // 设置超时（5秒）
+                        setTimeout(() => {
+                            if (templatePromises.has(templateId)) {
+                                console.error('[HTML] 获取模板超时:', templateId);
+                                templatePromises.delete(templateId);
+                                templateCache.set(templateId, null);
+                                resolve(null);
+                            }
+                        }, 5000);
+                    });
+                };
+                
+                // 提取消息中的模板JSON
+                const extractTemplateJson = (content) => {
+                    const matches = [];
+                    
+                    // 1. 先匹配 ```json ... ``` 代码块
+                    const markdownRegex = /```json\s*\n([\s\S]*?)\n```/g;
+                    let match;
+                    
+                    while ((match = markdownRegex.exec(content)) !== null) {
+                        try {
+                            const jsonStr = match[1].trim();
+                            const jsonData = JSON.parse(jsonStr);
+                            
+                            // 检查是否包含 template_id 或 templateId
+                            if (jsonData.template_id || jsonData.templateId) {
+                                matches.push({
+                                    original: match[0], // 完整匹配（包含 ```json ... ```）
+                                    json: jsonData
+                                });
+                            }
+                        } catch (e) {
+                            console.warn('[HTML] Markdown代码块JSON解析失败:', e);
+                        }
+                    }
+                    
+                    // 2. 提取纯 JSON（不在代码块中的）
+                    // 先移除已匹配的代码块，避免重复匹配
+                    let remainingContent = content;
+                    for (const item of matches) {
+                        remainingContent = remainingContent.replace(item.original, '');
+                    }
+                    
+                    // 使用括号匹配算法提取完整的 JSON 对象
+                    for (let i = 0; i < remainingContent.length; i++) {
+                        if (remainingContent[i] === '{') {
+                            // 找到左括号，开始匹配
+                            let depth = 1;
+                            let j = i + 1;
+                            let inString = false;
+                            let escapeNext = false;
+                            
+                            while (j < remainingContent.length && depth > 0) {
+                                const char = remainingContent[j];
+                                
+                                if (escapeNext) {
+                                    escapeNext = false;
+                                } else if (char === '\\') {
+                                    escapeNext = true;
+                                } else if (char === '"' && !escapeNext) {
+                                    inString = !inString;
+                                } else if (!inString) {
+                                    if (char === '{') {
+                                        depth++;
+                                    } else if (char === '}') {
+                                        depth--;
+                                    }
+                                }
+                                j++;
+                            }
+                            
+                            // 如果找到了完整的 JSON 对象
+                            if (depth === 0) {
+                                const jsonStr = remainingContent.substring(i, j);
+                                try {
+                                    const jsonData = JSON.parse(jsonStr);
+                                    
+                                    // 必须是对象，且包含 template_id 或 templateId
+                                    if (typeof jsonData === 'object' && 
+                                        jsonData !== null && 
+                                        (jsonData.template_id || jsonData.templateId)) {
+                                        matches.push({
+                                            original: jsonStr,
+                                            json: jsonData
+                                        });
+                                    }
+                                } catch (e) {
+                                    // JSON 解析失败，跳过
+                                }
+                                
+                                // 跳过已匹配的部分
+                                i = j - 1;
+                            }
+                        }
+                    }
+                    
+                    return matches;
+                };
+                
+                // 渲染模板
+                const renderTemplate = (htmlTemplate, data) => {
+                    if (!htmlTemplate || !data) {
+                        return htmlTemplate;
+                    }
+                    
+                    let rendered = htmlTemplate;
+                    
+                    // 替换所有 {{key}} 占位符
+                    for (const [key, value] of Object.entries(data)) {
+                        const placeholder = `{{${key}}}`;
+                        const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                        rendered = rendered.replace(regex, value !== null && value !== undefined ? String(value) : '');
+                    }
+                    
+                    return rendered;
+                };
+                
+                // 处理消息中的模板
+                const processMessageTemplates = async (message) => {
+                    const content = message.content;
+                    if (!content || typeof content !== 'string') {
+                        return message;
+                    }
+                    
+                    // 提取所有模板JSON
+                    const templates = extractTemplateJson(content);
+                    if (templates.length === 0) {
+                        return message;
+                    }
+                    
+                    console.log(`[HTML] 在消息中找到 ${templates.length} 个模板`);
+                    
+                    let processedContent = content;
+                    
+                    // 逐个处理模板
+                    for (const template of templates) {
+                        const templateId = template.json.template_id || template.json.templateId;
+                        const data = template.json.data;
+                        
+                        console.log('[HTML] 处理模板ID:', templateId);
+                        
+                        // 获取模板
+                        const htmlTemplate = await getTemplate(templateId);
+                        
+                        if (htmlTemplate) {
+                            // 渲染模板
+                            const renderedHtml = renderTemplate(htmlTemplate, data);
+                            console.log('[HTML] 渲染成功，HTML长度:', renderedHtml.length);
+                            
+                            // 替换原始JSON为渲染后的HTML
+                            processedContent = processedContent.replace(template.original, renderedHtml);
+                        } else {
+                            console.warn('[HTML] 模板不存在或获取失败:', templateId);
+                        }
+                    }
+                    
+                    // 返回处理后的消息，保留原始内容用于编辑
+                    return {
+                        ...message,
+                        originalContent: content,  // 保存原始内容
+                        content: processedContent  // 渲染后的内容用于显示
+                    };
+                };
+                
+                // ========== 更新消息列表 ==========
+                
                 // 更新消息列表
-                const updateMessages = (newMessages, shouldScrollToBottom = false) => {
+                const updateMessages = async (newMessages, shouldScrollToBottom = false) => {
+                    // 先处理所有消息中的模板
+                    const processedMessages = await Promise.all(
+                        newMessages.map(msg => processMessageTemplates(msg))
+                    );
+                    
                     const oldLength = messages.value.length;
-                    const newLength = newMessages.length;
+                    const newLength = processedMessages.length;
 
                     // 如果是初始加载（从0条消息开始），延迟滚动到底部
                     if (oldLength === 0 && newLength > 0) {
-                        messages.value = newMessages;
+                        messages.value = processedMessages;
                         setTimeout(() => {
                             window.scrollTo(0, document.body.scrollHeight);
                         }, 0);
@@ -888,7 +1138,7 @@
                         oldScrollHeight = document.documentElement.scrollHeight;
                     }
 
-                    messages.value = newMessages;
+                    messages.value = processedMessages;
 
                     // 处理滚动位置
                     if (shouldScrollToBottom) {

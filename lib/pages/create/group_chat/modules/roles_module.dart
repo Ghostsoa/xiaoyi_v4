@@ -11,13 +11,19 @@ import '../../../../widgets/expandable_text_field.dart';
 
 class RolesModule extends StatefulWidget {
   final List<Map<String, dynamic>> roles;
+  final bool useUnifiedModel;
   final Function(List<Map<String, dynamic>>) onRolesChanged;
+  final Function(bool) onUnifiedModelChanged;
+  final Function(int, String) onRoleModelChanged;
   final Map<String, Uint8List> imageCache;
 
   const RolesModule({
     super.key,
     required this.roles,
+    required this.useUnifiedModel,
     required this.onRolesChanged,
+    required this.onUnifiedModelChanged,
+    required this.onRoleModelChanged,
     required this.imageCache,
   });
 
@@ -81,11 +87,11 @@ class _RolesModuleState extends State<RolesModule> {
 
 
   void _addRole() {
-    // 限制最大角色数量为20个
-    if (widget.roles.length >= 20) {
+    // 限制最大角色数量为30个
+    if (widget.roles.length >= 30) {
       CustomToast.show(
         context,
-        message: '最多只能创建20个角色',
+        message: '最多只能创建30个角色',
         type: ToastType.error,
       );
       return;
@@ -165,6 +171,29 @@ class _RolesModuleState extends State<RolesModule> {
   }
 
   void _updateRole(int index, String field, dynamic value) {
+    // 如果是模型字段且开启了统一模型，使用专门的回调
+    if (field == 'modelName') {
+      widget.onRoleModelChanged(index, value);
+      return;
+    }
+
+    // 检查角色名字是否重复
+    if (field == 'name' && value != null && value.toString().trim().isNotEmpty) {
+      final trimmedName = value.toString().trim();
+      for (int i = 0; i < widget.roles.length; i++) {
+        if (i != index && widget.roles[i]['name'] == trimmedName) {
+          CustomToast.show(
+            context,
+            message: '角色名"$trimmedName"已存在，请使用不同的名字',
+            type: ToastType.error,
+          );
+          // 恢复原来的名字
+          _nameControllers[index]?.text = widget.roles[index]['name'] ?? '';
+          return;
+        }
+      }
+    }
+
     final updatedRoles = List<Map<String, dynamic>>.from(widget.roles);
     updatedRoles[index][field] = value;
 
@@ -218,9 +247,106 @@ class _RolesModuleState extends State<RolesModule> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         
-                    // 添加角色按钮区域
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12.w),
+        // 统一模型设置
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12.w),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+            decoration: BoxDecoration(
+              color: AppTheme.cardBackground,
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(
+                color: AppTheme.border.withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.model_training,
+                  color: AppTheme.primaryColor,
+                  size: 16.sp,
+                ),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            '统一模型设置',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          SizedBox(width: 6.w),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                            decoration: BoxDecoration(
+                              color: AppTheme.success.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4.r),
+                            ),
+                            child: Text(
+                              '推荐开启',
+                              style: TextStyle(
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.success,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 3.h),
+                      RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontSize: 11.sp,
+                            color: AppTheme.textSecondary,
+                            height: 1.3,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: '开启：',
+                              style: TextStyle(
+                                color: AppTheme.success,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const TextSpan(text: '一个模型可同时扮演多个角色，节省成本和时间\n'),
+                            TextSpan(
+                              text: '关闭：',
+                              style: TextStyle(
+                                color: AppTheme.error,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const TextSpan(text: '每个角色独立请求，成本高、速度慢'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: widget.useUnifiedModel,
+                  onChanged: (value) {
+                    widget.onUnifiedModelChanged(value);
+                  },
+                  activeColor: AppTheme.primaryColor,
+                ),
+              ],
+            ),
+          ),
+        ),
+        
+        SizedBox(height: 16.h),
+        
+        // 添加角色按钮区域
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12.w),
           child: Row(
             children: [
               GestureDetector(
@@ -538,7 +664,7 @@ class _RolesModuleState extends State<RolesModule> {
                         ),
                       ),
                       style: AppTheme.bodyStyle,
-                      maxLength: 20,
+                      maxLength: 10,
                       buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
                     ),
                   ],
@@ -559,9 +685,17 @@ class _RolesModuleState extends State<RolesModule> {
                 fontSize: 12.sp,
               ),
               children: [
-                const TextSpan(text: '简单描述这个角色的'),
+                const TextSpan(text: '不仅是给'),
                 TextSpan(
-                  text: '特点和性格',
+                  text: '用户看',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: '的，也会影响'),
+                TextSpan(
+                  text: '决策模型的决策',
                   style: TextStyle(
                     color: Colors.amber,
                     fontWeight: FontWeight.w600,
@@ -575,7 +709,7 @@ class _RolesModuleState extends State<RolesModule> {
             title: '角色描述',
             controller: _descriptionControllers[index]!,
             hintText: '简单描述这个角色的特点...',
-            maxLength: 200,
+            maxLength: 1000,
             previewLines: 2,
             onChanged: () => _updateRole(index, 'description', _descriptionControllers[index]!.text),
           ),
@@ -596,7 +730,15 @@ class _RolesModuleState extends State<RolesModule> {
                   fontSize: 12.sp,
                 ),
                 children: [
-                  const TextSpan(text: '详细描述角色的'),
+                  const TextSpan(text: '角色设定会'),
+                  TextSpan(
+                    text: '传递给生成模型',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const TextSpan(text: '，详细描述角色的'),
                   TextSpan(
                     text: '性格、背景、说话方式',
                     style: TextStyle(
@@ -632,6 +774,17 @@ class _RolesModuleState extends State<RolesModule> {
                   ),
                 ),
                 const TextSpan(text: '来驱动角色对话'),
+                if (widget.useUnifiedModel) ...[
+                  const TextSpan(text: '\n'),
+                  const TextSpan(text: '🔗 '),
+                  TextSpan(
+                    text: '统一模型模式：修改将影响所有角色',
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

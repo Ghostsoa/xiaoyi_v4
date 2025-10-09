@@ -1,0 +1,173 @@
+#!/bin/bash
+set -e
+
+# --- 配置 ---
+# 所有备份都将存储在 /root/backups 目录下
+BACKUP_BASE_DIR="/root/backups/hourly"
+TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
+RETAIN_COUNT=72 # 保留72份
+
+# PostgreSQL 配置
+PG_CONTAINER="postgres"
+PG_USER="postgres"
+PG_DB="xiaoyiai"
+PG_BACKUP_DIR="${BACKUP_BASE_DIR}/postgres"
+PG_FILENAME="${PG_BACKUP_DIR}/pg_backup_${TIMESTAMP}.sql.gz"
+
+# Redis 配置
+REDIS_CONTAINER="redis"
+REDIS_PASSWORD="redis123" 
+REDIS_DATA_PATH="/data/redis"
+REDIS_BACKUP_DIR="${BACKUP_BASE_DIR}/redis"
+# 我们现在备份 dump.rdb
+REDIS_SOURCE_FILE="${REDIS_DATA_PATH}/dump.rdb"
+REDIS_FILENAME="${REDIS_BACKUP_DIR}/redis_backup_${TIMESTAMP}.rdb.gz" 
+
+
+# MongoDB 配置
+MONGO_CONTAINER="mongodb"
+MONGO_USER="mongouser"
+MONGO_PASSWORD="mongo123"
+MONGO_BACKUP_DIR="${BACKUP_BASE_DIR}/mongodb"
+MONGO_FILENAME="${MONGO_BACKUP_DIR}/mongo_backup_${TIMESTAMP}.archive.gz"
+
+# --- 清理旧备份函数 ---
+cleanup() {
+    local backup_dir=$1
+    local retain_count=$2
+    # 检查备份目录是否存在
+    if [ ! -d "${backup_dir}" ]; then
+        echo "备份目录 ${backup_dir} 不存在，跳过清理。"
+        return
+    fi
+    echo "清理目录: ${backup_dir}, 只保留最新的 ${retain_count} 份备份..."
+    # ls -t 按修改时间排序（新->旧），tail 跳过最新的N个，xargs 删除其余的
+    ls -t "${backup_dir}" | tail -n +$((retain_count + 1)) | xargs -I {} rm -f "${backup_dir}/{}"
+    echo "清理完成。"
+}
+
+# --- 备份 PostgreSQL ---
+echo "--- 开始备份 PostgreSQL ---"
+docker exec "${PG_CONTAINER}" pg_dump -U "${PG_USER}" -d "${PG_DB}" | gzip > "${PG_FILENAME}"
+echo "PostgreSQL 备份成功: ${PG_FILENAME}"
+cleanup "${PG_BACKUP_DIR}" "${RETAIN_COUNT}"
+echo ""
+
+# --- [新的 Redis 备份逻辑] ---
+echo "--- 开始备份 Redis ---"
+echo "步骤 1: 触发 Redis 在后台生成最新的 RDB 快照..."
+REDIS_CLI_CMD="docker exec ${REDIS_CONTAINER} redis-cli -a ${REDIS_PASSWORD}"
+# 获取 BGSAVE 开始前的时间戳
+LAST_SAVE_BEFORE=$($REDIS_CLI_CMD LASTSAVE | awk '{print $1}')
+$REDIS_CLI_CMD BGSAVE
+
+echo "步骤 2: 等待 RDB 快照生成完成..."
+# 循环检查，直到 LASTSAVE 时间戳更新，或超时
+TIMEOUT=60
+COUNTER=0
+while true; do
+    LAST_SAVE_AFTER=$($REDIS_CLI_CMD LASTSAVE | awk '{print $1}')
+    if [ "$LAST_SAVE_AFTER" -gt "$LAST_SAVE_BEFORE" ]; then
+        echo "RDB 快照已成功生成！"
+        break
+    fi
+    if [ "$COUNTER" -ge "$TIMEOUT" ]; then
+        echo "错误: 等待 RDB 快照生成超时（${TIMEOUT}秒）！"
+        # 发生超时，最好退出脚本以避免备份旧文件
+        exit 1
+    fi
+    sleep 1
+    COUNTER=$((COUNTER + 1))
+done
+
+echo "步骤 3: 备份新生成的 dump.rdb 文件..."
+if [ -f "${REDIS_SOURCE_FILE}" ]; then
+    gzip -c "${REDIS_SOURCE_FILE}" > "${REDIS_FILENAME}"
+    echo "Redis RDB 备份成功: ${REDIS_FILENAME}"
+    cleanup "${REDIS_BACKUP_DIR}" "${RETAIN_COUNT}"
+else
+    echo "错误: 未找到 Redis RDB 文件: ${REDIS_SOURCE_FILE}！"
+    # 即使快照生成成功，文件也可能不存在，这是一种保护
+    exit 1
+fi
+echo ""
+
+# --- 备份 MongoDB ---
+echo "--- 开始备份 MongoDB ---"
+docker exec "${MONGO_CONTAINER}" mongodump --username="${MONGO_USER}" --password="${MONGO_PASSWORD}" --authenticationDatabase=admin --archive | gzip > "${MONGO_FILENAME}"
+echo "MongoDB 备份成功: ${MONGO_FILENAME}"
+cleanup "${MONGO_BACKUP_DIR}" "${RETAIN_COUNT}"
+echo ""
+
+echo "所有每小时备份任务已完成！"
+
+
+
+----
+
+#!/bin/bash
+# ---------------------------------------------------------------
+# Hourly Backup Script - Redis Only
+# Author: YourName
+# Date: 2025-09-24
+# Description: This script performs hourly backups for Redis
+#              by triggering a BGSAVE and then copying the RDB
+#              and AOF files.
+# ---------------------------------------------------------------
+
+# 当任何命令失败时，脚本立刻退出，防止后续错误操作
+set -e
+set -o pipefail
+
+# --- 配置 ---
+# Redis 配置
+REDIS_CONTAINER="redis"                       # Redis容器的名字 (根据docker-compose.yml)
+REDIS_PASSWORD="redis123"                     # Redis密码 (根据docker-compose.yml)
+REDIS_DATA_DIR="/data/redis"                  # Redis在宿主机上的数据卷目录
+
+# 备份配置
+BACKUP_BASE_DIR="/root/backups/hourly"
+TIMESTAMP=$(date +%Y-%m-%d-%H)
+TARGET_DIR="${BACKUP_BASE_DIR}/redis/${TIMESTAMP}"
+RETAIN_HOURS=72 # 保留72个小时的备份 (3天)
+
+# --- 脚本 ---
+
+echo "============================================================"
+echo "Starting Hourly Backup Job at $(date)"
+echo "Target: Redis"
+echo "============================================================"
+
+# 确保基础备份目录存在
+mkdir -p "${BACKUP_BASE_DIR}/redis"
+
+# --- 备份 Redis ---
+echo "--- Starting Redis Backup ---"
+
+# 1. 触发 Redis 在后台生成最新的 RDB 快照
+echo "Step 1: Triggering BGSAVE command in container '${REDIS_CONTAINER}'..."
+docker exec ${REDIS_CONTAINER} redis-cli -a ${REDIS_PASSWORD} BGSAVE
+# BGSAVE是异步的，通常很快，但给它一点时间完成总是好的
+echo "Waiting for 5 seconds to allow BGSAVE to complete..."
+sleep 5
+
+# 2. 检查源文件是否存在
+if [ ! -f "${REDIS_DATA_DIR}/dump.rdb" ] || [ ! -f "${REDIS_DATA_DIR}/appendonly.aof" ]; then
+    echo "ERROR: RDB file or AOF file not found in ${REDIS_DATA_DIR}!"
+    echo "Backup job failed."
+    exit 1
+fi
+
+# 3. 使用rsync将RDB和AOF文件备份到带时间戳的目录
+echo "Step 2: Backing up RDB and AOF files using rsync..."
+mkdir -p ${TARGET_DIR}
+rsync -a "${REDIS_DATA_DIR}/dump.rdb" "${REDIS_DATA_DIR}/appendonly.aof" "${TARGET_DIR}/"
+echo "Redis backup finished successfully to: ${TARGET_DIR}"
+
+# 4. 清理旧备份
+echo "Step 3: Cleaning up old Redis backups older than ${RETAIN_HOURS} hours..."
+# find命令通过分钟来计算，更精确: 72 hours * 60 minutes = 4320 minutes
+find "${BACKUP_BASE_DIR}/redis" -mindepth 1 -maxdepth 1 -type d -mmin +4320 -exec rm -rf {} \;
+echo "Cleanup complete."
+echo "--- Redis Backup Finished ---"
+echo ""

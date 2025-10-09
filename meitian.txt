@@ -1,0 +1,98 @@
+#!/bin/bash
+set -e
+
+# --- 配置 ---
+# 所有备份都将存储在 /root/backups 目录下
+BACKUP_BASE_DIR="/root/backups/daily"
+TIMESTAMP=$(date +%Y-%m-%d)
+RETAIN_COUNT=3 # 保留3份
+
+# MinIO 配置
+MINIO_DATA_PATH="/data/minio"
+MINIO_BACKUP_DIR="${BACKUP_BASE_DIR}/minio"
+MINIO_FILENAME="${MINIO_BACKUP_DIR}/minio_backup_${TIMESTAMP}.tar.gz"
+
+# --- 清理旧备份函数 ---
+cleanup() {
+    local backup_dir=$1
+    local retain_count=$2
+    if [ ! -d "${backup_dir}" ]; then
+        echo "备份目录 ${backup_dir} 不存在，跳过清理。"
+        return
+    fi
+    echo "清理目录: ${backup_dir}, 只保留最新的 ${retain_count} 份备份..."
+    ls -t "${backup_dir}" | tail -n +$((retain_count + 1)) | xargs -I {} rm -f "${backup_dir}/{}"
+    echo "清理完成。"
+}
+
+# --- 备份 MinIO ---
+echo "--- 开始备份 MinIO ---"
+# -C 切换到父目录，避免在 tar 包里包含完整的 /data/minio 路径
+tar -czf "${MINIO_FILENAME}" -C /data minio
+echo "MinIO 备份成功: ${MINIO_FILENAME}"
+cleanup "${MINIO_BACKUP_DIR}" "${RETAIN_COUNT}"
+echo ""
+
+echo "每日备份任务已完成！"
+
+
+
+----
+
+
+
+#!/bin/bash
+# ---------------------------------------------------------------
+# Daily Backup Script - MongoDB (via PBM) & MinIO
+# ---------------------------------------------------------------
+
+set -e
+set -o pipefail
+
+# --- 配置 ---
+PBM_AGENT_CONTAINER="pbm-agent"
+RETAIN_DAYS=7 # PBM保留备份的天数
+
+# MinIO 配置
+MINIO_DATA_PATH="/data/minio"
+BACKUP_BASE_DIR="/root/backups/daily"
+MINIO_BACKUP_DIR="${BACKUP_BASE_DIR}/minio"
+TIMESTAMP=$(date +%Y-%m-%d)
+
+# --- 脚本 ---
+echo "============================================================"
+echo "Starting Daily Backup Job at $(date)"
+echo "============================================================"
+
+# --- 备份 MongoDB (通过PBM) ---
+echo "--- Starting MongoDB Backup via PBM ---"
+echo "Step 1: Triggering a PBM full backup..."
+docker exec ${PBM_AGENT_CONTAINER} pbm backup
+
+# 等待备份完成（对于cron任务，可以简单等待或编写更复杂的检查逻辑）
+echo "Backup command sent. PBM will now perform the backup in the background."
+echo "PITR (Point-in-Time Recovery) is continuously running."
+
+echo "Step 2: Cleaning up old PBM backups older than ${RETAIN_DAYS} days..."
+# PBM的delete命令可以根据时间来删除
+docker exec ${PBM_AGENT_CONTAINER} pbm delete-backup --older-than $(date -d "-${RETAIN_DAYS} days" +%Y-%m-%d)
+echo "PBM cleanup command sent."
+echo "--- MongoDB Backup Finished ---"
+echo ""
+
+
+# --- 备份 MinIO (使用rsync)---
+echo "--- Starting MinIO Backup ---"
+mkdir -p ${MINIO_BACKUP_DIR}
+TARGET_DIR="${MINIO_BACKUP_DIR}/${TIMESTAMP}"
+
+echo "Backing up MinIO data using rsync..."
+rsync -a --delete ${MINIO_DATA_PATH}/ ${TARGET_DIR}/
+echo "MinIO backup finished successfully to: ${TARGET_DIR}"
+
+echo "Cleaning up old MinIO backups older than ${RETAIN_DAYS} days..."
+find ${MINIO_BACKUP_DIR} -mindth 1 -maxdepth 1 -type d -mtime +${RETAIN_DAYS} -exec rm -rf {} \;
+echo "MinIO cleanup complete."
+echo ""
+
+echo "All daily backup tasks completed."

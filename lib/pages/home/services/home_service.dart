@@ -102,11 +102,22 @@ class HomeService {
   }
 
   /// 激励卡片
-  Future<Map<String, dynamic>> rewardItem(String id, double amount) async {
+  Future<Map<String, dynamic>> rewardItem(
+    String id,
+    double amount, {
+    String? message,
+  }) async {
     try {
+      final Map<String, dynamic> data = {'amount': amount};
+      
+      // 如果有寄语，添加到请求数据中
+      if (message != null && message.isNotEmpty) {
+        data['message'] = message;
+      }
+      
       final response = await _httpClient.post(
         '/hall/items/$id/reward',
-        data: {'amount': amount},
+        data: data,
       );
       return response.data;
     } catch (e) {

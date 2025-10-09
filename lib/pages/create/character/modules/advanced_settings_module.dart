@@ -10,6 +10,7 @@ import '../../../../services/file_service.dart';
 import '../../../../utils/resource_mapping_parser.dart';
 import '../../../../widgets/expandable_text_field.dart';
 import '../../../../widgets/text_editor_page.dart';
+import '../../html/html_template_selector_page.dart';
 
 class AdvancedSettingsModule extends StatefulWidget {
   final int memoryTurns;
@@ -22,6 +23,7 @@ class AdvancedSettingsModule extends StatefulWidget {
   final String enhanceMode;
   final TextEditingController resourceMappingController;
   final Map<String, Uint8List> imageCache;
+  final String htmlTemplates; // "100,200,300" 格式
   final Function(int) onMemoryTurnsChanged;
   final Function(int) onSearchDepthChanged;
   final Function(String) onStatusChanged;
@@ -29,6 +31,7 @@ class AdvancedSettingsModule extends StatefulWidget {
   final Function(List<Map<String, dynamic>>) onWorldBooksChanged;
   final Function(Map<String, dynamic>) onWorldbookMapChanged;
   final Function(String) onEnhanceModeChanged;
+  final Function(String) onHtmlTemplatesChanged;
 
   const AdvancedSettingsModule({
     super.key,
@@ -42,6 +45,7 @@ class AdvancedSettingsModule extends StatefulWidget {
     required this.enhanceMode,
     required this.resourceMappingController,
     required this.imageCache,
+    required this.htmlTemplates,
     required this.onMemoryTurnsChanged,
     required this.onSearchDepthChanged,
     required this.onStatusChanged,
@@ -49,6 +53,7 @@ class AdvancedSettingsModule extends StatefulWidget {
     required this.onWorldBooksChanged,
     required this.onWorldbookMapChanged,
     required this.onEnhanceModeChanged,
+    required this.onHtmlTemplatesChanged,
   });
 
   @override
@@ -61,6 +66,22 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
   void _showToast(String message, {ToastType type = ToastType.info}) {
     if (!mounted) return;
     CustomToast.show(context, message: message, type: type);
+  }
+
+  /// 选择 HTML 模板
+  Future<void> _selectHtmlTemplates() async {
+    final result = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => HtmlTemplateSelectorPage(
+          initialSelected: widget.htmlTemplates,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      widget.onHtmlTemplatesChanged(result);
+    }
   }
 
   Widget _buildSectionTitle(String title) {
@@ -944,6 +965,82 @@ class _AdvancedSettingsModuleState extends State<AdvancedSettingsModule> {
                 },
               ),
               SizedBox(height: 24.h),
+              
+              // HTML 模板选择器
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'HTML模板',
+                    style: AppTheme.secondaryStyle,
+                  ),
+                  Text(
+                    '已选 ${widget.htmlTemplates.isEmpty ? 0 : widget.htmlTemplates.split(',').where((s) => s.trim().isNotEmpty).length} 个',
+                    style: AppTheme.hintStyle,
+                  ),
+                ],
+              ),
+              SizedBox(height: 4.h),
+              RichText(
+                text: TextSpan(
+                  style: AppTheme.hintStyle,
+                  children: [
+                    const TextSpan(text: '为角色绑定'),
+                    TextSpan(
+                      text: 'HTML模板',
+                      style: TextStyle(
+                        color: Colors.purple,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const TextSpan(text: '，用于特殊渲染效果'),
+                  ],
+                ),
+              ),
+              SizedBox(height: 8.h),
+              GestureDetector(
+                onTap: _selectHtmlTemplates,
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: AppTheme.buttonGradient,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      transform: const GradientRotation(0.4),
+                    ),
+                    borderRadius: BorderRadius.circular(8.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.buttonGradient.first.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.code,
+                        size: 20.sp,
+                        color: Colors.white,
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        '选择HTML模板',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: AppTheme.bodySize,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 24.h),
+              
               Text(
                 '发布状态',
                 style: AppTheme.secondaryStyle,

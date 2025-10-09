@@ -18,6 +18,8 @@ class SessionDataService {
       StreamController<List<SessionModel>>.broadcast();
   final StreamController<List<SessionModel>> _novelSessionsController = 
       StreamController<List<SessionModel>>.broadcast();
+  final StreamController<List<SessionModel>> _groupChatSessionsController = 
+      StreamController<List<SessionModel>>.broadcast();
 
   /// 角色会话数据流
   Stream<List<SessionModel>> get characterSessionsStream => 
@@ -26,6 +28,10 @@ class SessionDataService {
   /// 小说会话数据流
   Stream<List<SessionModel>> get novelSessionsStream => 
       _novelSessionsController.stream;
+
+  /// 群聊会话数据流
+  Stream<List<SessionModel>> get groupChatSessionsStream => 
+      _groupChatSessionsController.stream;
 
   /// 初始化数据库
   Future<void> initDatabase() async {
@@ -36,7 +42,7 @@ class SessionDataService {
 
     _database = await openDatabase(
       dbPath,
-      version: 3, // 🔥 升级版本以支持置顶功能
+      version: 4, // 🔥 升级版本以支持群聊缓存和置顶功能
       onCreate: _createTables,
       onUpgrade: _upgradeTables,
     );
@@ -82,12 +88,30 @@ class SessionDataService {
       )
     ''');
 
+    // 群聊会话表
+    await db.execute('''
+      CREATE TABLE group_chat_sessions (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        last_message TEXT,
+        cover_uri TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        extra_data TEXT,
+        last_sync_time INTEGER,
+        is_pinned INTEGER DEFAULT 0,
+        pinned_at TEXT
+      )
+    ''');
+
     // 创建索引
     await db.execute('CREATE INDEX idx_character_sessions_updated_at ON character_sessions(updated_at)');
     await db.execute('CREATE INDEX idx_novel_sessions_updated_at ON novel_sessions(updated_at)');
+    await db.execute('CREATE INDEX idx_group_chat_sessions_updated_at ON group_chat_sessions(updated_at)');
     // 🔥 添加置顶字段索引，优化排序性能
     await db.execute('CREATE INDEX idx_character_sessions_pinned ON character_sessions(is_pinned, pinned_at)');
     await db.execute('CREATE INDEX idx_novel_sessions_pinned ON novel_sessions(is_pinned, pinned_at)');
+    await db.execute('CREATE INDEX idx_group_chat_sessions_pinned ON group_chat_sessions(is_pinned, pinned_at)');
 
     debugPrint('[SessionDataService] 数据库表创建完成');
   }
@@ -115,6 +139,30 @@ class SessionDataService {
       await db.execute('CREATE INDEX idx_novel_sessions_pinned ON novel_sessions(is_pinned, pinned_at)');
 
       debugPrint('[SessionDataService] 已添加置顶功能字段和索引');
+    }
+
+    if (oldVersion < 4) {
+      // 🔥 添加群聊会话表
+      await db.execute('''
+        CREATE TABLE group_chat_sessions (
+          id INTEGER PRIMARY KEY,
+          name TEXT NOT NULL,
+          last_message TEXT,
+          cover_uri TEXT,
+          created_at TEXT,
+          updated_at TEXT,
+          extra_data TEXT,
+          last_sync_time INTEGER,
+          is_pinned INTEGER DEFAULT 0,
+          pinned_at TEXT
+        )
+      ''');
+
+      // 创建索引
+      await db.execute('CREATE INDEX idx_group_chat_sessions_updated_at ON group_chat_sessions(updated_at)');
+      await db.execute('CREATE INDEX idx_group_chat_sessions_pinned ON group_chat_sessions(is_pinned, pinned_at)');
+
+      debugPrint('[SessionDataService] 已添加群聊会话表和索引');
     }
   }
 
@@ -283,10 +331,17 @@ class SessionDataService {
   ) async {
     if (ids.isEmpty) return <int, Map<String, Object?>>{};
 
+    // 🔥 群聊表没有 active_archive_id 字段
+    final bool hasArchiveId = table != 'group_chat_sessions';
+
     // 构造 WHERE IN 子句
     final String placeholders = List.filled(ids.length, '?').join(',');
+    final String columns = hasArchiveId
+        ? 'id, is_pinned, pinned_at, active_archive_id'
+        : 'id, is_pinned, pinned_at';
+    
     final List<Map<String, Object?>> rows = await _database!.rawQuery(
-      'SELECT id, is_pinned, pinned_at, active_archive_id FROM $table WHERE id IN ($placeholders)',
+      'SELECT $columns FROM $table WHERE id IN ($placeholders)',
       ids,
     );
 
@@ -296,7 +351,7 @@ class SessionDataService {
       result[id] = <String, Object?>{
         'is_pinned': row['is_pinned'],
         'pinned_at': row['pinned_at'],
-        'active_archive_id': row['active_archive_id'],
+        if (hasArchiveId) 'active_archive_id': row['active_archive_id'],
       };
     }
     return result;
@@ -637,7 +692,283 @@ class SessionDataService {
   Future<void> clearAllSessions() async {
     await clearAllCharacterSessions();
     await clearAllNovelSessions();
+    await clearAllGroupChatSessions();
     debugPrint('[SessionDataService] 已清理所有会话数据');
+  }
+
+  /// 获取本地群聊会话列表（分页）
+  Future<SessionListResponse> getLocalGroupChatSessions({
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    await initDatabase();
+    
+    final offset = (page - 1) * pageSize;
+    
+    // 获取总数
+    final countResult = await _database!.rawQuery(
+      'SELECT COUNT(*) as count FROM group_chat_sessions'
+    );
+    final total = countResult.first['count'] as int;
+
+    // 🔥 获取分页数据，置顶会话优先显示，置顶内按消息时间排序（微信方式）
+    final result = await _database!.query(
+      'group_chat_sessions',
+      orderBy: 'is_pinned DESC, updated_at DESC, id DESC',
+      limit: pageSize,
+      offset: offset,
+    );
+
+    final sessions = result.map((row) {
+      final data = Map<String, dynamic>.from(row);
+      if (data['extra_data'] != null) {
+        data['extra_data'] = jsonDecode(data['extra_data']);
+      }
+      return SessionModel.fromDbJson(data);
+    }).toList();
+
+    return SessionListResponse.fromLocalData(sessions, page, pageSize, total);
+  }
+
+  /// 批量插入或更新群聊会话
+  Future<void> insertOrUpdateGroupChatSessions(List<SessionModel> sessions) async {
+    await initDatabase();
+
+    // 读取本地已有的置顶状态，避免被API数据覆盖
+    final List<int> ids = sessions.map((s) => s.id).toList(growable: false);
+    final Map<int, Map<String, Object?>> localPinned = await _loadLocalPinnedState(
+      'group_chat_sessions',
+      ids,
+    );
+
+    final batch = _database!.batch();
+
+    for (final session in sessions) {
+      final data = session.toDbJson();
+      if (data['extra_data'] != null) {
+        data['extra_data'] = jsonEncode(data['extra_data']);
+      }
+
+      // 🔥 群聊表不需要 active_archive_id 字段
+      data.remove('active_archive_id');
+
+      // 用本地置顶字段覆盖API构造的数据
+      final pinnedRow = localPinned[session.id];
+      if (pinnedRow != null) {
+        data['is_pinned'] = pinnedRow['is_pinned'] ?? data['is_pinned'];
+        data['pinned_at'] = pinnedRow['pinned_at'];
+      }
+
+      batch.insert(
+        'group_chat_sessions',
+        data,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+
+    await batch.commit(noResult: true);
+
+    // 通知UI更新
+    _notifyGroupChatSessionsUpdate();
+
+    debugPrint('[SessionDataService] 批量更新群聊会话: ${sessions.length} 条');
+  }
+
+  /// 更新单个群聊会话
+  Future<void> updateGroupChatSession(SessionModel session) async {
+    await initDatabase();
+    
+    final data = session.toDbJson();
+    if (data['extra_data'] != null) {
+      data['extra_data'] = jsonEncode(data['extra_data']);
+    }
+    
+    // 🔥 群聊表不需要 active_archive_id 字段
+    data.remove('active_archive_id');
+    
+    await _database!.update(
+      'group_chat_sessions',
+      data,
+      where: 'id = ?',
+      whereArgs: [session.id],
+    );
+    
+    _notifyGroupChatSessionsUpdate();
+    debugPrint('[SessionDataService] 更新群聊会话: ${session.id}');
+  }
+
+  /// 删除群聊会话
+  Future<void> deleteGroupChatSession(int sessionId) async {
+    await initDatabase();
+    
+    await _database!.delete(
+      'group_chat_sessions',
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+    
+    _notifyGroupChatSessionsUpdate();
+    debugPrint('[SessionDataService] 删除群聊会话: $sessionId');
+  }
+
+  /// 通知群聊会话更新
+  Future<void> _notifyGroupChatSessionsUpdate() async {
+    try {
+      // 只获取前100条用于UI更新，避免内存压力
+      final response = await getLocalGroupChatSessions(page: 1, pageSize: 100);
+      _groupChatSessionsController.add(response.sessions);
+    } catch (e) {
+      debugPrint('[SessionDataService] 通知群聊会话更新失败: $e');
+    }
+  }
+
+  /// 与API数据同步群聊会话（增量更新）
+  Future<List<SessionModel>> syncGroupChatSessionsWithApi(
+    List<SessionModel> apiSessions,
+  ) async {
+    await initDatabase();
+
+    // 获取本地所有会话的ID和更新时间
+    final localResult = await _database!.query(
+      'group_chat_sessions',
+      columns: ['id', 'updated_at'],
+    );
+
+    final localSessionMap = <int, String>{};
+    for (final row in localResult) {
+      localSessionMap[row['id'] as int] = row['updated_at'] as String? ?? '';
+    }
+
+    final sessionsToUpdate = <SessionModel>[];
+
+    // 检测需要更新的会话
+    for (final apiSession in apiSessions) {
+      final localUpdatedAt = localSessionMap[apiSession.id];
+
+      if (localUpdatedAt == null ||
+          _isApiSessionNewer(apiSession.updatedAt, localUpdatedAt)) {
+        sessionsToUpdate.add(apiSession);
+      }
+    }
+
+    // 只执行更新，不删除其他页的数据
+    if (sessionsToUpdate.isNotEmpty) {
+      await insertOrUpdateGroupChatSessions(sessionsToUpdate);
+    }
+
+    debugPrint('[SessionDataService] 群聊会话同步完成: 更新${sessionsToUpdate.length}条');
+
+    return sessionsToUpdate;
+  }
+
+  /// 基于指定页的API数据对本地群聊会话进行"修正式"对齐
+  Future<void> reconcileGroupChatPageWithApi(
+    List<SessionModel> apiSessions,
+    int page,
+    int pageSize,
+  ) async {
+    await initDatabase();
+
+    // 1) 先更新/插入该页的会话（保留本地置顶字段）
+    if (apiSessions.isNotEmpty) {
+      await insertOrUpdateGroupChatSessions(apiSessions);
+    }
+
+    // 2) 仅基于未置顶会话，按服务器排序逻辑（updated_at DESC, id DESC）取出本地的同页切片
+    final int offset = (page - 1) * pageSize;
+    final List<Map<String, Object?>> localRows = await _database!.query(
+      'group_chat_sessions',
+      columns: ['id'],
+      where: 'is_pinned = 0',
+      orderBy: 'updated_at DESC, id DESC',
+      limit: pageSize,
+      offset: offset,
+    );
+
+    if (localRows.isEmpty) {
+      return;
+    }
+
+    final Set<int> apiIds = apiSessions.map((e) => e.id).toSet();
+    final List<int> localPageIds = localRows
+        .map((row) => row['id'] as int)
+        .toList(growable: false);
+
+    // 3) 计算需要删除的本地会话（该页切片中但不在API返回集合中）
+    final List<int> idsToDelete = <int>[];
+    for (final int localId in localPageIds) {
+      if (!apiIds.contains(localId)) {
+        idsToDelete.add(localId);
+      }
+    }
+
+    if (idsToDelete.isNotEmpty) {
+      final batch = _database!.batch();
+      for (final id in idsToDelete) {
+        batch.delete(
+          'group_chat_sessions',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+      await batch.commit(noResult: true);
+      _notifyGroupChatSessionsUpdate();
+      debugPrint('[SessionDataService] 群聊会话页面修正：删除${idsToDelete.length}条（page=$page, size=$pageSize）');
+    }
+  }
+
+  /// 获取本地群聊会话总数
+  Future<int> getGroupChatSessionCount() async {
+    await initDatabase();
+    final result = await _database!.rawQuery(
+      'SELECT COUNT(*) as count FROM group_chat_sessions'
+    );
+    return result.first['count'] as int;
+  }
+
+  /// 清理所有群聊会话数据
+  Future<void> clearAllGroupChatSessions() async {
+    await initDatabase();
+    await _database!.delete('group_chat_sessions');
+    _notifyGroupChatSessionsUpdate();
+    debugPrint('[SessionDataService] 已清理所有群聊会话数据');
+  }
+
+  /// 🔥 置顶群聊会话
+  Future<void> pinGroupChatSession(int sessionId) async {
+    await initDatabase();
+
+    final pinnedAt = DateTime.now().toIso8601String();
+    await _database!.update(
+      'group_chat_sessions',
+      {
+        'is_pinned': 1,
+        'pinned_at': pinnedAt,
+      },
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+
+    _notifyGroupChatSessionsUpdate();
+    debugPrint('[SessionDataService] 置顶群聊会话: $sessionId');
+  }
+
+  /// 🔥 取消置顶群聊会话
+  Future<void> unpinGroupChatSession(int sessionId) async {
+    await initDatabase();
+
+    await _database!.update(
+      'group_chat_sessions',
+      {
+        'is_pinned': 0,
+        'pinned_at': null,
+      },
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+
+    _notifyGroupChatSessionsUpdate();
+    debugPrint('[SessionDataService] 取消置顶群聊会话: $sessionId');
   }
 
   /// 🔥 置顶角色会话
@@ -720,6 +1051,7 @@ class SessionDataService {
 
     final characterCount = await getCharacterSessionCount();
     final novelCount = await getNovelSessionCount();
+    final groupChatCount = await getGroupChatSessionCount();
 
     // 获取数据库文件大小
     final databasesPath = await getDatabasesPath();
@@ -738,7 +1070,8 @@ class SessionDataService {
     return {
       'characterSessionCount': characterCount,
       'novelSessionCount': novelCount,
-      'totalSessionCount': characterCount + novelCount,
+      'groupChatSessionCount': groupChatCount,
+      'totalSessionCount': characterCount + novelCount + groupChatCount,
       'databaseSizeBytes': dbSize,
       'databaseSizeMB': (dbSize / (1024 * 1024)).toStringAsFixed(2),
     };
@@ -752,6 +1085,7 @@ class SessionDataService {
       // 执行简单查询测试数据库连接
       await _database!.rawQuery('SELECT COUNT(*) FROM character_sessions');
       await _database!.rawQuery('SELECT COUNT(*) FROM novel_sessions');
+      await _database!.rawQuery('SELECT COUNT(*) FROM group_chat_sessions');
 
       return true;
     } catch (e) {
@@ -789,6 +1123,7 @@ class SessionDataService {
   void dispose() {
     _characterSessionsController.close();
     _novelSessionsController.close();
+    _groupChatSessionsController.close();
     _database?.close();
     _database = null;
   }

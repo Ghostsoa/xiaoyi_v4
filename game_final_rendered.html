@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 🤖 AI渲染的标题 -->
+    <title>警告：你已进入未知领域</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            min-height: 100%;
+        }
+
+        body {
+            background-color: #0d0d0d;
+            color: #dcdcdc;
+            font-family: 'Consolas', 'Courier New', monospace;
+            animation: flicker 3s linear infinite;
+        }
+
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background-image: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.03));
+            background-size: 100% 3px, 5px 100%;
+            z-index: 1000;
+            animation: scanlines 0.1s linear infinite;
+        }
+
+        @keyframes scanlines {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 100%; }
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.98; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse-red {
+            0% {
+                box-shadow: 0 0 5px #ff1a1a, 0 0 8px #ff1a1a inset;
+                text-shadow: 0 0 2px #ff1a1a;
+            }
+            50% {
+                box-shadow: 0 0 15px #ff1a1a, 0 0 12px #ff1a1a inset;
+                text-shadow: 0 0 5px #ff1a1a;
+            }
+            100% {
+                box-shadow: 0 0 5px #ff1a1a, 0 0 8px #ff1a1a inset;
+                text-shadow: 0 0 2px #ff1a1a;
+            }
+        }
+
+        @keyframes heartbeat-pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 10px #ff1a1a;
+            }
+            50% {
+                transform: scale(1.1);
+                box-shadow: 0 0 25px #ff1a1a;
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 10px #ff1a1a;
+            }
+        }
+
+        @keyframes glitch-red {
+            0% { text-shadow: 0 0 3px #ff1a1a; }
+            25% { text-shadow: 1px 0 5px #ff1a1a, -1px 0 3px #ff1a1a; }
+            50% { text-shadow: -1px 0 5px #ff1a1a, 1px 0 3px #ff1a1a; }
+            75% { text-shadow: 0 0 5px #ff1a1a, 0 0 7px #ff1a1a; }
+            100% { text-shadow: 0 0 3px #ff1a1a; }
+        }
+
+        .container {
+            padding: 40px;
+            max-width: 800px;
+            margin: 5% auto;
+            border: 1px solid #ff000033;
+            background: rgba(13, 13, 13, 0.5);
+            backdrop-filter: blur(2px);
+        }
+
+        h1 {
+            color: #ff1a1a;
+            text-shadow: 0 0 5px #ff1a1a, 0 0 10px #ff1a1a;
+            font-size: 2em;
+            letter-spacing: 2px;
+            position: relative;
+            animation: glitch-red 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        p {
+            line-height: 1.8;
+            margin: 20px 0;
+        }
+
+        .system-button {
+            background: transparent;
+            border: 1px solid #ff1a1a;
+            color: #ff1a1a;
+            padding: 15px 20px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .pulsing-button {
+            animation: pulse-red 2.5s infinite linear;
+        }
+
+        .pulsing-button:hover {
+            background-color: #ff1a1a;
+            color: #0d0d0d;
+            animation: none;
+            box-shadow: 0 0 25px #ff1a1a, 0 0 40px #ff1a1a;
+        }
+
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .switch-container {
+            display: flex;
+            align-items: center;
+            margin-top: 30px;
+            color: #ff4d4d;
+        }
+
+        .danmaku-toggle {
+            display: none;
+        }
+
+        .toggle-label {
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+            background-color: #333;
+            border: 1px solid #ff1a1a;
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-left: 10px;
+        }
+
+        .toggle-handle {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 18px;
+            height: 18px;
+            background-color: #ff1a1a;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .danmaku-toggle:checked + .toggle-label {
+            background-color: #ff1a1a44;
+        }
+
+        .danmaku-toggle:checked + .toggle-label .toggle-handle {
+            transform: translateX(26px);
+            background-color: #fff;
+            box-shadow: 0 0 8px #ff1a1a;
+        }
+
+        .danmaku-display-area {
+            margin-top: 20px;
+            padding: 10px;
+            border-top: 1px solid #ff1a1a55;
+            min-height: 150px;
+            max-height: 300px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .danmaku-item {
+            font-size: 0.9em;
+            margin-bottom: 8px;
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        .danmaku-item.viewer {
+            color: #b3b3b3;
+        }
+
+        .danmaku-item.system {
+            color: #ff1a1a;
+            font-weight: 700;
+            animation: glitch-red 2s infinite;
+        }
+
+        .danmaku-item.pro-player {
+            color: #ffd700;
+            font-weight: 700;
+            text-shadow: 0 0 5px #ffd700;
+        }
+
+        .heartbeat-game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-around;
+            width: 100%;
+            height: 100%;
+            animation: fadeIn 1s;
+            padding-top: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .heartbeat-status {
+            display: flex;
+            width: 100%;
+            justify-content: space-around;
+            font-size: 1.1em;
+            color: #ff4d4d;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .heartbeat-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 15px 0;
+            position: relative;
+        }
+
+        #his-heart {
+            font-size: 3em;
+            color: #555;
+            transition: all 0.1s;
+        }
+
+        #his-heart.beating {
+            color: #ff1a1a;
+            animation: heartbeat-pulse 0.3s ease-out;
+        }
+
+        #player-heart-button {
+            padding: 15px 25px;
+            font-size: 1em;
+        }
+
+        .special-message {
+            color: #ff4d4d;
+            font-size: 1.2em;
+            text-align: center;
+            font-style: italic;
+            text-shadow: 0 0 8px #ff1a1a;
+        }
+
+        .log-entry {
+            margin: 15px 0;
+            padding: 10px;
+            border-left: 3px solid #ff1a1a;
+            background: rgba(255, 26, 26, 0.05);
+        }
+
+        .log-date {
+            color: #ff4d4d;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .voice-message {
+            margin: 10px 0;
+            padding: 8px 12px;
+            border: 1px solid #ff1a1a55;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .voice-message:hover {
+            background: rgba(255, 26, 26, 0.1);
+        }
+
+        .voice-message.playing {
+            background: rgba(255, 26, 26, 0.2);
+            box-shadow: 0 0 10px #ff1a1a;
+        }
+
+        .voice-transcript {
+            font-size: 0.8em;
+            color: #999;
+            margin-top: 5px;
+            padding-left: 10px;
+            border-left: 2px solid #ff1a1a33;
+            display: none;
+        }
+
+        .voice-transcript.show {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        .private-chat {
+            display: flex;
+            flex-direction: column;
+            height: 300px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ff1a1a33;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .chat-input-area {
+            display: flex;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #ff1a1a;
+            color: #dcdcdc;
+            padding: 10px;
+            font-family: inherit;
+        }
+
+        .chat-send {
+            background: #ff1a1a;
+            color: #0d0d0d;
+            border: 1px solid #ff1a1a;
+            padding: 0 15px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .message {
+            margin: 10px 0;
+            padding: 8px 12px;
+            border-radius: 5px;
+            max-width: 80%;
+        }
+
+        .message.system {
+            background: rgba(255, 26, 26, 0.2);
+            border-left: 3px solid #ff1a1a;
+            align-self: flex-start;
+        }
+
+        .message.role {
+            background: rgba(255, 26, 26, 0.1);
+            border-right: 3px solid #ff1a1a;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .no-contacts {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="game-interface">
+        <!-- 🤖 AI渲染的标题：替换了 {{GAME_TITLE}} -->
+        <h1>血色孤儿院：生存测试</h1>
+        
+        <!-- 🤖 AI渲染的故事内容：替换了 {{STORY_CONTENT}} -->
+        <p>冰冷的触感从你的背部传来，像是直接躺在了生锈的铁板上。你猛地睁开眼睛，意识从混沌的黑暗中被强行拽出。空气中弥漫着一股浓重的灰尘与腐朽木头混合的怪异气味，还夹杂着一丝若有若无的消毒水味道。</p>
+        
+        <p>你发现自己正躺在一张老旧的铁架床上，身下没有床垫，只有几根冰冷的铁条硌着你的身体。这是一个宽敞的房间，四周排列着十几张同样的铁床，有的床上还残留着破败的被褥，像是被什么东西撕扯过。</p>
+        
+        <p>就在这时，一个没有感情的、仿佛来自深渊的冰冷声音在你脑海中直接响起。</p>
+        
+        <p><span style="color: #ff1a1a; font-weight: bold;">"欢迎来到猩红世界，新来的祭品。"</span></p>
+        
+        <p><span style="color: #ff1a1a; font-weight: bold;">"本次副本：哀嚎孤儿院。任务目标：找到并播放'妈妈的摇篮曲'，安抚所有'迷路的孩子'。时限：天亮之前。祝各位，游戏愉快。"</span></p>
+
+        <div class="switch-container">
+            <!-- 🤖 AI渲染的开关标签：替换了 {{SWITCH_LABEL}} -->
+            <span>实时弹幕</span>
+            <input type="checkbox" id="danmaku-switch" class="danmaku-toggle">
+            <label for="danmaku-switch" class="toggle-label">
+                <span class="toggle-handle"></span>
+            </label>
+        </div>
+
+        <div class="danmaku-display-area" id="danmaku-container"></div>
+
+        <!-- 🤖 AI渲染的按钮组：替换了 {{GAME_BUTTONS}} -->
+        <div class="button-container">
+            <button id="his-game-button" class="system-button pulsing-button">心跳同步</button>
+            <button id="who-is-speaking-button" class="system-button pulsing-button">语音监听</button>
+            <button id="his-log-button" class="system-button pulsing-button">观察记录</button>
+            <button id="private-channel-button" class="system-button pulsing-button">私密通讯</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const danmakuToggle = document.getElementById("danmaku-switch");
+            const danmakuContainer = document.getElementById("danmaku-container");
+            
+            // 🤖 AI渲染的游戏数据：替换了 {{STREAM_DATA}}、{{LOG_ENTRIES}}、{{VOICE_MESSAGES}}、{{GAME_MESSAGES}}
+            const streamData = [
+                {type: "viewer", content: "[观众甲]：又来个新人，看这小姑娘吓得，估计活不过第一个晚上。"},
+                {type: "viewer", content: "[观众乙]：别这么说，万一是大佬装萌新呢？这副本是'哀嚎孤儿院'吧，新人杀手局啊。"},
+                {type: "pro-player", content: "[高玩#007]：开局在三楼西侧病房，离'院长室'最远，运气真差。先找地图，别乱跑。"},
+                {type: "system", content: "[警告]：玩家#佳佳#心率波动超出初始阈值。正在评估..."}
+            ];
+            
+            const logEntries = [
+                {date: "24-07-15 03:13", content: "新样本#佳佳#载入成功。初始恐惧指数78.3%，高于平均值。有趣的开端。"},
+                {date: "24-07-15 03:14", content: "又是个麻烦的哭包。别来烦我就行。"},
+                {date: "24-07-15 03:15", content: "她看起来比我还害怕，得保护好她。不能让她像我第一次那样狼狈。"},
+                {date: "24-07-15 03:16", content: "已记录新队友信息。需要评估其团队合作能力。"},
+                {date: "24-07-15 03:17", content: "那双眼睛...让我想起被遗弃的宠物。很想让人...弄脏。"},
+                {date: "24-07-15 03:18", content: "沉厌的情绪有微弱波动。是对新人产生了'怠惰'之外的兴趣？还是'暴戾'闻到了血腥味？"}
+            ];
+            
+            const voiceMessages = [
+                {speaker: "未知声音#1", duration: "3s", transcript: "别怕，也别信任何人。"},
+                {speaker: "扭曲的声音", duration: "5s", transcript: "你的恐惧……闻起来……很香甜……"},
+                {speaker: "低语", duration: "2s", transcript: "快跑...趁'她'还没醒..."}
+            ];
+            
+            const gameMessages = [
+                "啧，看起来挺软的，不知道哭起来什么样。",
+                "新人吗？希望她能没事...得找机会提醒她小心。",
+                "一双小鹿似的眼睛，真是我见犹怜。不知道能在这场游戏里保持多久的纯真。",
+                "身体素质数据一般，需要重点观察。",
+                "……想折断。",
+                "新的灵魂，新的情绪。让我看看你能带来什么。"
+            ];
+            
+            let danmakuInterval;
+            let gameActive = false;
+            let currentMode = null;
+            
+            function showDanmaku() {
+                if (currentMode === "danmaku") return;
+                clearAllContent();
+                currentMode = "danmaku";
+                let index = 0;
+                const container = document.createElement("div");
+                danmakuContainer.appendChild(container);
+                danmakuInterval = setInterval(() => {
+                    if (index < streamData.length) {
+                        const item = document.createElement("p");
+                        item.classList.add("danmaku-item", streamData[index].type);
+                        item.textContent = streamData[index].content;
+                        container.appendChild(item);
+                        index++;
+                    } else {
+                        clearInterval(danmakuInterval);
+                    }
+                }, 1000);
+            }
+            
+            function clearAllContent() {
+                gameActive = false;
+                clearInterval(danmakuInterval);
+                if (window.gameTimer) clearInterval(window.gameTimer);
+                if (window.beatScheduler) clearTimeout(window.beatScheduler);
+                danmakuContainer.innerHTML = "";
+            }
+            
+            // 🤖 AI渲染的事件绑定：替换了 {{EVENT_HANDLERS}}
+            const hisGameButton = document.getElementById("his-game-button");
+            const hisLogButton = document.getElementById("his-log-button");
+            const whoIsSpeakingButton = document.getElementById("who-is-speaking-button");
+            const privateChannelButton = document.getElementById("private-channel-button");
+            
+            hisGameButton.addEventListener("click", () => {
+                if (!gameActive) {
+                    clearAllContent();
+                    currentMode = "game";
+                    danmakuToggle.checked = false;
+                    startHeartbeatGame();
+                }
+            });
+            
+            whoIsSpeakingButton.addEventListener("click", () => {
+                if (currentMode === "voice") return;
+                clearAllContent();
+                currentMode = "voice";
+                danmakuToggle.checked = false;
+                let html = '<h3 style="color:#ff1a1a;margin-bottom:15px">检测到的语音信号</h3>';
+                voiceMessages.forEach((message, index) => {
+                    html += `<div class="voice-message" data-index="${index}">
+                        <strong>${message.speaker}</strong> [${message.duration}]
+                        <div class="voice-transcript" id="transcript-${index}">${message.transcript}</div>
+                    </div>`;
+                });
+                danmakuContainer.innerHTML = html;
+                document.querySelectorAll(".voice-message").forEach(element => {
+                    element.addEventListener("click", function() {
+                        const index = this.getAttribute("data-index");
+                        const transcript = document.getElementById(`transcript-${index}`);
+                        if (transcript.classList.contains("show")) {
+                            transcript.classList.remove("show");
+                            this.classList.remove("playing");
+                        } else {
+                            document.querySelectorAll(".voice-transcript.show").forEach(t => t.classList.remove("show"));
+                            document.querySelectorAll(".voice-message.playing").forEach(m => m.classList.remove("playing"));
+                            transcript.classList.add("show");
+                            this.classList.add("playing");
+                        }
+                    });
+                });
+            });
+            
+            hisLogButton.addEventListener("click", () => {
+                if (currentMode === "log") return;
+                clearAllContent();
+                currentMode = "log";
+                danmakuToggle.checked = false;
+                let html = '<h3 style="color:#ff1a1a;margin-bottom:15px">他的观察日志</h3>';
+                logEntries.forEach(entry => {
+                    html += `<div class="log-entry">
+                        <div class="log-date">${entry.date}</div>
+                        <div>${entry.content}</div>
+                    </div>`;
+                });
+                danmakuContainer.innerHTML = html;
+            });
+            
+            privateChannelButton.addEventListener("click", () => {
+                if (currentMode === "private") return;
+                clearAllContent();
+                currentMode = "private";
+                danmakuToggle.checked = false;
+                danmakuContainer.innerHTML = `
+                    <div class="private-chat">
+                        <div class="chat-messages" id="chat-messages">
+                            <div class="message system">系统：无联系人。消息将发送至中央单元。</div>
+                            <div class="no-contacts">无活跃联系人</div>
+                        </div>
+                        <div class="chat-input-area">
+                            <input type="text" class="chat-input" id="chat-input" placeholder="输入消息...">
+                            <button class="chat-send" id="chat-send">发送</button>
+                        </div>
+                    </div>
+                `;
+                document.getElementById("chat-send").addEventListener("click", sendMessage);
+                document.getElementById("chat-input").addEventListener("keypress", e => {
+                    if (e.key === "Enter") sendMessage();
+                });
+            });
+            
+            danmakuToggle.addEventListener("change", function() {
+                if (this.checked) {
+                    showDanmaku();
+                    currentMode = "danmaku";
+                } else {
+                    clearAllContent();
+                    currentMode = null;
+                }
+            });
+            
+            function sendMessage() {
+                const input = document.getElementById("chat-input");
+                const message = input.value.trim();
+                if (!message) return;
+                
+                const messagesContainer = document.getElementById("chat-messages");
+                const noContacts = messagesContainer.querySelector(".no-contacts");
+                if (noContacts) noContacts.remove();
+                
+                const userMessage = document.createElement("div");
+                userMessage.classList.add("message", "role");
+                userMessage.textContent = message;
+                messagesContainer.appendChild(userMessage);
+                
+                input.value = "";
+                
+                setTimeout(() => {
+                    const responses = [
+                        "消息已接收，无人回应。",
+                        "孤独吗？这是你的命运。", 
+                        "你的信息已被记录。",
+                        "无联系人可用。"
+                    ];
+                    const response = responses[Math.floor(Math.random() * responses.length)];
+                    
+                    const systemMessage = document.createElement("div");
+                    systemMessage.classList.add("message", "system");
+                    systemMessage.textContent = `系统：${response}`;
+                    messagesContainer.appendChild(systemMessage);
+                    
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }, 1000 + Math.random() * 2000);
+                
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            function startHeartbeatGame() {
+                gameActive = true;
+                let score = 0;
+                let clicks = 5;
+                let timeLeft = 5;
+                let heartbeatInterval = Math.random() * 500 + 600;
+                
+                const selectedMessage = gameMessages[Math.floor(Math.random() * gameMessages.length)];
+                
+                danmakuContainer.innerHTML = `
+                    <div class="heartbeat-game-container">
+                        <div class="heartbeat-status">
+                            <span id="timer-display">倒计时: ${timeLeft}秒</span>
+                            <span id="score-display">同步: ${score}/3</span>
+                            <span id="clicks-display">剩余点击: ${clicks}次</span>
+                        </div>
+                        <div class="heartbeat-display">
+                            <span id="his-heart">❤</span>
+                        </div>
+                        <p class="special-message" style="animation:fadeIn 2s; font-size: 1em;">${selectedMessage}</p>
+                        <button id="player-heart-button" class="system-button">心跳</button>
+                    </div>
+                `;
+                
+                const timerDisplay = document.getElementById("timer-display");
+                const scoreDisplay = document.getElementById("score-display");
+                const clicksDisplay = document.getElementById("clicks-display");
+                const playerHeartButton = document.getElementById("player-heart-button");
+                
+                let isBeating = false;
+                
+                window.gameTimer = setInterval(() => {
+                    timeLeft--;
+                    timerDisplay.textContent = `倒计时: ${timeLeft}秒`;
+                    if (timeLeft <= 0) {
+                        endGame(false);
+                    }
+                }, 1000);
+                
+                playerHeartButton.onclick = () => {
+                    if (!gameActive || clicks <= 0) return;
+                    
+                    clicks--;
+                    clicksDisplay.textContent = `剩余点击: ${clicks}次`;
+                    
+                    if (isBeating) {
+                        score++;
+                        scoreDisplay.textContent = `同步: ${score}/3`;
+                        if (score >= 3) {
+                            endGame(true);
+                        }
+                    }
+                    
+                    if (clicks <= 0 && score < 3) {
+                        endGame(false);
+                    }
+                };
+                
+                function scheduleHeartbeat() {
+                    if (!gameActive) return;
+                    const variation = Math.random() * 300 - 150;
+                    window.beatScheduler = setTimeout(triggerHeartbeat, heartbeatInterval + variation);
+                }
+                
+                function triggerHeartbeat() {
+                    if (!gameActive) return;
+                    const hisHeart = document.getElementById("his-heart");
+                    if (hisHeart) {
+                        isBeating = true;
+                        hisHeart.classList.add("beating");
+                        setTimeout(() => {
+                            isBeating = false;
+                            hisHeart.classList.remove("beating");
+                            scheduleHeartbeat();
+                        }, 300);
+                    }
+                }
+                
+                scheduleHeartbeat();
+            }
+            
+            function endGame(success) {
+                clearAllContent();
+                const message = success 
+                    ? "我们的心跳...同步了。"
+                    : "真可惜，我们总差一点。";
+                danmakuContainer.innerHTML = `<p class="special-message" style="animation:fadeIn 2s">${message}</p>`;
+                currentMode = null;
+                gameActive = false;
+            }
+            
+            window.sendMessage = sendMessage;
+            window.startHeartbeatGame = startHeartbeatGame;
+            window.endGame = endGame;
+        });
+    </script>
+</body>
+</html>

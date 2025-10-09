@@ -15,7 +15,9 @@ class SystemSettingsModule extends StatefulWidget {
   final TextEditingController negativeDialogExamplesController;
   final TextEditingController supplementSettingController;
   final bool settingEditable;
+  final bool prefixSuffixEditable;
   final Function(bool) onSettingEditableChanged;
+  final Function(bool) onPrefixSuffixEditableChanged;
 
   const SystemSettingsModule({
     super.key,
@@ -28,7 +30,9 @@ class SystemSettingsModule extends StatefulWidget {
     required this.negativeDialogExamplesController,
     required this.supplementSettingController,
     required this.settingEditable,
+    required this.prefixSuffixEditable,
     required this.onSettingEditableChanged,
+    required this.onPrefixSuffixEditableChanged,
   });
 
   @override
@@ -445,6 +449,90 @@ class _SystemSettingsModuleState extends State<SystemSettingsModule> {
                       text: '谨慎开启',
                       style: TextStyle(
                         color: Colors.amber,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const TextSpan(text: '。'),
+                    TextSpan(
+                      text: '该修改后，立刻生效',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 16.h),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile(
+              title: Text('允许修改前后缀设定', style: AppTheme.bodyStyle),
+              value: widget.prefixSuffixEditable,
+              onChanged: widget.onPrefixSuffixEditableChanged,
+              tileColor: AppTheme.cardBackground,
+              activeColor: AppTheme.primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.only(top: 4.h, left: 16.w),
+              child: RichText(
+                text: TextSpan(
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12.sp,
+                  ),
+                  children: [
+                    const TextSpan(text: '开启后用户可在'),
+                    TextSpan(
+                      text: '对话中',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    TextSpan(
+                      text: '修改',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const TextSpan(text: '前后缀内容，将'),
+                    TextSpan(
+                      text: '暴露',
+                      style: TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const TextSpan(text: '你的'),
+                    TextSpan(
+                      text: '前后缀设定',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const TextSpan(text: '，建议'),
+                    TextSpan(
+                      text: '谨慎开启',
+                      style: TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const TextSpan(text: '。'),
+                    TextSpan(
+                      text: '该修改后，立刻生效',
+                      style: TextStyle(
+                        color: Colors.red,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

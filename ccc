@@ -1,0 +1,174 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    platform: linux/amd64
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_USER: postgres
+      POSTGRES_DB: xiaoyiai
+    # 关键修改：新增了一个用于存放WAL归档的卷
+    volumes:
+      - /data/postgres:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+      # 【新增】将宿主机的 /backups/postgres/wal 目录挂载到容器内的 /wal_archive
+      - /backups/postgres/wal:/wal_archive
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - app_net
+    # 关键修改：使用 command 指令来启动 postgres 并覆盖配置
+    command: >
+      postgres
+      -c archive_mode=on
+      -c archive_command='test ! -f /wal_archive/%f && cp %p /wal_archive/%f'
+      -c wal_level=replica
+      -c max_wal_senders=10
+
+  redis:
+    image: redis:7-alpine
+    platform: linux/amd64
+    container_name: redis
+    restart: always
+    environment:
+      - REDIS_PASSWORD=redis123
+    volumes:
+      - /data/redis:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    networks:
+      - app_net
+    command: redis-server --requirepass redis123 --appendonly yes --appendfsync everysec
+
+  minio:
+    image: minio/minio:latest
+    platform: linux/amd64
+    container_name: minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - /data/minio:/data
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9090:9090"
+    networks:
+      - app_net
+    command: server /data --console-address ":9090"
+
+  mongodb:
+    image: mongo:6-jammy
+    platform: linux/amd64
+    container_name: mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongouser
+      MONGO_INITDB_ROOT_PASSWORD: mongo123
+    volumes:
+      - /data/mongodb:/data/db
+      - ./mongo/keyfile:/etc/mongo/keyfile  # <-- 将密钥文件持久化
+    ports:
+      - "127.0.0.1:27017:27017"
+    networks:
+      - app_net
+    command: mongod --replSet rs0 --keyFile /etc/mongo/keyfile --bind_ip_all
+  
+    # --- 新增服务：PBM Agent Sidecar ---
+  pbm-agent:
+    image: percona/percona-backup-mongodb:2.4.1 # 使用官方PBM镜像
+    container_name: pbm-agent
+    restart: always
+    environment:
+      # 【重要】连接字符串，让agent能找到并认证mongo
+      PBM_MONGODB_URI: "mongodb://mongouser:mongo123@mongodb:27017/?replicaSet=rs0"
+    volumes:
+      - ./pbm/conf:/etc/pbm                   # 共享PBM配置文件
+      - /backups/mongodb:/etc/pbm/backups     # 【重要】独立的备份仓库目录
+    depends_on:
+      - mongodb
+    networks:
+      - app_net
+
+networks:
+  app_net:
+    driver: bridge
+
+
+
+---
+
+
+version: '3'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    platform: linux/amd64
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_USER: postgres
+      POSTGRES_DB: xiaoyiai
+    volumes:
+      - /data/postgres:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - app_net
+
+  redis:
+    image: redis:7-alpine
+    platform: linux/amd64
+    container_name: redis
+    restart: always
+    environment:
+      - REDIS_PASSWORD=redis123
+    volumes:
+      - /data/redis:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    networks:
+      - app_net
+    command: redis-server --requirepass redis123 --appendonly yes --appendfsync everysec
+
+  minio:
+    image: minio/minio:latest
+    platform: linux/amd64
+    container_name: minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - /data/minio:/data
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9090:9090"
+    networks:
+      - app_net
+    command: server /data --console-address ":9090"
+
+  mongodb:
+    image: mongo:6-jammy
+    platform: linux/amd64
+    container_name: mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongouser
+      MONGO_INITDB_ROOT_PASSWORD: mongo123
+    volumes:
+      - /data/mongodb:/data/db
+    ports:
+      - "127.0.0.1:27017:27017"
+    networks:
+      - app_net
+
+networks:
+  app_net:
+    driver: bridge

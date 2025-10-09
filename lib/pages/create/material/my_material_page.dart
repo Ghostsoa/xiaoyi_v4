@@ -22,6 +22,7 @@ class _MyMaterialPageState extends State<MyMaterialPage>
   final MaterialService _materialService = MaterialService();
   final FileService _fileService = FileService();
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
 
   // 添加图片缓存
   final Map<String, Uint8List> _imageCache = {};
@@ -31,6 +32,8 @@ class _MyMaterialPageState extends State<MyMaterialPage>
   int _currentPage = 1;
   final int _pageSize = 20;
   String _currentType = 'image';
+  String? _keyword; // 搜索关键词
+  Timer? _debounceTimer; // 防抖定时器
 
   final Map<String, List<Map<String, dynamic>>> _materialsByType = {
     'image': [],
@@ -68,6 +71,8 @@ class _MyMaterialPageState extends State<MyMaterialPage>
     _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     _scrollController.dispose();
+    _searchController.dispose();
+    _debounceTimer?.cancel();
     // 清除缓存
     _imageCache.clear();
     super.dispose();
@@ -109,6 +114,37 @@ class _MyMaterialPageState extends State<MyMaterialPage>
     }
   }
 
+  // 处理搜索输入（带防抖）
+  void _handleSearchInput(String value) {
+    // 取消之前的定时器
+    _debounceTimer?.cancel();
+    
+    // 创建新的防抖定时器，延迟500毫秒
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (_keyword != value) {
+        setState(() {
+          _keyword = value.isEmpty ? null : value;
+          _currentPage = 1;
+          _hasMore = true;
+          _materialsByType[_currentType] = [];
+        });
+        _loadData(refresh: true);
+      }
+    });
+  }
+
+  // 清除搜索
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _keyword = null;
+      _currentPage = 1;
+      _hasMore = true;
+      _materialsByType[_currentType] = [];
+    });
+    _loadData(refresh: true);
+  }
+
   Future<void> _loadData({bool refresh = false}) async {
     if (_isLoading) return;
 
@@ -126,6 +162,7 @@ class _MyMaterialPageState extends State<MyMaterialPage>
         page: _currentPage,
         pageSize: _pageSize,
         type: _currentType,
+        keyword: _keyword,
       );
 
       if (!mounted) return;
@@ -1388,7 +1425,58 @@ class _MyMaterialPageState extends State<MyMaterialPage>
                         ),
                       ],
                     ),
-                    SizedBox(height: 20.h),
+                    SizedBox(height: 16.h),
+                    // 搜索框
+                    Container(
+                      height: 44.h,
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardBackground,
+                        borderRadius: BorderRadius.circular(12.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.shadowColor.withOpacity(0.05),
+                            blurRadius: 4.r,
+                            offset: Offset(0, 2.h),
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: _handleSearchInput,
+                        decoration: InputDecoration(
+                          hintText: '搜索素材...',
+                          hintStyle: TextStyle(
+                            color: AppTheme.textSecondary.withOpacity(0.6),
+                            fontSize: 14.sp,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: AppTheme.textSecondary,
+                            size: 20.sp,
+                          ),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(
+                                    Icons.clear,
+                                    color: AppTheme.textSecondary,
+                                    size: 20.sp,
+                                  ),
+                                  onPressed: _clearSearch,
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16.w,
+                            vertical: 12.h,
+                          ),
+                        ),
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 14.sp,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 16.h),
                     // 优化后的分类选择器
                     _buildModernCategorySelector(),
                   ],

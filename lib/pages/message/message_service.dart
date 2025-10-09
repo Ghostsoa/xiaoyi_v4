@@ -36,6 +36,7 @@ class MessageService {
   Future<Map<String, dynamic>> syncCharacterSessionsFromApi({
     int page = 1,
     int pageSize = 10,
+    bool syncToLocal = true, // 🔥 是否同步到本地数据库
   }) async {
     try {
       final response = await _httpClient.get(
@@ -56,17 +57,22 @@ class MessageService {
         }
         debugPrint('[MessageService] API响应数据: $debugData');
 
-        // 转换API数据为SessionModel
-        final apiResponse = SessionListResponse.fromApiJson(apiData, false);
+        // 🔥 只有第一页才同步到本地数据库
+        if (syncToLocal) {
+          // 转换API数据为SessionModel
+          final apiResponse = SessionListResponse.fromApiJson(apiData, false);
 
-        debugPrint('[MessageService] 解析后会话数量: ${apiResponse.sessions.length}, 总数: ${apiResponse.total}');
+          debugPrint('[MessageService] 解析后会话数量: ${apiResponse.sessions.length}, 总数: ${apiResponse.total}');
 
-        // 基于页的“修正式”对齐本地缓存
-        await _sessionDataService.reconcileCharacterPageWithApi(
-          apiResponse.sessions,
-          page,
-          pageSize,
-        );
+          // 基于页的"修正式"对齐本地缓存
+          await _sessionDataService.reconcileCharacterPageWithApi(
+            apiResponse.sessions,
+            page,
+            pageSize,
+          );
+        } else {
+          debugPrint('[MessageService] 跳过本地同步（page=$page）');
+        }
 
         return apiData;
       } else {
@@ -106,6 +112,7 @@ class MessageService {
   Future<Map<String, dynamic>> syncNovelSessionsFromApi({
     int page = 1,
     int pageSize = 10,
+    bool syncToLocal = true, // 🔥 是否同步到本地数据库
   }) async {
     try {
       final response = await _httpClient.get(
@@ -126,17 +133,22 @@ class MessageService {
         }
         debugPrint('[MessageService] 小说API响应数据: $debugData');
 
-        // 转换API数据为SessionModel
-        final apiResponse = SessionListResponse.fromApiJson(apiData, true);
+        // 🔥 只有第一页才同步到本地数据库
+        if (syncToLocal) {
+          // 转换API数据为SessionModel
+          final apiResponse = SessionListResponse.fromApiJson(apiData, true);
 
-        debugPrint('[MessageService] 解析后小说会话数量: ${apiResponse.sessions.length}, 总数: ${apiResponse.total}');
+          debugPrint('[MessageService] 解析后小说会话数量: ${apiResponse.sessions.length}, 总数: ${apiResponse.total}');
 
-        // 基于页的“修正式”对齐本地缓存
-        await _sessionDataService.reconcileNovelPageWithApi(
-          apiResponse.sessions,
-          page,
-          pageSize,
-        );
+          // 基于页的"修正式"对齐本地缓存
+          await _sessionDataService.reconcileNovelPageWithApi(
+            apiResponse.sessions,
+            page,
+            pageSize,
+          );
+        } else {
+          debugPrint('[MessageService] 跳过本地同步（page=$page）');
+        }
 
         return apiData;
       } else {
@@ -355,6 +367,98 @@ class MessageService {
     }
   }
 
+  /// 获取群聊会话列表（从本地数据库）
+  Future<Map<String, dynamic>> getGroupChatSessionsFromLocal({
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    try {
+      final response = await _sessionDataService.getLocalGroupChatSessions(
+        page: page,
+        pageSize: pageSize,
+      );
+
+      // 转换为原有的API格式，保持兼容性
+      return {
+        'list': response.sessions.map((session) => session.toApiJson()).toList(),
+        'total': response.total,
+        'page': response.page,
+        'pageSize': response.pageSize,
+      };
+    } catch (e) {
+      debugPrint('[MessageService] 获取本地群聊会话失败: $e');
+      throw '获取会话列表失败: $e';
+    }
+  }
+
+  /// 从API获取群聊会话并同步到本地
+  Future<Map<String, dynamic>> syncGroupChatSessionsFromApi({
+    int page = 1,
+    int pageSize = 10,
+    bool syncToLocal = true, // 🔥 是否同步到本地数据库
+  }) async {
+    try {
+      final response = await _httpClient.get(
+        '/sessions/groupchat',
+        queryParameters: {
+          'page': page,
+          'pageSize': pageSize,
+        },
+      );
+
+      if (response.data['code'] == 0) {
+        final apiData = response.data['data'];
+        final List<dynamic> items = apiData['items'] ?? [];
+        final int total = apiData['total'] ?? 0;
+
+        // 🔥 只有第一页才同步到本地数据库
+        if (syncToLocal) {
+          // 将API数据转换为SessionModel
+          final apiSessions = items.map((item) {
+            return SessionModel.fromApiJson(item as Map<String, dynamic>);
+          }).toList();
+
+          // 同步到本地数据库（增量更新）
+          await _sessionDataService.insertOrUpdateGroupChatSessions(apiSessions);
+        } else {
+          debugPrint('[MessageService] 跳过本地同步（page=$page）');
+        }
+
+        return {
+          'total': total,
+          'page': page,
+          'pageSize': pageSize,
+          'items': items, // 🔥 返回原始items数据
+        };
+      } else {
+        throw '同步失败: ${response.data['msg'] ?? '未知错误'}';
+      }
+    } catch (e) {
+      debugPrint('[MessageService] 同步群聊会话失败: $e');
+      throw '同步会话列表失败: $e';
+    }
+  }
+
+  /// 🔥 置顶群聊会话
+  Future<void> pinGroupChatSession(int sessionId) async {
+    try {
+      await _sessionDataService.pinGroupChatSession(sessionId);
+    } catch (e) {
+      debugPrint('[MessageService] 置顶群聊会话失败: $e');
+      throw '置顶会话失败: $e';
+    }
+  }
+
+  /// 🔥 取消置顶群聊会话
+  Future<void> unpinGroupChatSession(int sessionId) async {
+    try {
+      await _sessionDataService.unpinGroupChatSession(sessionId);
+    } catch (e) {
+      debugPrint('[MessageService] 取消置顶群聊会话失败: $e');
+      throw '取消置顶失败: $e';
+    }
+  }
+
   /// 客服单轮对话（无上下文）
   Future<Map<String, dynamic>> customerChat(String message) async {
     try {
@@ -469,6 +573,170 @@ class MessageService {
       return {
         'success': false,
         'msg': '请求失败: $e',
+      };
+    }
+  }
+
+  /// 获取群聊会话列表
+  /// 路由: GET /sessions/groupchat
+  /// 参数: page=1&pageSize=10
+  Future<Map<String, dynamic>> getGroupChatSessions({
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    try {
+      final response = await _httpClient.get(
+        '/sessions/groupchat',
+        queryParameters: {
+          'page': page,
+          'pageSize': pageSize,
+        },
+      );
+
+      final int code = response.data['code'] ?? -1;
+      final String msg = response.data['msg'] ?? '';
+
+      if (code == 0) {
+        return {
+          'success': true,
+          'data': response.data['data'] ?? {},
+        };
+      }
+
+      if (code == 1001) {
+        return {
+          'success': false,
+          'msg': msg.isNotEmpty ? msg : '未找到用户信息',
+          'unauthorized': true,
+        };
+      }
+
+      if (code == 5000) {
+        return {
+          'success': false,
+          'msg': msg.isNotEmpty ? msg : '操作失败，请稍后再试',
+        };
+      }
+
+      return {
+        'success': false,
+        'msg': msg.isNotEmpty ? msg : '请求失败',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'msg': '请求失败: $e',
+      };
+    }
+  }
+
+  /// 删除群聊会话
+  Future<Map<String, dynamic>> deleteGroupChatSession(int sessionId) async {
+    try {
+      final response = await _httpClient.delete('/sessions/groupchat/$sessionId');
+
+      final int code = response.data['code'] ?? -1;
+      final String msg = response.data['msg'] ?? '';
+
+      if (code == 0) {
+        return {
+          'success': true,
+          'msg': msg.isNotEmpty ? msg : '删除成功',
+        };
+      }
+
+      if (code == 1001) {
+        return {
+          'success': false,
+          'msg': msg.isNotEmpty ? msg : '未找到用户信息',
+          'unauthorized': true,
+        };
+      }
+
+      return {
+        'success': false,
+        'msg': msg.isNotEmpty ? msg : '删除失败',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'msg': '删除失败: $e',
+      };
+    }
+  }
+
+  /// 重命名群聊会话
+  Future<Map<String, dynamic>> renameGroupChatSession(int sessionId, String newName) async {
+    try {
+      final response = await _httpClient.put(
+        '/sessions/groupchat/$sessionId/rename',
+        data: {'name': newName},
+      );
+
+      final int code = response.data['code'] ?? -1;
+      final String msg = response.data['msg'] ?? '';
+
+      if (code == 0) {
+        return {
+          'success': true,
+          'msg': msg.isNotEmpty ? msg : '重命名成功',
+        };
+      }
+
+      if (code == 1001) {
+        return {
+          'success': false,
+          'msg': msg.isNotEmpty ? msg : '未找到用户信息',
+          'unauthorized': true,
+        };
+      }
+
+      return {
+        'success': false,
+        'msg': msg.isNotEmpty ? msg : '重命名失败',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'msg': '重命名失败: $e',
+      };
+    }
+  }
+
+  /// 批量删除群聊会话
+  Future<Map<String, dynamic>> batchDeleteGroupChatSessions(List<int> sessionIds) async {
+    try {
+      final response = await _httpClient.delete(
+        '/sessions/groupchat/batch',
+        data: {'sessionIds': sessionIds},
+      );
+
+      final int code = response.data['code'] ?? -1;
+      final String msg = response.data['msg'] ?? '';
+
+      if (code == 0) {
+        return {
+          'success': true,
+          'msg': msg.isNotEmpty ? msg : '删除成功',
+        };
+      }
+
+      if (code == 1001) {
+        return {
+          'success': false,
+          'msg': msg.isNotEmpty ? msg : '未找到用户信息',
+          'unauthorized': true,
+        };
+      }
+
+      return {
+        'success': false,
+        'msg': msg.isNotEmpty ? msg : '批量删除失败',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'msg': '批量删除失败: $e',
       };
     }
   }

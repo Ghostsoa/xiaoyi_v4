@@ -1,4 +1,4 @@
-import '../net/http_client.dart';
+import '../../../net/http_client.dart';
 
 class GroupChatService {
   final HttpClient _httpClient = HttpClient();
@@ -177,4 +177,5 @@ class GroupChatService {
       throw Exception('获取群聊详情失败: $e');
     }
   }
+
 }

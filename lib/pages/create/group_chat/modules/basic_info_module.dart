@@ -43,8 +43,6 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
   final FocusNode _customTagFocusNode = FocusNode();
   List<String> _tags = [];
 
-  // 当前描述字数
-  int _descriptionCount = 0;
   final int _maxDescriptionCount = 1500;
 
   // 推荐标签
@@ -67,7 +65,6 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
     }
 
     // 添加描述字数变化监听
-    widget.descriptionController.addListener(_updateDescriptionCount);
   }
 
   @override
@@ -75,16 +72,9 @@ class _BasicInfoModuleState extends State<BasicInfoModule> {
     _customTagController.dispose();
     _customTagFocusNode.dispose();
     // 移除监听器
-    widget.descriptionController.removeListener(_updateDescriptionCount);
     super.dispose();
   }
 
-  // 更新字数计数
-  void _updateDescriptionCount() {
-    setState(() {
-      _descriptionCount = widget.descriptionController.text.length;
-    });
-  }
 
 
   void _removeTag(String tag) {

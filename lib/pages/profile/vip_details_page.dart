@@ -32,62 +32,8 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
     super.initState();
     _formatExpireTime();
 
-    // 只有激活状态才加载配额数据
-    if (widget.isVip) {
-      _loadModelQuotas();
-    } else {
-      // 未激活状态显示示例数据
-      _setPlaceholderModelQuotas();
-    }
-  }
-
-  // 为未激活状态设置示例配额数据
-  void _setPlaceholderModelQuotas() {
-    setState(() {
-      _modelQuotas = [
-        ModelQuota(
-          modelName: 'gemini-2.5-pro',
-          description: '高性能AI大语言模型',
-          dailyLimit: 200,
-          usedQuota: 0,
-          remainQuota: 0,
-          usingOfficialKey: true,
-        ),
-        ModelQuota(
-          modelName: 'gemini-2.5-flash',
-          description: '响应速度更快的AI模型',
-          dailyLimit: 999,
-          usedQuota: 0,
-          remainQuota: 0,
-          usingOfficialKey: true,
-        ),
-        ModelQuota(
-          modelName: 'gemini-2.5-flash-lite-preview-06-17',
-          description: '轻量级AI模型，无限制使用',
-          dailyLimit: -1,
-          usedQuota: 0,
-          remainQuota: 0,
-          usingOfficialKey: true,
-        ),
-        ModelQuota(
-          modelName: 'gemini-2.0-flash',
-          description: '稳定性更高的AI模型',
-          dailyLimit: 999,
-          usedQuota: 0,
-          remainQuota: 0,
-          usingOfficialKey: true,
-        ),
-        ModelQuota(
-          modelName: 'gemini-2.0-flash-exp',
-          description: '实验性AI模型，更多新功能',
-          dailyLimit: 999,
-          usedQuota: 0,
-          remainQuota: 0,
-          usingOfficialKey: true,
-        ),
-      ];
-      _isLoading = false;
-    });
+    // 无论是否激活，都加载配额数据
+    _loadModelQuotas();
   }
 
   void _formatExpireTime() {
@@ -208,11 +154,9 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
   }
 
   void _refreshModelQuotas() {
-    // 只有激活状态下才能刷新
-    if (widget.isVip && !_isRefreshing) {
+    // 无论是否激活都可以刷新，查看最新配额信息
+    if (!_isRefreshing) {
       _loadModelQuotas();
-    } else if (!widget.isVip) {
-      _showToast('请先激活契约魔法师特权', ToastType.info);
     }
   }
 
@@ -432,29 +376,28 @@ class _VipDetailsPageState extends State<VipDetailsPage> {
             ),
           ),
 
-          // 刷新按钮
-          if (widget.isVip)
-            InkWell(
-              onTap: _isRefreshing ? null : _refreshModelQuotas,
-              borderRadius: BorderRadius.circular(20.r),
-              child: Container(
-                padding: EdgeInsets.all(8.w),
-                child: _isRefreshing
-                    ? SizedBox(
-                        width: 20.sp,
-                        height: 20.sp,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.w,
-                          color: AppTheme.primaryColor,
-                        ),
-                      )
-                    : Icon(
-                        Icons.refresh_rounded,
+          // 刷新按钮 - 无论是否激活都显示
+          InkWell(
+            onTap: _isRefreshing ? null : _refreshModelQuotas,
+            borderRadius: BorderRadius.circular(20.r),
+            child: Container(
+              padding: EdgeInsets.all(8.w),
+              child: _isRefreshing
+                  ? SizedBox(
+                      width: 20.sp,
+                      height: 20.sp,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.w,
                         color: AppTheme.primaryColor,
-                        size: 20.sp,
                       ),
-              ),
+                    )
+                  : Icon(
+                      Icons.refresh_rounded,
+                      color: AppTheme.primaryColor,
+                      size: 20.sp,
+                    ),
             ),
+          ),
         ],
       ),
     );

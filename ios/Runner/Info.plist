@@ -63,7 +63,7 @@
 	<key>NSDownloadsFolderUsageDescription</key>
 	<string>需要访问下载文件夹以保存文件</string>
 	<key>FLTEnableImpeller</key>
-	<false/>
+	<true/>
 	<key>io.flutter.embedded_views_preview</key>
 	<true/>
 </dict>

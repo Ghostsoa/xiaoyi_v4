@@ -14,6 +14,7 @@ class ExpandableTextField extends StatefulWidget {
   final Widget? description;
   final Widget? extraButton;
   final VoidCallback? onChanged;
+  final bool enabled;
 
   const ExpandableTextField({
     super.key,
@@ -22,11 +23,12 @@ class ExpandableTextField extends StatefulWidget {
     required this.hintText,
     this.selectType,
     this.maxLength,
-    this.previewLines = 3,
+    this.previewLines = 5,
     this.helpIcon,
     this.description,
     this.extraButton,
     this.onChanged,
+    this.enabled = true,
   });
 
   @override
@@ -63,7 +65,7 @@ class _ExpandableTextFieldState extends State<ExpandableTextField> {
 
         // 可展开的文本框 - 移除边框，使用更简洁的设计
         GestureDetector(
-          onTap: () => _openTextEditor(context),
+          onTap: widget.enabled ? () => _openTextEditor(context) : null,
           child: Container(
             width: double.infinity,
             constraints: BoxConstraints(
@@ -71,7 +73,9 @@ class _ExpandableTextFieldState extends State<ExpandableTextField> {
             ),
             padding: EdgeInsets.all(16.w),
             decoration: BoxDecoration(
-              color: AppTheme.cardBackground,
+              color: widget.enabled 
+                  ? AppTheme.cardBackground 
+                  : AppTheme.cardBackground.withOpacity(0.5),
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               // 移除边框，使用阴影效果
               boxShadow: [

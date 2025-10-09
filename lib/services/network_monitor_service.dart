@@ -542,7 +542,12 @@ class NetworkMonitorService {
 
     // 确保以https://或http://开头
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://$url';
+      // 检查是否为IP地址，如果是IP地址则使用http://，否则使用https://
+      if (_isIpAddress(url)) {
+        url = 'http://$url';
+      } else {
+        url = 'https://$url';
+      }
     }
 
     // 去除URL末尾的斜杠
@@ -703,5 +708,33 @@ class NetworkMonitorService {
     } catch (_) {
       return false;
     }
+  }
+
+  /// 检查是否为IP地址
+  bool _isIpAddress(String host) {
+    // 移除端口号（如果有）
+    final hostWithoutPort = host.split(':')[0];
+
+    // IPv4地址正则表达式
+    final ipv4Regex = RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$');
+    final match = ipv4Regex.firstMatch(hostWithoutPort);
+
+    if (match != null) {
+      // 验证每个数字是否在0-255范围内
+      for (int i = 1; i <= 4; i++) {
+        final num = int.tryParse(match.group(i)!);
+        if (num == null || num < 0 || num > 255) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // 简单的IPv6地址检查（包含冒号）
+    if (hostWithoutPort.contains(':') && hostWithoutPort.split(':').length > 2) {
+      return true;
+    }
+
+    return false;
   }
 }

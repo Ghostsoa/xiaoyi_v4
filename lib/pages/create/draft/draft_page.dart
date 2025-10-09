@@ -7,7 +7,7 @@ import '../../../theme/app_theme.dart';
 import '../services/characte_service.dart';
 import '../services/novel_service.dart';
 import '../../../services/file_service.dart';
-import '../../../services/group_chat_service.dart';
+import '../services/group_chat_service.dart';
 import '../../../widgets/custom_toast.dart';
 import '../character/create_character_page.dart';
 import '../novel/create_novel_page.dart';

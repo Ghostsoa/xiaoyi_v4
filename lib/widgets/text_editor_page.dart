@@ -65,6 +65,9 @@ class _TextEditorPageState extends State<TextEditorPage> {
   TextSelectSource _currentSource = TextSelectSource.myMaterial;
   List<Map<String, dynamic>> _materials = [];
   bool _isLoadingMaterials = false;
+  final TextEditingController _materialSearchController = TextEditingController();
+  Timer? _materialSearchDebounce;
+  String? _materialKeyword;
 
   @override
   void initState() {
@@ -176,10 +179,12 @@ class _TextEditorPageState extends State<TextEditorPage> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _materialSearchDebounce?.cancel();
     _textController.removeListener(_onTextChanged);
     _textController.dispose();
     _searchController.dispose();
     _replaceController.dispose();
+    _materialSearchController.dispose();
     _textFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -197,11 +202,13 @@ class _TextEditorPageState extends State<TextEditorPage> {
               page: 1,
               pageSize: 50,
               type: _getMaterialType(),
+              keyword: _materialKeyword,
             )
           : await _materialService.getPublicMaterials(
               page: 1,
               pageSize: 50,
               type: _getMaterialType(),
+              keyword: _materialKeyword,
             );
       
       if (mounted) {
@@ -216,6 +223,29 @@ class _TextEditorPageState extends State<TextEditorPage> {
         setState(() => _isLoadingMaterials = false);
       }
     }
+  }
+
+  // 处理素材搜索输入（带防抖）
+  void _handleMaterialSearchInput(String value) {
+    _materialSearchDebounce?.cancel();
+    
+    _materialSearchDebounce = Timer(const Duration(milliseconds: 500), () {
+      if (_materialKeyword != value) {
+        setState(() {
+          _materialKeyword = value.isEmpty ? null : value;
+        });
+        _loadMaterials();
+      }
+    });
+  }
+
+  // 清除素材搜索
+  void _clearMaterialSearch() {
+    _materialSearchController.clear();
+    setState(() {
+      _materialKeyword = null;
+    });
+    _loadMaterials();
   }
 
   String _getMaterialType() {
@@ -598,7 +628,8 @@ class _TextEditorPageState extends State<TextEditorPage> {
       ),
       maxLines: null,
       textAlignVertical: TextAlignVertical.top,
-      maxLength: widget.maxLength,
+      // 移除 maxLength 限制，改为只显示警告
+      maxLength: null,
       buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
         return null;
       },
@@ -910,9 +941,39 @@ class _TextEditorPageState extends State<TextEditorPage> {
             ],
           ),
           SizedBox(height: 8.h),
-          // 素材列表
+          // 搜索框
           Container(
-            height: 100.h,
+            height: 32.h,
+            child: TextField(
+              controller: _materialSearchController,
+              onChanged: _handleMaterialSearchInput,
+              decoration: InputDecoration(
+                hintText: '搜索素材...',
+                prefixIcon: Icon(Icons.search, size: 16.sp),
+                suffixIcon: _materialSearchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.clear, size: 16.sp),
+                        onPressed: _clearMaterialSearch,
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(),
+                      )
+                    : null,
+                filled: true,
+                fillColor: AppTheme.cardBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6.r),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                hintStyle: TextStyle(fontSize: 11.sp, color: AppTheme.textSecondary.withOpacity(0.6)),
+              ),
+              style: TextStyle(fontSize: 11.sp),
+            ),
+          ),
+          SizedBox(height: 8.h),
+          // 素材列表 - 增加高度
+          Container(
+            height: 200.h,
             child: _buildMaterialList(),
           ),
         ],

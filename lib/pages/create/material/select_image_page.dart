@@ -5,6 +5,7 @@ import '../services/material_service.dart';
 import '../../../services/file_service.dart';
 import '../../../widgets/custom_toast.dart';
 import 'package:shimmer/shimmer.dart';
+import 'dart:async';
 
 enum ImageSelectSource {
   myMaterial,
@@ -34,6 +35,7 @@ class _SelectImagePageState extends State<SelectImagePage> {
   final MaterialService _materialService = MaterialService();
   final FileService _fileService = FileService();
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = false;
   bool _hasMore = true;
@@ -42,6 +44,8 @@ class _SelectImagePageState extends State<SelectImagePage> {
   List<Map<String, dynamic>> _materials = [];
   int _total = 0;
   late ImageSelectSource _currentSource;
+  String? _keyword; // 搜索关键词
+  Timer? _debounceTimer; // 防抖定时器
 
   @override
   void initState() {
@@ -54,6 +58,8 @@ class _SelectImagePageState extends State<SelectImagePage> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -79,6 +85,37 @@ class _SelectImagePageState extends State<SelectImagePage> {
         _loadData(refresh: true);
       });
     }
+  }
+
+  // 处理搜索输入（带防抖）
+  void _handleSearchInput(String value) {
+    // 取消之前的定时器
+    _debounceTimer?.cancel();
+    
+    // 创建新的防抖定时器，延迟500毫秒
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (_keyword != value) {
+        setState(() {
+          _keyword = value.isEmpty ? null : value;
+          _currentPage = 1;
+          _hasMore = true;
+          _materials = [];
+        });
+        _loadData(refresh: true);
+      }
+    });
+  }
+
+  // 清除搜索
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _keyword = null;
+      _currentPage = 1;
+      _hasMore = true;
+      _materials = [];
+    });
+    _loadData(refresh: true);
   }
 
   // 现代化的源选择器
@@ -293,11 +330,13 @@ class _SelectImagePageState extends State<SelectImagePage> {
               page: _currentPage,
               pageSize: _pageSize,
               type: 'image',
+              keyword: _keyword,
             )
           : await _materialService.getPublicMaterials(
               page: _currentPage,
               pageSize: _pageSize,
               type: 'image',
+              keyword: _keyword,
             );
 
       if (!mounted) return;
@@ -530,7 +569,7 @@ class _SelectImagePageState extends State<SelectImagePage> {
           children: [
             // 优化后的顶部导航栏
             Container(
-              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 20.h),
+              padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 16.h),
               child: Column(
                 children: [
                   Row(
@@ -538,15 +577,15 @@ class _SelectImagePageState extends State<SelectImagePage> {
                       GestureDetector(
                         onTap: () => Navigator.of(context).pop(),
                         child: Container(
-                          width: 40.w,
-                          height: 40.w,
+                          width: 36.w,
+                          height: 36.w,
                           decoration: BoxDecoration(
                             color: AppTheme.cardBackground,
-                            borderRadius: BorderRadius.circular(12.r),
+                            borderRadius: BorderRadius.circular(10.r),
                             boxShadow: [
                               BoxShadow(
                                 color: AppTheme.shadowColor.withOpacity(0.1),
-                                blurRadius: 8.r,
+                                blurRadius: 6.r,
                                 offset: Offset(0, 2.h),
                               ),
                             ],
@@ -554,37 +593,73 @@ class _SelectImagePageState extends State<SelectImagePage> {
                           child: Icon(
                             Icons.arrow_back_ios_new,
                             color: AppTheme.textPrimary,
-                            size: 18.sp,
+                            size: 16.sp,
                           ),
                         ),
                       ),
-                      SizedBox(width: 16.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _getTitle(),
-                              style: TextStyle(
-                                fontSize: 24.sp,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                            SizedBox(height: 4.h),
-                            Text(
-                              '从素材库中选择合适的图片',
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                          ],
+                      SizedBox(width: 12.w),
+                      Text(
+                        _getTitle(),
+                        style: TextStyle(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: 20.h),
+                  SizedBox(height: 12.h),
+                  // 搜索框
+                  Container(
+                    height: 40.h,
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardBackground,
+                      borderRadius: BorderRadius.circular(10.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.shadowColor.withOpacity(0.05),
+                          blurRadius: 4.r,
+                          offset: Offset(0, 2.h),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: _handleSearchInput,
+                      decoration: InputDecoration(
+                        hintText: '搜索图片...',
+                        hintStyle: TextStyle(
+                          color: AppTheme.textSecondary.withOpacity(0.6),
+                          fontSize: 14.sp,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: AppTheme.textSecondary,
+                          size: 18.sp,
+                        ),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(
+                                  Icons.clear,
+                                  color: AppTheme.textSecondary,
+                                  size: 18.sp,
+                                ),
+                                onPressed: _clearSearch,
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 10.h,
+                        ),
+                      ),
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 14.sp,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12.h),
                   // 优化后的源选择器
                   _buildModernSourceSelector(),
                 ],

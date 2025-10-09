@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:typed_data';
 import '../../../theme/app_theme.dart';
-import '../../../services/group_chat_service.dart';
+import '../services/group_chat_service.dart';
 import '../../../widgets/custom_toast.dart';
 import 'modules/basic_info_module.dart';
 import 'modules/master_settings_module.dart';
 import 'modules/roles_module.dart';
+import 'modules/advanced_settings_module.dart';
 
 class CreateGroupChatPage extends StatefulWidget {
   final Map<String, dynamic>? groupChat;
@@ -40,17 +41,27 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
   // 主控设定
   final _masterSettingController = TextEditingController();
   String _masterModel = 'gemini-2.0-flash';
-  String? _coreControllerModel;
+  final _sharedContextController = TextEditingController();
   final _userRoleSettingController = TextEditingController();
   final _greetingController = TextEditingController();
+  final _prefixController = TextEditingController();
+  final _suffixController = TextEditingController();
+  int _memoryRounds = 10;
 
   // 角色列表
   List<Map<String, dynamic>> _roles = [];
 
-  // 群聊状态
+  // 群聊状态和设置
   String _status = 'draft'; // draft, published, private
+  String _visibility = 'private'; // public, private (控制设定是否公开)
+  int _maxRoleControlCount = 1; // 1-5
+  String _prefixSuffixEditable = 'private'; // public, private
+  String _htmlTemplates = ''; // "100,200,300" 格式
+  
+  // 统一模型设置
+  bool _useUnifiedModel = false;
 
-  final List<String> _pageNames = ['基础信息', '主控设定', '角色管理'];
+  final List<String> _pageNames = ['基础信息', '基础设定', '角色管理', '高级设定'];
 
 
 
@@ -66,6 +77,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
 
   void _loadGroupChatData() {
     final data = widget.groupChat!;
+
     _nameController.text = data['name'] ?? '';
     _descriptionController.text = data['description'] ?? '';
     _tagsController.text = (data['tags'] as List?)?.join(', ') ?? '';
@@ -73,11 +85,25 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     _backgroundUri = data['backgroundUri'];
     _masterSettingController.text = data['masterSetting'] ?? '';
     _masterModel = data['masterModel'] ?? 'gemini-2.0-flash';
-    _coreControllerModel = data['coreControllerModel'];
+    _sharedContextController.text = data['sharedContext'] ?? '';
     _userRoleSettingController.text = data['userRoleSetting'] ?? '';
     _greetingController.text = data['greeting'] ?? '';
+    _prefixController.text = data['prefix'] ?? '';
+    _suffixController.text = data['suffix'] ?? '';
+    _memoryRounds = data['memoryRounds'] ?? 10;
     _roles = List<Map<String, dynamic>>.from(data['roles'] ?? []);
     _status = data['status'] ?? 'draft';
+    _visibility = data['visibility'] ?? 'public';
+    _maxRoleControlCount = data['maxRoleControlCount'] ?? 1;
+    _prefixSuffixEditable = data['prefixSuffixEditable'] ?? 'private';
+    _htmlTemplates = data['htmlTemplates'] ?? '';
+    // 从字符串 'enabled'/'disabled' 转换为布尔值
+    _useUnifiedModel = (data['unifiedModel'] == 'enabled') || (data['useUnifiedModel'] == true);
+    
+    // 打印调试信息
+    print('群聊数据加载:');
+    print('visibility: $_visibility (${_visibility.runtimeType})');
+    print('prefixSuffixEditable: $_prefixSuffixEditable (${_prefixSuffixEditable.runtimeType})');
   }
 
   @override
@@ -86,8 +112,11 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     _descriptionController.dispose();
     _tagsController.dispose();
     _masterSettingController.dispose();
+    _sharedContextController.dispose();
     _userRoleSettingController.dispose();
     _greetingController.dispose();
+    _prefixController.dispose();
+    _suffixController.dispose();
     super.dispose();
   }
 
@@ -168,11 +197,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
               
               // 分页导航
               Container(
-                margin: EdgeInsets.symmetric(horizontal: 24.w, vertical: 8.h),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardBackground,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 8.h),
                 child: Row(
                   children: List.generate(
                     _pageNames.length,
@@ -209,7 +234,8 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
             _pageNames[index],
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+              color:
+                  isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
               fontSize: 14.sp,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
@@ -242,17 +268,11 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
         content = MasterSettingsModule(
           masterSettingController: _masterSettingController,
           masterModel: _masterModel,
-          coreControllerModel: _coreControllerModel,
+          sharedContextController: _sharedContextController,
           userRoleSettingController: _userRoleSettingController,
-          greetingController: _greetingController,
           onMasterModelChanged: (model) {
             setState(() {
               _masterModel = model;
-            });
-          },
-          onCoreControllerModelChanged: (model) {
-            setState(() {
-              _coreControllerModel = model;
             });
           },
         );
@@ -260,12 +280,77 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
       case 2:
         content = RolesModule(
           roles: _roles,
+          useUnifiedModel: _useUnifiedModel,
           onRolesChanged: (roles) {
             setState(() {
               _roles = roles;
             });
           },
+          onUnifiedModelChanged: (useUnified) {
+            setState(() {
+              _useUnifiedModel = useUnified;
+              if (useUnified && _roles.isNotEmpty) {
+                // 当开启统一模型时，将第一个角色的模型应用到所有角色
+                final firstModel = _roles[0]['modelName'];
+                if (firstModel != null) {
+                  for (int i = 0; i < _roles.length; i++) {
+                    _roles[i]['modelName'] = firstModel;
+                  }
+                }
+              }
+            });
+          },
+          onRoleModelChanged: (index, modelName) {
+            setState(() {
+              if (_useUnifiedModel) {
+                // 统一模型模式：更新所有角色的模型
+                for (int i = 0; i < _roles.length; i++) {
+                  _roles[i]['modelName'] = modelName;
+                }
+              } else {
+                // 独立模型模式：只更新指定角色的模型
+                _roles[index]['modelName'] = modelName;
+              }
+            });
+          },
           imageCache: _imageCache,
+        );
+        break;
+      case 3:
+        content = AdvancedSettingsModule(
+          greetingController: _greetingController,
+          prefixController: _prefixController,
+          suffixController: _suffixController,
+          memoryRounds: _memoryRounds,
+          maxRoleControlCount: _maxRoleControlCount,
+          visibility: _visibility,
+          prefixSuffixEditable: _prefixSuffixEditable,
+          htmlTemplates: _htmlTemplates,
+          onMemoryRoundsChanged: (rounds) {
+            setState(() {
+              _memoryRounds = rounds;
+            });
+          },
+          onMaxRoleControlCountChanged: (count) {
+            setState(() {
+              _maxRoleControlCount = count;
+            });
+          },
+          onVisibilityChanged: (visibility) {
+            setState(() {
+              _visibility = visibility;
+            });
+          },
+          onPrefixSuffixEditableChanged: (visibility) {
+            setState(() {
+              _prefixSuffixEditable = visibility;
+            });
+          },
+          onHtmlTemplatesChanged: (value) {
+            setState(() {
+              _htmlTemplates = value;
+            });
+          },
         );
         break;
       default:
@@ -333,11 +418,20 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
         'backgroundUri': _backgroundUri,
         'masterSetting': _masterSettingController.text.trim(),
         'masterModel': _masterModel,
-        'coreControllerModel': _coreControllerModel,
+        'sharedContext': _sharedContextController.text.trim(),
         'userRoleSetting': _userRoleSettingController.text.trim(),
         'greeting': _greetingController.text.trim(),
+        'prefix': _prefixController.text.trim(),
+        'suffix': _suffixController.text.trim(),
+        'memoryRounds': _memoryRounds,
+        'unifiedModel': _useUnifiedModel ? 'enabled' : 'disabled',
         'roles': _roles,
         'status': _status,
+        'visibility': _visibility,
+        'maxRoleControlCount': _maxRoleControlCount,
+        'prefixSuffixEditable': _prefixSuffixEditable,
+        'useUnifiedModel': _useUnifiedModel,
+        'htmlTemplates': _htmlTemplates,
       };
 
       final service = GroupChatService();

@@ -8,7 +8,7 @@ import '../../../theme/app_theme.dart';
 import '../services/characte_service.dart';
 import '../services/novel_service.dart';
 import '../../../services/file_service.dart';
-import '../../../services/group_chat_service.dart';
+import '../services/group_chat_service.dart';
 import '../../../widgets/custom_toast.dart';
 import '../../../widgets/confirmation_dialog.dart';
 import '../character/create_character_page.dart';
@@ -16,6 +16,7 @@ import '../novel/create_novel_page.dart';
 import '../group_chat/create_group_chat_page.dart';
 import '../../../pages/character_chat/pages/character_init_page.dart';
 import '../../../pages/novel/pages/novel_init_page.dart';
+import '../../../pages/group_chat/pages/group_chat_init_page.dart';
 
 class MyCreationPage extends StatefulWidget {
   const MyCreationPage({super.key});
@@ -304,10 +305,11 @@ class _MyCreationPageState extends State<MyCreationPage> {
     }
   }
 
-  /// 黑盒调试功能（占位实现）
+  /// 黑盒调试功能
   void _showBlackBoxDebug(Map<String, dynamic> item) {
-    // 仅支持角色卡进入调试
-    if (item.containsKey('name')) {
+    // 支持角色卡和群聊调试
+    if (item.containsKey('name') && _selectedIndex == 0) {
+      // 角色卡调试
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -322,8 +324,19 @@ class _MyCreationPageState extends State<MyCreationPage> {
           ),
         ),
       );
+    } else if (_selectedIndex == 2) {
+      // 群聊调试
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => GroupChatInitPage(
+            groupChatData: item,
+            isDebug: true,
+          ),
+        ),
+      );
     } else {
-      _showToast('当前仅支持角色卡调试', type: ToastType.info);
+      _showToast('当前仅支持角色卡和群聊调试', type: ToastType.info);
     }
   }
 
@@ -1939,11 +1952,15 @@ class _MyCreationPageState extends State<MyCreationPage> {
                   // 聊天按钮
                   GestureDetector(
                     onTap: () {
-                      // TODO: 实现群聊功能
-                      CustomToast.show(
+                      // 启动正常群聊（非调试模式）
+                      Navigator.push(
                         context,
-                        message: '群聊功能即将上线',
-                        type: ToastType.info,
+                        MaterialPageRoute(
+                          builder: (context) => GroupChatInitPage(
+                            groupChatData: groupChat,
+                            isDebug: false,
+                          ),
+                        ),
                       );
                     },
                     child: Row(
@@ -1960,6 +1977,31 @@ class _MyCreationPageState extends State<MyCreationPage> {
                             fontSize: 14.sp,
                             fontWeight: FontWeight.w500,
                             color: const Color(0xFF666666),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 黑盒调试按钮
+                  GestureDetector(
+                    onTap: () {
+                      _showBlackBoxDebug(groupChat);
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.bug_report_outlined,
+                          size: 18.sp,
+                          color: const Color(0xFF9C27B0),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '调试',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF9C27B0),
                           ),
                         ),
                       ],

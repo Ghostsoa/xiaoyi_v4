@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:xiaoyi_v4/pages/message/widgets/character_session_list.dart';
 import 'package:xiaoyi_v4/pages/message/widgets/novel_session_list.dart';
+import 'package:xiaoyi_v4/pages/message/widgets/group_chat_session_list.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/custom_toast.dart';
 import '../../widgets/confirmation_dialog.dart';
@@ -30,9 +31,11 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
       GlobalKey<CharacterSessionListState>();
   final GlobalKey<NovelSessionListState> _novelListKey =
       GlobalKey<NovelSessionListState>();
+  final GlobalKey<GroupChatSessionListState> _groupChatListKey =
+      GlobalKey<GroupChatSessionListState>();
 
   late int _unreadCount;
-  bool _isCharacterMode = true;
+  int _currentModeIndex = 0; // 0: 角色, 1: 小说, 2: 群聊
   bool _isMultiSelectMode = false;
   final Set<int> _selectedIds = <int>{};
 
@@ -61,10 +64,12 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
 
   // Add refresh method to fix the error in MainPage
   void refresh() {
-    if (_isCharacterMode) {
+    if (_currentModeIndex == 0) {
       _characterListKey.currentState?.onRefresh();
-    } else {
+    } else if (_currentModeIndex == 1) {
       _novelListKey.currentState?.onRefresh();
+    } else {
+      _groupChatListKey.currentState?.onRefresh();
     }
   }
 
@@ -171,11 +176,11 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                 children: [
                   _buildCategoryButton(
                     title: '角色',
-                    isSelected: _isCharacterMode,
+                    isSelected: _currentModeIndex == 0,
                     onTap: () {
-                      if (!_isCharacterMode) {
+                      if (_currentModeIndex != 0) {
                         setState(() {
-                          _isCharacterMode = true;
+                          _currentModeIndex = 0;
                           _isMultiSelectMode = false;
                           _selectedIds.clear();
                         });
@@ -185,11 +190,25 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                   SizedBox(width: 8.w),
                   _buildCategoryButton(
                     title: '小说',
-                    isSelected: !_isCharacterMode,
+                    isSelected: _currentModeIndex == 1,
                     onTap: () {
-                      if (_isCharacterMode) {
+                      if (_currentModeIndex != 1) {
                         setState(() {
-                          _isCharacterMode = false;
+                          _currentModeIndex = 1;
+                          _isMultiSelectMode = false;
+                          _selectedIds.clear();
+                        });
+                      }
+                    },
+                  ),
+                  SizedBox(width: 8.w),
+                  _buildCategoryButton(
+                    title: '群聊',
+                    isSelected: _currentModeIndex == 2,
+                    onTap: () {
+                      if (_currentModeIndex != 2) {
+                        setState(() {
+                          _currentModeIndex = 2;
                           _isMultiSelectMode = false;
                           _selectedIds.clear();
                         });
@@ -208,7 +227,7 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
             ),
             Expanded(
               child: IndexedStack(
-                index: _isCharacterMode ? 0 : 1,
+                index: _currentModeIndex,
                 children: [
                   CharacterSessionList(
                     key: _characterListKey,
@@ -246,6 +265,27 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                     },
                     onShowMenu: (context, session, position) {
                       _showSessionMenu(context, session, position);
+                    },
+                  ),
+                  GroupChatSessionList(
+                    key: _groupChatListKey,
+                    isMultiSelectMode: _isMultiSelectMode,
+                    selectedIds: _selectedIds,
+                    onSelectionChanged: (sessionId) {
+                      setState(() {
+                        if (_selectedIds.contains(sessionId)) {
+                          _selectedIds.remove(sessionId);
+                        } else {
+                          _selectedIds.add(sessionId);
+                        }
+                      });
+                    },
+                    onShowMenu: (context, session, position) {
+                      _showSessionMenu(context, session, position);
+                    },
+                    onRefresh: () {
+                      // 刷新群聊会话列表
+                      _groupChatListKey.currentState?.onRefresh();
                     },
                   ),
                 ],
@@ -389,14 +429,21 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
     try {
       final List<int> sessionIdList = _selectedIds.toList();
 
-      final Map<String, dynamic> result = _isCharacterMode
-          ? await _messageService.batchDeleteCharacterSessions(sessionIdList)
-          : await _messageService.batchDeleteNovelSessions(sessionIdList);
-
-      if (_isCharacterMode) {
-        _characterListKey.currentState?.onRefresh();
+      final Map<String, dynamic> result;
+      if (_currentModeIndex == 0) {
+        result = await _messageService.batchDeleteCharacterSessions(sessionIdList);
+      } else if (_currentModeIndex == 1) {
+        result = await _messageService.batchDeleteNovelSessions(sessionIdList);
       } else {
+        result = await _messageService.batchDeleteGroupChatSessions(sessionIdList);
+      }
+
+      if (_currentModeIndex == 0) {
+        _characterListKey.currentState?.onRefresh();
+      } else if (_currentModeIndex == 1) {
         _novelListKey.currentState?.onRefresh();
+      } else {
+        _groupChatListKey.currentState?.onRefresh();
       }
 
       setState(() {
@@ -428,9 +475,14 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
   void _showSessionMenu(BuildContext context, Map<String, dynamic> session,
       [Offset? position]) {
     final int sessionId = session['id'] as int;
-    final String sessionName = _isCharacterMode
-        ? (session['name'] ?? '未命名会话')
-        : (session['title'] ?? '未命名小说');
+    final String sessionName;
+    if (_currentModeIndex == 0) {
+      sessionName = session['name'] ?? '未命名会话';
+    } else if (_currentModeIndex == 1) {
+      sessionName = session['title'] ?? '未命名小说';
+    } else {
+      sessionName = session['name'] ?? '未命名群聊';
+    }
 
     // 🔥 获取置顶状态
     final bool isPinned = (session['is_pinned'] as int? ?? 0) == 1;
@@ -606,16 +658,23 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
 
   Future<void> _renameSession(int sessionId, String newName) async {
     try {
-      final result = _isCharacterMode
-          ? await _messageService.renameSession(sessionId, newName)
-          : await _messageService.renameNovelSession(sessionId, newName);
+      final Map<String, dynamic> result;
+      if (_currentModeIndex == 0) {
+        result = await _messageService.renameSession(sessionId, newName);
+      } else if (_currentModeIndex == 1) {
+        result = await _messageService.renameNovelSession(sessionId, newName);
+      } else {
+        result = await _messageService.renameGroupChatSession(sessionId, newName);
+      }
 
       if (result['success'] == true) {
         CustomToast.show(context, message: '重命名成功', type: ToastType.success);
-        if (_isCharacterMode) {
+        if (_currentModeIndex == 0) {
           _characterListKey.currentState?.onRefresh();
-        } else {
+        } else if (_currentModeIndex == 1) {
           _novelListKey.currentState?.onRefresh();
+        } else {
+          _groupChatListKey.currentState?.onRefresh();
         }
       } else {
         CustomToast.show(context,
@@ -650,14 +709,21 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
         duration: const Duration(seconds: 3),
       );
 
-      final Map<String, dynamic> result = _isCharacterMode
-          ? await _messageService.batchDeleteCharacterSessions([sessionId])
-          : await _messageService.batchDeleteNovelSessions([sessionId]);
-
-      if (_isCharacterMode) {
-        _characterListKey.currentState?.onRefresh();
+      final Map<String, dynamic> result;
+      if (_currentModeIndex == 0) {
+        result = await _messageService.batchDeleteCharacterSessions([sessionId]);
+      } else if (_currentModeIndex == 1) {
+        result = await _messageService.batchDeleteNovelSessions([sessionId]);
       } else {
+        result = await _messageService.batchDeleteGroupChatSessions([sessionId]);
+      }
+
+      if (_currentModeIndex == 0) {
+        _characterListKey.currentState?.onRefresh();
+      } else if (_currentModeIndex == 1) {
         _novelListKey.currentState?.onRefresh();
+      } else {
+        _groupChatListKey.currentState?.onRefresh();
       }
 
       if (mounted) {
@@ -681,18 +747,22 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
   /// 🔥 置顶会话
   Future<void> _pinSession(int sessionId) async {
     try {
-      if (_isCharacterMode) {
+      if (_currentModeIndex == 0) {
         await _messageService.pinCharacterSession(sessionId);
-      } else {
+      } else if (_currentModeIndex == 1) {
         await _messageService.pinNovelSession(sessionId);
+      } else {
+        await _messageService.pinGroupChatSession(sessionId);
       }
 
       if (mounted) {
         // 刷新列表
-        if (_isCharacterMode) {
+        if (_currentModeIndex == 0) {
           _characterListKey.currentState?.onRefresh();
-        } else {
+        } else if (_currentModeIndex == 1) {
           _novelListKey.currentState?.onRefresh();
+        } else {
+          _groupChatListKey.currentState?.onRefresh();
         }
       }
     } catch (e) {
@@ -705,18 +775,22 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
   /// 🔥 取消置顶会话
   Future<void> _unpinSession(int sessionId) async {
     try {
-      if (_isCharacterMode) {
+      if (_currentModeIndex == 0) {
         await _messageService.unpinCharacterSession(sessionId);
-      } else {
+      } else if (_currentModeIndex == 1) {
         await _messageService.unpinNovelSession(sessionId);
+      } else {
+        await _messageService.unpinGroupChatSession(sessionId);
       }
 
       if (mounted) {
         // 刷新列表
-        if (_isCharacterMode) {
+        if (_currentModeIndex == 0) {
           _characterListKey.currentState?.onRefresh();
-        } else {
+        } else if (_currentModeIndex == 1) {
           _novelListKey.currentState?.onRefresh();
+        } else {
+          _groupChatListKey.currentState?.onRefresh();
         }
       }
     } catch (e) {

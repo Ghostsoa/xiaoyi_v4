@@ -24,6 +24,9 @@ class InteractionCard extends StatelessWidget {
     required this.onUiSettingsChanged,
   });
 
+  // 判断前后缀是否可编辑
+  bool get _isPrefixSuffixEditable => sessionData['prefix_suffix_editable'] == true;
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -36,25 +39,66 @@ class InteractionCard extends StatelessWidget {
           isMultiLine: true,
           accentColor: AppTheme.primaryColor,
         ),
-        _buildEditableInfoItem(
-          '前缀',
-          'prefix',
-          prefixController,
-          accentColor: AppTheme.primaryLight,
-        ),
-        _buildEditableInfoItem(
-          '后缀',
-          'suffix',
-          suffixController,
-          accentColor: AppTheme.accentPink,
-        ),
+        // 如果前后缀不可编辑，显示锁定提示
+        if (!_isPrefixSuffixEditable) _buildPrefixSuffixLockedNotice(),
+        // 如果前后缀可编辑，显示编辑框
+        if (_isPrefixSuffixEditable) ...[
+          _buildEditableInfoItem(
+            '前缀',
+            'prefix',
+            prefixController,
+            accentColor: AppTheme.primaryLight,
+          ),
+          _buildEditableInfoItem(
+            '后缀',
+            'suffix',
+            suffixController,
+            accentColor: AppTheme.accentPink,
+          ),
+        ],
         _buildUiSettingsItem(),
-        _buildInfoItem(
-          '设定可编辑',
-          sessionData['setting_editable'] == true ? '是' : '否',
-          accentColor: AppTheme.primaryColor.withBlue(180),
-        ),
       ],
+    );
+  }
+
+  // 构建前后缀锁定提示
+  Widget _buildPrefixSuffixLockedNotice() {
+    final accentColor = AppTheme.warning;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBackground.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border(left: BorderSide(color: accentColor, width: 3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(6.w),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(6.r),
+            ),
+            child: Icon(
+              Icons.lock_outline,
+              color: accentColor,
+              size: 18.sp,
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Text(
+              '前后缀设定不可查看',
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -127,74 +171,6 @@ class InteractionCard extends StatelessWidget {
         return Icons.format_indent_decrease;
       default:
         return Icons.settings;
-    }
-  }
-
-  Widget _buildInfoItem(String label, String value,
-      {required Color accentColor}) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBackground.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(8.r),
-        border: Border(left: BorderSide(color: accentColor, width: 3)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: EdgeInsets.all(6.w),
-            decoration: BoxDecoration(
-              color: accentColor.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(6.r),
-            ),
-            child: Icon(
-              _getIconForInfoItem(label),
-              color: accentColor,
-              size: 16.sp,
-            ),
-          ),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    color: AppTheme.textPrimary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _getIconForInfoItem(String label) {
-    switch (label) {
-      case '设定可编辑':
-        return Icons.edit_note;
-      case '总对话轮数':
-        return Icons.repeat;
-      case '最后消息':
-        return Icons.message;
-      default:
-        return Icons.info_outline;
     }
   }
 

@@ -38,20 +38,17 @@ class CharacterSessionListState extends State<CharacterSessionList> {
   final FileService _fileService = FileService();
   final SessionDataService _sessionDataService = SessionDataService();
   final RefreshController _refreshController = RefreshController();
-  final ScrollController _scrollController = ScrollController();
 
   bool _isLoading = false;
   List<Map<String, dynamic>> _sessions = [];
   int _currentPage = 1;
   bool _hasMore = true;
   final Map<String, Uint8List> _avatarCache = {};
-  bool _isLoadingMore = false;
   StreamSubscription? _sessionStreamSubscription;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
     _initSessionDataService();
     _loadSessions();
   }
@@ -60,7 +57,6 @@ class CharacterSessionListState extends State<CharacterSessionList> {
   void dispose() {
     _sessionStreamSubscription?.cancel();
     _refreshController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -68,25 +64,8 @@ class CharacterSessionListState extends State<CharacterSessionList> {
   Future<void> _initSessionDataService() async {
     await _sessionDataService.initDatabase();
 
-    // 监听会话数据变化
-    _sessionStreamSubscription = _sessionDataService.characterSessionsStream.listen(
-      (sessions) {
-        if (mounted) {
-          setState(() {
-            _sessions = sessions.map((session) => session.toApiJson()).toList();
-          });
-        }
-      },
-    );
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 100 &&
-        !_isLoadingMore &&
-        _hasMore) {
-      _loadMoreSessions();
-    }
+    // 🔥 不使用监听器，避免在加载更多时被覆盖
+    // 改为手动控制刷新时机
   }
 
   Future<void> _loadSessions() async {
@@ -99,106 +78,74 @@ class CharacterSessionListState extends State<CharacterSessionList> {
     });
 
     try {
-      // 先从API获取第一页数据，确定分页参数
-      final apiResult = await _messageService.syncCharacterSessionsFromApi(
-        page: _currentPage,
+      // 🔥 步骤1: 先从本地缓存快速显示（只读第一页）
+      final localResult = await _messageService.getCharacterSessions(
+        page: 1,
         pageSize: 10,
       );
 
-      // 然后从本地数据库快速显示
-      final result = await _messageService.getCharacterSessions(
-        page: _currentPage,
-        pageSize: 10,
-      );
-
-      if (mounted) {
+      if (mounted && localResult['list'] is List) {
+        final localSessions = List<Map<String, dynamic>>.from(localResult['list']);
         setState(() {
-          if (result['list'] is List) {
-            _sessions = List<Map<String, dynamic>>.from(result['list']);
-          } else {
-            _sessions = [];
-            debugPrint('获取本地会话列表返回数据格式错误: $result');
-          }
-
-          // 分页参数以API为准
-          final int total = apiResult['total'] is int ? apiResult['total'] : 0;
-          _hasMore = _currentPage * 10 < total;
+          _sessions = localSessions;
           _isLoading = false;
         });
 
-        // 加载头像
-        for (var session in _sessions) {
+        // 预加载头像
+        for (var session in localSessions) {
           _loadAvatar(session['cover_uri']);
         }
       }
+
+      // 🔥 步骤2: 后台异步请求API静默更新
+      print('========================================');
+      print('[CharacterSessionList] >>> 开始API异步更新第一页...');
+      final apiResult = await _messageService.syncCharacterSessionsFromApi(
+        page: 1,
+        pageSize: 10,
+      );
+
+      print('[CharacterSessionList] <<< API更新完成，当前页码: $_currentPage');
+      
+      if (mounted && _currentPage == 1) { // 🔥 只有还在第一页时才更新
+        print('[CharacterSessionList] [✓] 更新第一页数据到UI');
+        // 重新从本地读取（包含置顶排序）
+        final updatedResult = await _messageService.getCharacterSessions(
+          page: 1,
+          pageSize: 10,
+        );
+
+        if (updatedResult['list'] is List) {
+          final updatedSessions = List<Map<String, dynamic>>.from(updatedResult['list']);
+          final int total = apiResult['total'] is int ? apiResult['total'] : 0;
+          
+          setState(() {
+            _sessions = updatedSessions;
+            _hasMore = total > 10;
+          });
+
+          // 预加载新头像
+          for (var session in updatedSessions) {
+            _loadAvatar(session['cover_uri']);
+          }
+        }
+      } else if (mounted) {
+        // 如果已经加载了更多页，只更新 _hasMore 状态
+        print('[CharacterSessionList] [!] 第一页API更新完成，但当前已在第$_currentPage页，跳过UI更新');
+        final int total = apiResult['total'] is int ? apiResult['total'] : 0;
+        setState(() {
+          _hasMore = _currentPage * 10 < total;
+        });
+      }
+      print('========================================');
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _sessions = [];
-        });
-        debugPrint('加载会话列表失败: $e');
-      }
-    }
-  }
-
-
-  Future<void> _loadMoreSessions() async {
-    if (_isLoadingMore || !_hasMore) return;
-
-    setState(() => _isLoadingMore = true);
-
-    try {
-      final nextPage = _currentPage + 1;
-
-      // 先从API同步下一页数据到本地
-      await _messageService.syncCharacterSessionsFromApi(
-        page: nextPage,
-        pageSize: 10,
-      );
-
-      // 然后从本地获取这一页的数据（经过本地处理，包含置顶等状态）
-      final result = await _messageService.getCharacterSessions(
-        page: nextPage,
-        pageSize: 10,
-      );
-
-      if (mounted) {
-        List<Map<String, dynamic>> newSessions = [];
-        if (result['list'] is List) {
-          newSessions = List<Map<String, dynamic>>.from(result['list']);
-        } else {
-          debugPrint('获取本地数据格式错误: $result');
-        }
-
-        debugPrint('[CharacterSessionList] 加载第$nextPage页，新增${newSessions.length}条数据');
-
-        if (newSessions.isNotEmpty) {
-          final oldLength = _sessions.length;
-          setState(() {
-            _sessions.addAll(newSessions); // 累加到现有列表
-            _currentPage = nextPage;
-            // 分页参数以API为准，但使用本地total（应该和API一致）
-            final int total = result['total'] is int ? result['total'] : 0;
-            _hasMore = _currentPage * 10 < total;
-            _isLoadingMore = false;
-          });
-
-          debugPrint('[CharacterSessionList] 数据累加成功：从$oldLength条增加到${_sessions.length}条');
-          debugPrint('[CharacterSessionList] 新增数据ID: ${newSessions.map((s) => s['id']).toList()}');
-
-          for (var session in newSessions) {
-            _loadAvatar(session['cover_uri']);
+          if (_sessions.isEmpty) {
+            debugPrint('加载会话列表失败: $e');
           }
-        } else {
-          setState(() => _isLoadingMore = false);
-          debugPrint('[CharacterSessionList] 没有新数据');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingMore = false);
-        debugPrint('加载更多会话失败: $e');
+        });
       }
     }
   }
@@ -206,38 +153,34 @@ class CharacterSessionListState extends State<CharacterSessionList> {
   Future<void> onRefresh() async {
     _currentPage = 1;
     try {
-      // 先从API同步第一页数据，获取准确的分页信息
+      // 🔥 直接从API同步第一页数据
       final apiResult = await _messageService.syncCharacterSessionsFromApi(
-        page: _currentPage,
+        page: 1,
         pageSize: 10,
       );
 
-      // 然后从本地数据库快速显示
+      // 从本地读取（包含置顶排序）
       final result = await _messageService.getCharacterSessions(
-        page: _currentPage,
+        page: 1,
         pageSize: 10,
       );
 
       if (mounted) {
-        setState(() {
-          if (result['list'] is List) {
-            _sessions = List<Map<String, dynamic>>.from(result['list']);
-          } else {
-            _sessions = [];
-            debugPrint('刷新会话列表返回数据格式错误: $result');
-          }
-
-          // 分页参数以API为准
+        if (result['list'] is List) {
           final int total = apiResult['total'] is int ? apiResult['total'] : 0;
-          _hasMore = _currentPage * 10 < total;
-        });
+          
+          setState(() {
+            _sessions = List<Map<String, dynamic>>.from(result['list']);
+            _hasMore = total > 10;
+          });
 
-        for (var session in _sessions) {
-          _loadAvatar(session['cover_uri']);
+          for (var session in _sessions) {
+            _loadAvatar(session['cover_uri']);
+          }
         }
       }
-      _refreshController.refreshCompleted();
 
+      _refreshController.refreshCompleted();
       if (_hasMore) {
         _refreshController.loadComplete();
       }
@@ -256,44 +199,74 @@ class CharacterSessionListState extends State<CharacterSessionList> {
     try {
       final nextPage = _currentPage + 1;
 
-      // 先从API同步下一页数据到本地
+      print('========================================');
+      print('[CharacterSessionList] >>> 加载更多：第$nextPage页');
+
+      // 🔥 直接从API请求数据（不走本地缓存，不同步到本地数据库）
       final apiResult = await _messageService.syncCharacterSessionsFromApi(
         page: nextPage,
         pageSize: 10,
+        syncToLocal: false, // 🔥 第二页及以后不同步到本地
       );
 
-      if (mounted) {
-        // 再从本地根据统一排序（包含置顶优先的本地规则）读取该页
-        final localResult = await _messageService.getCharacterSessions(
-          page: nextPage,
-          pageSize: 10,
-        );
+      if (mounted && apiResult['list'] is List) {
+        // 🔥 直接使用API返回的数据，不要从本地数据库读取（避免排序不一致）
+        final apiSessions = (apiResult['list'] as List).cast<Map<String, dynamic>>();
+        
+        // 🔥 获取当前已有的所有会话ID（包括置顶的）
+        final existingIds = _sessions.map((s) => s['id'] as int).toSet();
 
-        List<Map<String, dynamic>> newSessions = [];
-        if (localResult['list'] is List) {
-          newSessions = List<Map<String, dynamic>>.from(localResult['list']);
-        }
+        print('[CharacterSessionList] 当前已有ID: $existingIds');
+        print('[CharacterSessionList] API返回ID: ${apiSessions.map((s) => s['id']).toList()}');
+
+        // 🔥 过滤掉已存在的会话（避免置顶会话重复）
+        final newSessions = apiSessions
+            .where((session) => !existingIds.contains(session['id'] as int))
+            .toList();
+
+        final int total = apiResult['total'] is int ? apiResult['total'] : 0;
+
+        print('[CharacterSessionList] API返回${apiSessions.length}条，去重后${newSessions.length}条');
 
         if (newSessions.isNotEmpty) {
+          final oldLength = _sessions.length;
           setState(() {
             _sessions.addAll(newSessions);
             _currentPage = nextPage;
-            final int total = apiResult['total'] is int ? apiResult['total'] : 0;
             _hasMore = _currentPage * 10 < total;
           });
+
+          print('[CharacterSessionList] [SUCCESS] 数据累加：从$oldLength条增加到${_sessions.length}条');
+          print('[CharacterSessionList] [STATE] page=$_currentPage, total=$total, hasMore=$_hasMore');
 
           for (var session in newSessions) {
             _loadAvatar(session['cover_uri']);
           }
-        }
 
-        if (_hasMore) {
           _refreshController.loadComplete();
         } else {
-          _refreshController.loadNoData();
+          // 去重后没有新数据，可能都是置顶的，尝试加载下一页
+          print('[CharacterSessionList] [WARNING] 去重后无新数据，尝试继续...');
+          setState(() {
+            _currentPage = nextPage;
+            _hasMore = nextPage * 10 < total;
+          });
+
+          if (_hasMore) {
+            _refreshController.loadComplete();
+            // 递归加载下一页
+            await _onLoading();
+          } else {
+            _refreshController.loadNoData();
+          }
         }
+        
+        print('========================================');
+      } else {
+        _refreshController.loadComplete();
       }
     } catch (e) {
+      print('[CharacterSessionList] [ERROR] 加载失败: $e');
       _refreshController.loadFailed();
     }
   }

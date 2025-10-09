@@ -53,6 +53,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   final _negativeDialogExamplesController = TextEditingController();
   final _supplementSettingController = TextEditingController();
   bool _settingEditable = false;
+  bool _prefixSuffixEditable = false;
   String _uiSettings = 'markdown';
 
   // 模型配置
@@ -71,6 +72,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   final List<Map<String, dynamic>> _selectedWorldBooks = [];
   String _enhanceMode = 'disabled';
   final _resourceMappingController = TextEditingController();
+  String _htmlTemplates = ''; // "100,200,300" 格式
 
   final List<String> _pageNames = ['基础信息', '系统设定', '模型配置', '高级设定'];
 
@@ -101,6 +103,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     _negativeDialogExamplesController.text = character['negativeDialogExamples'] ?? '';
     _supplementSettingController.text = character['supplementSetting'] ?? '';
     _settingEditable = character['settingEditable'] ?? true;
+    _prefixSuffixEditable = character['prefixSuffixEditable'] ?? false;
     _uiSettings = character['uiSettings'] ?? 'markdown';
     _modelName = character['modelName'] ?? 'gemini-2.0-flash';
     _temperature = (character['temperature'] ?? 0.7).toDouble();
@@ -112,6 +115,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     _status = character['status'] ?? 'draft';
     _enhanceMode = character['enhanceMode'] ?? 'disabled';
     _resourceMappingController.text = character['resourceMapping'] ?? '';
+    _htmlTemplates = character['htmlTemplates'] ?? '';
 
     // 处理世界书数据
     if (character['worldbookMap'] != null) {
@@ -192,9 +196,11 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
         "searchDepth": _searchDepth,
         "worldbookMap": _worldbookMap,
         "settingEditable": _settingEditable,
+        "prefixSuffixEditable": _prefixSuffixEditable,
         "status": _status,
         "enhanceMode": _enhanceMode,
         "resourceMapping": _resourceMappingController.text,
+        "htmlTemplates": _htmlTemplates,
       };
 
       final response = widget.isEdit
@@ -284,6 +290,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
       'negative_dialog_examples': _negativeDialogExamplesController.text,
       'ui_settings': _uiSettings,
       'setting_editable': _settingEditable,
+      'prefix_suffix_editable': _prefixSuffixEditable,
       'enhance_mode': _enhanceMode,
     };
   }
@@ -347,8 +354,11 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           negativeDialogExamplesController: _negativeDialogExamplesController,
           supplementSettingController: _supplementSettingController,
           settingEditable: _settingEditable,
+          prefixSuffixEditable: _prefixSuffixEditable,
           onSettingEditableChanged: (value) =>
               setState(() => _settingEditable = value),
+          onPrefixSuffixEditableChanged: (value) =>
+              setState(() => _prefixSuffixEditable = value),
         );
       case 2:
         return ModelConfigModule(
@@ -375,6 +385,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           enhanceMode: _enhanceMode,
           resourceMappingController: _resourceMappingController,
           imageCache: _imageCache,
+          htmlTemplates: _htmlTemplates,
           onMemoryTurnsChanged: (value) => setState(() => _memoryTurns = value),
           onSearchDepthChanged: (value) => setState(() => _searchDepth = value),
           onStatusChanged: (value) => setState(() => _status = value),
@@ -385,6 +396,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
           onWorldbookMapChanged: (value) =>
               setState(() => _worldbookMap = value),
           onEnhanceModeChanged: (value) => setState(() => _enhanceMode = value),
+          onHtmlTemplatesChanged: (value) => setState(() => _htmlTemplates = value),
         );
       default:
         return const SizedBox();

@@ -6,6 +6,7 @@ import '../services/character_service.dart';
 import '../../../widgets/custom_toast.dart';
 import '../../../widgets/text_editor_page.dart';
 import '../../../services/webview_pool_service.dart';
+import '../../../services/html_template_cache_service.dart';
 
 class ChatWebView extends StatefulWidget {
   final List<Map<String, dynamic>> messages;
@@ -54,6 +55,7 @@ class _ChatWebViewState extends State<ChatWebView> {
   bool _isWebViewReady = false;
   bool _isFromPool = false; // 标记控制器是否来自对象池
   final CharacterService _characterService = CharacterService();
+  final HtmlTemplateCacheService _htmlTemplateCacheService = HtmlTemplateCacheService();
 
   @override
   void initState() {
@@ -194,6 +196,12 @@ class _ChatWebViewState extends State<ChatWebView> {
             widget.onMessageRegenerate(msgId);
           }
           break;
+        case 'copyMessage':
+          final content = data['content'] as String?;
+          if (content != null) {
+            _handleCopyMessage(content);
+          }
+          break;
         case 'webViewReady':
           debugPrint('WebView 已准备就绪');
           break;
@@ -201,6 +209,13 @@ class _ChatWebViewState extends State<ChatWebView> {
           debugPrint('WebView请求加载更多消息');
           if (widget.onLoadMore != null) {
             widget.onLoadMore!();
+          }
+          break;
+        case 'getTemplate':
+          // 支持 templateId 和 template_id 两种格式
+          final templateId = (data['templateId'] ?? data['template_id']) as int?;
+          if (templateId != null) {
+            _handleGetTemplate(templateId);
           }
           break;
         default:
@@ -350,18 +365,88 @@ class _ChatWebViewState extends State<ChatWebView> {
     }
   }
 
+  Future<void> _handleCopyMessage(String content) async {
+    try {
+      // 复制原始内容到剪贴板
+      await Clipboard.setData(ClipboardData(text: content));
+      
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '已复制到剪贴板',
+          type: ToastType.success,
+        );
+      }
+    } catch (e) {
+      debugPrint('复制消息失败: $e');
+      if (mounted) {
+        CustomToast.show(
+          context,
+          message: '复制失败',
+          type: ToastType.error,
+        );
+      }
+    }
+  }
+
+  Future<void> _handleGetTemplate(int templateId) async {
+    try {
+      debugPrint('WebView请求获取模板: $templateId');
+      
+      // 从缓存获取模板
+      final htmlTemplate = await _htmlTemplateCacheService.getTemplate(templateId);
+      
+      if (htmlTemplate != null) {
+        debugPrint('成功获取模板，长度: ${htmlTemplate.length}');
+        
+        // 返回模板给 WebView
+        final response = jsonEncode({
+          'templateId': templateId,
+          'htmlTemplate': htmlTemplate,
+        });
+        
+        // 调用 JavaScript 回调函数
+        final jsCode = 'window.receiveTemplate($response);';
+        _controller?.runJavaScript(jsCode);
+      } else {
+        debugPrint('模板 $templateId 不存在或未缓存');
+        
+        // 通知 WebView 获取失败
+        final response = jsonEncode({
+          'templateId': templateId,
+          'error': '模板不存在',
+        });
+        
+        final jsCode = 'window.receiveTemplate($response);';
+        _controller?.runJavaScript(jsCode);
+      }
+    } catch (e) {
+      debugPrint('获取模板失败: $e');
+      
+      // 通知 WebView 获取失败
+      final response = jsonEncode({
+        'templateId': templateId,
+        'error': e.toString(),
+      });
+      
+      final jsCode = 'window.receiveTemplate($response);';
+      _controller?.runJavaScript(jsCode);
+    }
+  }
+
   void _updateMessages() {
     if (!_isWebViewReady || _controller == null) {
       return;
     }
 
+    // 直接传递原始消息，不做模板处理
     final messagesData = widget.messages.map((message) {
       final msgId = message['msgId'];
       final isUser = message['isUser'] ?? false;
       final content = message['content'] ?? '';
 
       return {
-        'content': _sanitizeString(content),
+        'content': _sanitizeString(content), // 传递原始内容
         'isUser': isUser,
         'isLoading': message['isLoading'] ?? false,
         'msgId': msgId,

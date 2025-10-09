@@ -6,6 +6,7 @@ import '../../../services/file_service.dart';
 import '../services/home_service.dart';
 import '../../../pages/character_chat/pages/character_init_page.dart';
 import '../../../pages/novel/pages/novel_init_page.dart';
+import '../../../pages/group_chat/pages/group_chat_init_page.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/custom_toast.dart';
 import '../../../widgets/markdown_renderer.dart';
@@ -240,7 +241,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     }
   }
 
-  Future<void> _rewardItem(double amount) async {
+  Future<void> _rewardItem(double amount, {String? message}) async {
     if (_isRewarding) return;
 
     final String? itemId = widget.item['id']?.toString();
@@ -257,7 +258,11 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
     setState(() => _isRewarding = true);
     try {
-      final response = await _homeService.rewardItem(itemId, amount);
+      final response = await _homeService.rewardItem(
+        itemId,
+        amount,
+        message: message,
+      );
       if (response['code'] == 0) {
         if (mounted) {
           CustomToast.show(
@@ -294,10 +299,11 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => _RewardBottomSheet(
-        onReward: (amount) {
+        onReward: (amount, message) {
           Navigator.pop(context);
-          _rewardItem(amount);
+          _rewardItem(amount, message: message);
         },
       ),
     );
@@ -319,6 +325,15 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         MaterialPageRoute(
           builder: (context) => NovelInitPage(
             novelData: widget.item,
+          ),
+        ),
+      );
+    } else if (widget.item["item_type"] == "group_chat_card") {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => GroupChatInitPage(
+            groupChatData: widget.item,
           ),
         ),
       );
@@ -1499,7 +1514,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 }
 
 class _RewardBottomSheet extends StatefulWidget {
-  final Function(double) onReward;
+  final Function(double, String?) onReward;
 
   const _RewardBottomSheet({required this.onReward});
 
@@ -1509,6 +1524,13 @@ class _RewardBottomSheet extends StatefulWidget {
 
 class _RewardBottomSheetState extends State<_RewardBottomSheet> {
   double _selectedAmount = 10;
+  final TextEditingController _messageController = TextEditingController();
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1578,6 +1600,53 @@ class _RewardBottomSheetState extends State<_RewardBottomSheet> {
             ],
           ),
           SizedBox(height: 16.h),
+          
+          // 寄语输入框
+          Text(
+            '寄语（可选）',
+            style: TextStyle(
+              fontSize: 16.sp,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          SizedBox(height: 12.h),
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.cardBackground.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              border: Border.all(
+                color: AppTheme.primaryColor.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: TextField(
+              controller: _messageController,
+              maxLines: 2,
+              maxLength: 20,
+              decoration: InputDecoration(
+                hintText: '给创作者留下激励的话吧～ 💪',
+                hintStyle: TextStyle(
+                  color: AppTheme.textSecondary.withOpacity(0.6),
+                  fontSize: 14.sp,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16.w,
+                  vertical: 12.h,
+                ),
+                counterStyle: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 12.sp,
+                ),
+              ),
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 14.sp,
+              ),
+            ),
+          ),
+          SizedBox(height: 20.h),
+          
           Text(
             '选择激励金额',
             style: TextStyle(
@@ -1615,7 +1684,10 @@ class _RewardBottomSheetState extends State<_RewardBottomSheet> {
             ),
             child: ElevatedButton(
               onPressed: () {
-                widget.onReward(_selectedAmount);
+                final String? message = _messageController.text.trim().isEmpty
+                    ? null
+                    : _messageController.text.trim();
+                widget.onReward(_selectedAmount, message);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,

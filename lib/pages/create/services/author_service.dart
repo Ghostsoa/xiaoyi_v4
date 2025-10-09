@@ -150,4 +150,77 @@ class AuthorService {
       throw Exception('删除更新记录失败: $e');
     }
   }
+
+  /// 获取访问保护配置
+  Future<Map<String, dynamic>> getAccessProtection() async {
+    try {
+      final response = await _httpClient.get('/access-protection');
+      
+      if (response.statusCode == 200 && response.data['code'] == 0) {
+        return response.data['data'];
+      }
+      
+      throw Exception(response.data['msg'] ?? '获取访问保护配置失败');
+    } catch (e) {
+      throw Exception('获取访问保护配置失败: $e');
+    }
+  }
+
+  /// 启用访问保护
+  Future<void> enableAccessProtection() async {
+    try {
+      final response = await _httpClient.post('/access-protection/enable');
+      
+      if (response.statusCode != 200 || response.data['code'] != 0) {
+        throw Exception(response.data['msg'] ?? '启用访问保护失败');
+      }
+    } catch (e) {
+      throw Exception('启用访问保护失败: $e');
+    }
+  }
+
+  /// 禁用访问保护
+  Future<void> disableAccessProtection() async {
+    try {
+      final response = await _httpClient.post('/access-protection/disable');
+      
+      if (response.statusCode != 200 || response.data['code'] != 0) {
+        throw Exception(response.data['msg'] ?? '禁用访问保护失败');
+      }
+    } catch (e) {
+      throw Exception('禁用访问保护失败: $e');
+    }
+  }
+
+  /// 批量添加白名单
+  Future<void> addWhitelist(List<String> values) async {
+    try {
+      final response = await _httpClient.post(
+        '/access-protection/whitelist/add',
+        data: {'values': values},
+      );
+      
+      if (response.statusCode != 200 || response.data['code'] != 0) {
+        throw Exception(response.data['msg'] ?? '添加白名单失败');
+      }
+    } catch (e) {
+      throw Exception('添加白名单失败: $e');
+    }
+  }
+
+  /// 批量删除白名单
+  Future<void> removeWhitelist(List<String> values) async {
+    try {
+      final response = await _httpClient.post(
+        '/access-protection/whitelist/remove',
+        data: {'values': values},
+      );
+      
+      if (response.statusCode != 200 || response.data['code'] != 0) {
+        throw Exception(response.data['msg'] ?? '删除白名单失败');
+      }
+    } catch (e) {
+      throw Exception('删除白名单失败: $e');
+    }
+  }
 }

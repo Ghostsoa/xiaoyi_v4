@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>群聊对话</title>
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: transparent !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+
+        #app {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 8px;
+            box-sizing: border-box;
+            background: transparent !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            color: inherit;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 12px;
+            max-width: 100%;
+        }
+        
+        .message-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .message-item.user {
+            align-items: flex-end;
+        }
+        
+        .message-item.assistant {
+            align-items: flex-start;
+        }
+        
+        /* 角色信息区 */
+        .role-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        
+        .role-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .role-name {
+            font-size: 12px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .message-bubble {
+            max-width: 100%;
+            min-width: fit-content;
+            padding: 10px 14px;
+            border-radius: 12px;
+            word-wrap: break-word;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: block;
+            width: auto;
+        }
+        
+        .message-content {
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: inherit;
+        }
+
+        /* 混合内容也继承气泡颜色，但允许HTML标签覆盖 */
+        .mixed-content {
+            color: inherit;
+        }
+
+        /* 思考状态样式 */
+        .thinking-message {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .thinking-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            animation: shimmer-pulse 1.2s ease-in-out infinite;
+        }
+
+        .thinking-text {
+            animation: shimmer-pulse 1.2s ease-in-out infinite;
+            font-weight: 500;
+        }
+
+        @keyframes shimmer-pulse {
+            0%, 100% {
+                opacity: 0.5;
+            }
+            50% {
+                opacity: 1;
+            }
+        }
+
+        /* 加载状态的消息气泡 */
+        .message-bubble.loading {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .message-bubble.loading::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.2),
+                transparent
+            );
+            animation: loading-shimmer 1.5s infinite;
+        }
+
+        @keyframes loading-shimmer {
+            0% {
+                left: -100%;
+            }
+            100% {
+                left: 100%;
+            }
+        }
+
+        /* HTML iframe容器 - 纯粹的包装容器，无任何样式 */
+        .html-iframe-container {
+            width: 100%;
+        }
+
+        /* HTML iframe - 完全自适应高度 */
+        .html-iframe {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            border: none;
+            background: transparent !important;
+            display: block;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+
+        /* 嵌套iframe - 在气泡内的iframe，看起来天然 */
+        .nested-iframe {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            min-height: 100px;
+            border: none;
+            background: transparent;
+            display: block;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        /* 混合内容样式 - 继承气泡样式 */
+        .mixed-content {
+            color: inherit;
+            font-size: inherit;
+            font-family: inherit;
+            line-height: inherit;
+            overflow: hidden;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        /* 混合内容中的代码块样式 */
+        .mixed-content code {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        /* 混合内容中的所有元素 - 彻底去掉所有间距 */
+        .mixed-content * {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* 只保留列表的左边距用于编号/符号 */
+        .mixed-content ul,
+        .mixed-content ol {
+            padding-left: 20px !important;
+            overflow: hidden;
+        }
+
+        /* 保留必要的功能样式 */
+        .mixed-content li {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            list-style-position: inside;
+        }
+
+        .mixed-content summary {
+            cursor: pointer;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            outline: none;
+            display: block;
+        }
+
+        .mixed-content details {
+            overflow: hidden;
+        }
+
+        /* 操作按钮样式 */
+        .message-actions {
+            margin-top: 8px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            min-height: 28px;
+        }
+
+        .message-item.user .message-actions {
+            justify-content: flex-end;
+        }
+
+        .message-item.assistant .message-actions {
+            justify-content: flex-start;
+        }
+
+        .function-btn, .action-btn {
+            padding: 2px 6px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 9px;
+            background: rgba(0, 0, 0, 0.1);
+            color: #666;
+            transition: all 0.2s;
+            height: 20px;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .function-btn:hover, .action-btn:hover {
+            background: rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 消息列表 -->
+        <div class="chat-container">
+            <div 
+                v-for="message in messages" 
+                :key="message.msgId" 
+                :class="['message-item', message.isUser ? 'user' : 'assistant']"
+                :data-msg-id="message.msgId"
+            >
+                <!-- 角色信息（只对assistant消息显示） -->
+                <div v-if="!message.isUser && message.customRole" class="role-info">
+                    <img 
+                        v-if="message.avatarUri" 
+                        :src="message.avatarUri" 
+                        class="role-avatar"
+                        @error="handleImageError"
+                    />
+                    <div v-else class="role-avatar">
+                        {{ message.customRole.substring(0, 1) }}
+                    </div>
+                    <span class="role-name">{{ message.customRole }}</span>
+                </div>
+
+                <!-- HTML内容独立渲染（懒加载） -->
+                <div
+                    v-if="!message.isLoading && !message.status && isHtmlContent(message.content) && isMessageVisible(message.msgId)"
+                    class="html-iframe-container"
+                >
+                    <iframe
+                        :srcdoc="createIsolatedHtml(message.content)"
+                        class="html-iframe"
+                        frameborder="0"
+                        @load="resizeIframe"
+                    ></iframe>
+                </div>
+
+                <!-- 占位符（未加载的HTML内容） -->
+                <div
+                    v-else-if="!message.isLoading && !message.status && isHtmlContent(message.content)"
+                    class="message-placeholder"
+                    :style="{ minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }"
+                >
+                    HTML内容加载中...
+                </div>
+
+                <!-- 普通消息气泡 -->
+                <div
+                    v-else
+                    :class="['message-bubble', { 'loading': message.isLoading || message.status === 'streaming' }]"
+                    :style="{
+                        backgroundColor: message.isUser 
+                            ? hexToRgba(message.userBubbleColor, message.userBubbleOpacity)
+                            : hexToRgba(message.bubbleColor, message.bubbleOpacity),
+                        color: message.isUser ? message.userTextColor : message.textColor,
+                        fontSize: message.fontSize + 'px'
+                    }"
+                >
+                    <!-- 消息内容显示 -->
+                    <div class="message-content">
+                        <!-- 思考状态显示 -->
+                        <div v-if="message.isLoading || message.status === 'streaming'" class="thinking-message">
+                            <div
+                                class="thinking-dot"
+                                :style="{ backgroundColor: message.isUser ? message.userTextColor : message.textColor }"
+                            ></div>
+                            <span
+                                class="thinking-text"
+                                :style="{ color: message.isUser ? message.userTextColor : message.textColor }"
+                            >
+                                {{ message.customRole || 'AI' }}正在思考...
+                            </span>
+                    </div>
+
+                    <!-- 消息内容 -->
+                        <template v-else>
+                            <!-- 混合内容：HTML标签+文本，在气泡内用iframe渲染（懒加载） -->
+                            <iframe
+                                v-if="hasMixedContent(message.content) && isMessageVisible(message.msgId)"
+                                :srcdoc="createColoredIsolatedHtml(message.content, message.isUser ? message.userTextColor : message.textColor)"
+                                class="nested-iframe"
+                                frameborder="0"
+                                @load="resizeIframe"
+                            ></iframe>
+
+                            <!-- 占位符（未加载的混合内容） -->
+                            <div
+                                v-else-if="hasMixedContent(message.content)"
+                                class="mixed-placeholder"
+                                :style="{ minHeight: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7 }"
+                            >
+                                内容加载中...
+                            </div>
+
+                            <!-- 纯文本内容 -->
+                            <template v-else>
+                                {{ message.content }}
+                            </template>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div v-if="!message.isLoading && message.status !== 'streaming'" class="message-actions">
+                    <!-- AI消息：展开按钮在前，操作按钮在后 -->
+                    <template v-if="!message.isUser">
+                        <button
+                            class="function-btn"
+                            @click="toggleActions(message.msgId)"
+                            :style="{
+                                backgroundColor: hexToRgba(message.bubbleColor, message.bubbleOpacity),
+                                color: message.textColor
+                            }"
+                        >
+                            {{ isActionsExpanded(message.msgId) ? '收起' : '操作' }}
+                        </button>
+
+                        <template v-if="isActionsExpanded(message.msgId)">
+                            <button
+                                class="action-btn"
+                                @click="deleteMessage(message.msgId)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.bubbleColor, message.bubbleOpacity),
+                                    color: message.textColor
+                                }"
+                            >
+                                🗑️ 删除
+                            </button>
+                            <button
+                                class="action-btn"
+                                @click="copyMessage(message.originalContent || message.content)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.bubbleColor, message.bubbleOpacity),
+                                    color: message.textColor
+                                }"
+                            >
+                                📋 复制
+                            </button>
+                            <button
+                                class="action-btn"
+                                @click="editMessage(message.msgId, message.originalContent || message.content)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.bubbleColor, message.bubbleOpacity),
+                                    color: message.textColor
+                                }"
+                            >
+                                ✏️ 编辑
+                            </button>
+                        </template>
+                    </template>
+
+                    <!-- 用户消息：操作按钮在前，展开按钮在后 -->
+                    <template v-else>
+                        <template v-if="isActionsExpanded(message.msgId)">
+                            <button
+                                class="action-btn"
+                                @click="revokeMessage(message.msgId)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.userBubbleColor, message.userBubbleOpacity),
+                                    color: message.userTextColor
+                                }"
+                            >
+                                ↩️ 撤销
+                            </button>
+                            <button
+                                class="action-btn"
+                                @click="deleteMessage(message.msgId)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.userBubbleColor, message.userBubbleOpacity),
+                                    color: message.userTextColor
+                                }"
+                            >
+                                🗑️ 删除
+                            </button>
+                            <button
+                                class="action-btn"
+                                @click="copyMessage(message.originalContent || message.content)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.userBubbleColor, message.userBubbleOpacity),
+                                    color: message.userTextColor
+                                }"
+                            >
+                                📋 复制
+                            </button>
+                            <button
+                                class="action-btn"
+                                @click="editMessage(message.msgId, message.originalContent || message.content)"
+                                :style="{
+                                    backgroundColor: hexToRgba(message.userBubbleColor, message.userBubbleOpacity),
+                                    color: message.userTextColor
+                                }"
+                            >
+                                ✏️ 编辑
+                            </button>
+                        </template>
+
+                        <button
+                            class="function-btn"
+                            @click="toggleActions(message.msgId)"
+                            :style="{
+                                backgroundColor: hexToRgba(message.userBubbleColor, message.userBubbleOpacity),
+                                color: message.userTextColor
+                            }"
+                        >
+                            {{ isActionsExpanded(message.msgId) ? '收起' : '操作' }}
+                        </button>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, nextTick } = Vue;
+        
+        createApp({
+            setup() {
+                const messages = ref([]);
+                const expandedActions = ref(new Set());
+                const visibleMessages = ref(new Set());
+
+                // 将十六进制颜色转换为带透明度的rgba
+                const hexToRgba = (hex, opacity) => {
+                    if (!hex) return 'rgba(255, 255, 255, 0.8)';
+                    hex = hex.replace('#', '');
+                    const r = parseInt(hex.substr(0, 2), 16);
+                    const g = parseInt(hex.substr(2, 2), 16);
+                    const b = parseInt(hex.substr(4, 2), 16);
+                    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                };
+
+                // 检测内容是否需要iframe独立渲染（复杂HTML）
+                const isComplexHtmlContent = (content) => {
+                    if (!content || typeof content !== 'string') return false;
+
+                    const trimmed = content.trim().toLowerCase();
+
+                    // 完整的HTML文档使用iframe
+                    if (trimmed.startsWith('<!doctype html') || trimmed.startsWith('<html')) {
+                        return true;
+                    }
+
+                    // 或者包含head和body标签的完整结构
+                    if (trimmed.includes('<head') && trimmed.includes('<body')) {
+                        return true;
+                    }
+
+                    return false;
+                };
+
+                // 检测内容是否包含简单HTML标签（在气泡内渲染）
+                const hasSimpleHtmlContent = (content) => {
+                    if (!content || typeof content !== 'string') return false;
+
+                    // 如果是复杂HTML，不算简单内容
+                    if (isComplexHtmlContent(content)) return false;
+
+                    // 检测是否包含HTML标签，如果包含就在气泡内渲染
+                    const htmlTagRegex = /<[^>]+>/;
+                    return htmlTagRegex.test(content);
+                };
+
+                // 为了兼容性，保留原来的函数名
+                const isHtmlContent = isComplexHtmlContent;
+                const hasMixedContent = hasSimpleHtmlContent;
+
+                // 简单的HTML内容缓存
+                const htmlCache = new Map();
+                const maxCacheSize = 20;
+
+                // 创建隔离的HTML文档（用于独立iframe）
+                const createIsolatedHtml = (content) => {
+                    const cacheKey = `isolated_${content.length}_${content.substring(0, 50)}`;
+
+                    if (htmlCache.has(cacheKey)) {
+                        return htmlCache.get(cacheKey);
+                    }
+
+                    const trimmed = content.trim().toLowerCase();
+                    const isFullHtml = trimmed.startsWith('<!doctype html') || 
+                                     trimmed.startsWith('<html') || 
+                                     (trimmed.includes('<head') && trimmed.includes('<body>'));
+
+                    let html;
+                    
+                    if (isFullHtml) {
+                        html = content;
+                    } else {
+                        html = `
+                            <!DOCTYPE html>
+                            <html style="background: transparent !important;">
+                            <head>
+                                <meta charset="UTF-8">
+                                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                                <style>
+                                    html, body {
+                                        margin: 0;
+                                        padding: 0;
+                                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                                        font-size: 14px;
+                                        line-height: 1.5;
+                                        background: transparent !important;
+                                        backdrop-filter: none !important;
+                                        -webkit-backdrop-filter: none !important;
+                                        overflow: auto;
+                                    }
+                                    .terminal {
+                                        max-width: 100% !important;
+                                        width: 100% !important;
+                                        margin: 0 !important;
+                                    }
+                                    ::-webkit-scrollbar {
+                                        display: none;
+                                    }
+                                    * {
+                                        scrollbar-width: none;
+                                        -ms-overflow-style: none;
+                                    }
+                                </style>
+                            </head>
+                            <body>
+                                ${content}
+                                <script>
+                                    function resizeParent() {
+                                        const height = document.body.scrollHeight;
+                                        window.parent.postMessage({
+                                            type: 'resize',
+                                            height: height
+                                        }, '*');
+                                    }
+                                    window.addEventListener('load', function() {
+                                        resizeParent();
+                                    });
+                                    const observer = new MutationObserver(function() {
+                                        resizeParent();
+                                    });
+                                    observer.observe(document.body, {
+                                        childList: true,
+                                        subtree: true,
+                                        attributes: true
+                                    });
+                                    setTimeout(function() {
+                                        resizeParent();
+                                    }, 100);
+                                <\/script>
+                            </body>
+                            </html>
+                        `;
+                    }
+
+                    if (htmlCache.size >= maxCacheSize) {
+                        const firstKey = htmlCache.keys().next().value;
+                        htmlCache.delete(firstKey);
+                    }
+                    htmlCache.set(cacheKey, html);
+
+                    return html;
+                };
+
+                // 创建带颜色的隔离HTML文档（用于嵌套iframe）
+                const createColoredIsolatedHtml = (content, textColor) => {
+                    const cacheKey = `colored_${content.length}_${textColor}_${content.substring(0, 50)}`;
+
+                    if (htmlCache.has(cacheKey)) {
+                        return htmlCache.get(cacheKey);
+                    }
+
+                    const html = `
+                        <!DOCTYPE html>
+                        <html style="background: transparent !important;">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <style>
+                                html, body {
+                                    margin: 0;
+                                    padding: 0;
+                                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                                    font-size: 14px;
+                                    line-height: 1.5;
+                                    background: transparent !important;
+                                    backdrop-filter: none !important;
+                                    -webkit-backdrop-filter: none !important;
+                                    overflow-x: auto;
+                                    overflow-y: hidden;
+                                    color: ${textColor} !important;
+                                }
+                                * {
+                                    color: inherit;
+                                }
+                                .terminal {
+                                    max-width: 100% !important;
+                                    width: 100% !important;
+                                    margin: 0 !important;
+                                }
+                                ::-webkit-scrollbar {
+                                    display: none;
+                                }
+                                * {
+                                    scrollbar-width: none;
+                                    -ms-overflow-style: none;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            ${content}
+                            <script>
+                                function resizeParent() {
+                                    const height = document.body.scrollHeight;
+                                    window.parent.postMessage({
+                                        type: 'resize',
+                                        height: height
+                                    }, '*');
+                                }
+                                window.addEventListener('load', function() {
+                                    resizeParent();
+                                });
+                                const observer = new MutationObserver(function() {
+                                    resizeParent();
+                                });
+                                observer.observe(document.body, {
+                                    childList: true,
+                                    subtree: true,
+                                    attributes: true
+                                });
+                                setTimeout(function() {
+                                    resizeParent();
+                                }, 100);
+                            <\/script>
+                        </body>
+                        </html>
+                    `;
+
+                    if (htmlCache.size >= maxCacheSize) {
+                        const firstKey = htmlCache.keys().next().value;
+                        htmlCache.delete(firstKey);
+                    }
+                    htmlCache.set(cacheKey, html);
+
+                    return html;
+                };
+
+                // iframe自动调整大小
+                const resizeIframe = (event) => {
+                    const iframe = event.target;
+                    const isNested = iframe.classList.contains('nested-iframe');
+
+                    if (!isNested) {
+                        setTimeout(() => {
+                            try {
+                                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                                if (doc && doc.body) {
+                                    const contentHeight = doc.body.scrollHeight;
+                                    iframe.style.height = contentHeight + 'px';
+                                }
+                            } catch (e) {
+                                iframe.style.height = '400px';
+                            }
+                        }, 100);
+                        return;
+                    }
+
+                    const handleMessage = (e) => {
+                        if (e.source === iframe.contentWindow && e.data && e.data.type === 'resize') {
+                            const newHeight = e.data.height;
+                            iframe.style.height = newHeight + 'px';
+                        }
+                    };
+
+                    window.addEventListener('message', handleMessage);
+
+                    iframe.addEventListener('beforeunload', () => {
+                        window.removeEventListener('message', handleMessage);
+                    });
+                };
+
+                // 处理图片加载失败
+                const handleImageError = (event) => {
+                    event.target.style.display = 'none';
+                };
+
+                // 更新消息列表
+                const updateMessages = async (newMessages, shouldScrollToBottom = false) => {
+                    // 先处理所有消息中的模板
+                    const processedMessages = await Promise.all(
+                        newMessages.map(msg => processMessageTemplates(msg))
+                    );
+                    
+                    const oldLength = messages.value.length;
+                    const newLength = processedMessages.length;
+
+                    console.log('更新消息:', {
+                        oldLength,
+                        newLength,
+                        shouldScrollToBottom
+                    });
+
+                    if (oldLength === 0 && newLength > 0) {
+                        messages.value = processedMessages;
+                        setTimeout(() => {
+                            window.scrollTo(0, document.body.scrollHeight);
+                        }, 0);
+                        return;
+                    }
+
+                    let shouldMaintainPosition = false;
+                    let oldScrollHeight = 0;
+
+                    if (newLength > oldLength && !shouldScrollToBottom) {
+                        shouldMaintainPosition = true;
+                        oldScrollHeight = document.documentElement.scrollHeight;
+                    }
+
+                    messages.value = processedMessages;
+
+                    if (shouldScrollToBottom) {
+                        nextTick(() => {
+                            window.scrollTo({
+                                top: document.documentElement.scrollHeight,
+                                behavior: 'instant'
+                            });
+                        });
+                    } else if (shouldMaintainPosition) {
+                        nextTick(() => {
+                            const newScrollHeight = document.documentElement.scrollHeight;
+                            const heightDiff = newScrollHeight - oldScrollHeight;
+                            window.scrollTo({
+                                top: window.scrollY + heightDiff,
+                                behavior: 'instant'
+                            });
+                        });
+                    }
+                };
+
+                window.updateMessages = updateMessages;
+
+                // 滚动监听
+                const handleScroll = () => {
+                    if (window.scrollY <= 100) {
+                        if (window.FlutterBridge) {
+                            window.FlutterBridge.postMessage(JSON.stringify({
+                                action: 'loadMore'
+                            }));
+                        }
+                    }
+                };
+                
+                window.addEventListener('scroll', handleScroll);
+
+                // 发送消息到Flutter
+                const sendToFlutter = (action, data = {}) => {
+                    console.log('Sending to Flutter:', action, data);
+                    if (window.FlutterBridge) {
+                        window.FlutterBridge.postMessage(JSON.stringify({
+                            action: action,
+                            ...data
+                        }));
+                    } else {
+                        console.error('FlutterBridge not available');
+                    }
+                };
+
+                // ========== HTML模板渲染相关 ==========
+                
+                // 模板缓存（templateId -> htmlTemplate）
+                const templateCache = new Map();
+                
+                // 等待模板的 Promise 缓存（templateId -> Promise）
+                const templatePromises = new Map();
+                
+                // 从 Flutter 接收模板的回调
+                window.receiveTemplate = (response) => {
+                    console.log('[HTML] 收到模板响应:', response);
+                    const { templateId, htmlTemplate, error } = response;
+                    
+                    if (error) {
+                        console.error('[HTML] 获取模板失败:', error);
+                        templateCache.set(templateId, null);
+                    } else {
+                        templateCache.set(templateId, htmlTemplate);
+                    }
+                    
+                    const resolve = templatePromises.get(templateId);
+                    if (resolve) {
+                        resolve(htmlTemplate || null);
+                        templatePromises.delete(templateId);
+                    }
+                };
+                
+                // 从 Flutter 获取模板
+                const getTemplate = (templateId) => {
+                    if (templateCache.has(templateId)) {
+                        return Promise.resolve(templateCache.get(templateId));
+                    }
+                    
+                    if (templatePromises.has(templateId)) {
+                        return new Promise((resolve) => {
+                            const existingResolve = templatePromises.get(templateId);
+                            templatePromises.set(templateId, (result) => {
+                                existingResolve(result);
+                                resolve(result);
+                            });
+                        });
+                    }
+                    
+                    return new Promise((resolve) => {
+                        templatePromises.set(templateId, resolve);
+                        sendToFlutter('getTemplate', { templateId });
+                        
+                        setTimeout(() => {
+                            if (templatePromises.has(templateId)) {
+                                console.error('[HTML] 获取模板超时:', templateId);
+                                templatePromises.delete(templateId);
+                                templateCache.set(templateId, null);
+                                resolve(null);
+                            }
+                        }, 5000);
+                    });
+                };
+                
+                // 提取消息中的模板JSON
+                const extractTemplateJson = (content) => {
+                    const matches = [];
+                    
+                    // 1. 匹配 ```json ... ``` 代码块
+                    const markdownRegex = /```json\s*\n([\s\S]*?)\n```/g;
+                    let match;
+                    
+                    while ((match = markdownRegex.exec(content)) !== null) {
+                        try {
+                            const jsonStr = match[1].trim();
+                            const jsonData = JSON.parse(jsonStr);
+                            
+                            if (jsonData.template_id || jsonData.templateId) {
+                                matches.push({
+                                    original: match[0],
+                                    json: jsonData
+                                });
+                            }
+                        } catch (e) {
+                            console.warn('[HTML] Markdown代码块JSON解析失败:', e);
+                        }
+                    }
+                    
+                    // 2. 提取纯 JSON
+                    let remainingContent = content;
+                    for (const item of matches) {
+                        remainingContent = remainingContent.replace(item.original, '');
+                    }
+                    
+                    for (let i = 0; i < remainingContent.length; i++) {
+                        if (remainingContent[i] === '{') {
+                            let depth = 1;
+                            let j = i + 1;
+                            let inString = false;
+                            let escapeNext = false;
+                            
+                            while (j < remainingContent.length && depth > 0) {
+                                const char = remainingContent[j];
+                                
+                                if (escapeNext) {
+                                    escapeNext = false;
+                                } else if (char === '\\') {
+                                    escapeNext = true;
+                                } else if (char === '"' && !escapeNext) {
+                                    inString = !inString;
+                                } else if (!inString) {
+                                    if (char === '{') depth++;
+                                    else if (char === '}') depth--;
+                                }
+                                j++;
+                            }
+                            
+                            if (depth === 0) {
+                                const jsonStr = remainingContent.substring(i, j);
+                                try {
+                                    const jsonData = JSON.parse(jsonStr);
+                                    
+                                    if (typeof jsonData === 'object' && 
+                                        jsonData !== null && 
+                                        (jsonData.template_id || jsonData.templateId)) {
+                                        matches.push({
+                                            original: jsonStr,
+                                            json: jsonData
+                                        });
+                                    }
+                                } catch (e) {}
+                                
+                                i = j - 1;
+                            }
+                        }
+                    }
+                    
+                    return matches;
+                };
+                
+                // 渲染模板
+                const renderTemplate = (htmlTemplate, data) => {
+                    if (!htmlTemplate || !data) return htmlTemplate;
+                    
+                    let rendered = htmlTemplate;
+                    for (const [key, value] of Object.entries(data)) {
+                        const placeholder = `{{${key}}}`;
+                        const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                        rendered = rendered.replace(regex, value !== null && value !== undefined ? String(value) : '');
+                    }
+                    
+                    return rendered;
+                };
+                
+                // 处理消息中的模板
+                const processMessageTemplates = async (message) => {
+                    const content = message.content;
+                    if (!content || typeof content !== 'string') return message;
+                    
+                    const templates = extractTemplateJson(content);
+                    if (templates.length === 0) return message;
+                    
+                    console.log(`[HTML] 在消息中找到 ${templates.length} 个模板`);
+                    
+                    let processedContent = content;
+                    
+                    for (const template of templates) {
+                        const templateId = template.json.template_id || template.json.templateId;
+                        const data = template.json.data;
+                        
+                        console.log('[HTML] 处理模板ID:', templateId);
+                        
+                        const htmlTemplate = await getTemplate(templateId);
+                        
+                        if (htmlTemplate) {
+                            const renderedHtml = renderTemplate(htmlTemplate, data);
+                            console.log('[HTML] 渲染成功，HTML长度:', renderedHtml.length);
+                            processedContent = processedContent.replace(template.original, renderedHtml);
+                        } else {
+                            console.warn('[HTML] 模板不存在或获取失败:', templateId);
+                        }
+                    }
+                    
+                    return {
+                        ...message,
+                        originalContent: content,
+                        content: processedContent
+                    };
+                };
+
+                // 编辑消息
+                const editMessage = (msgId, content) => {
+                    sendToFlutter('editMessage', { msgId, content });
+                };
+
+                // 复制消息
+                const copyMessage = (content) => {
+                    sendToFlutter('copyMessage', { content });
+                };
+
+                // 删除消息
+                const deleteMessage = (msgId) => {
+                    sendToFlutter('deleteMessage', { msgId });
+                };
+
+                // 撤销消息
+                const revokeMessage = (msgId) => {
+                    sendToFlutter('revokeMessage', { msgId });
+                };
+
+                // 切换操作按钮的展开/收起状态
+                const toggleActions = (msgId) => {
+                    if (expandedActions.value.has(msgId)) {
+                        expandedActions.value.delete(msgId);
+                    } else {
+                        expandedActions.value.add(msgId);
+                    }
+                    expandedActions.value = new Set(expandedActions.value);
+                };
+
+                // 检查操作按钮是否展开
+                const isActionsExpanded = (msgId) => {
+                    return expandedActions.value.has(msgId);
+                };
+
+                // 检查消息是否可见（暂时全部可见）
+                const isMessageVisible = (msgId) => {
+                    return true;
+                };
+
+                // 通知Flutter WebView已准备就绪
+                if (window.FlutterBridge) {
+                    window.FlutterBridge.postMessage(JSON.stringify({
+                        action: 'webViewReady'
+                    }));
+                }
+
+                return {
+                    messages,
+                    expandedActions,
+                    visibleMessages,
+                    hexToRgba,
+                    isHtmlContent,
+                    hasMixedContent,
+                    createIsolatedHtml,
+                    createColoredIsolatedHtml,
+                    resizeIframe,
+                    handleImageError,
+                    editMessage,
+                    copyMessage,
+                    deleteMessage,
+                    revokeMessage,
+                    toggleActions,
+                    isActionsExpanded,
+                    isMessageVisible
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

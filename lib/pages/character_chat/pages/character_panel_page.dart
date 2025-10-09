@@ -147,6 +147,11 @@ class _CharacterPanelPageState extends State<CharacterPanelPage> {
 
       _uiSettings = data['ui_settings'] ?? 'markdown';
       _originalUiSettings = _uiSettings; // 保存原始值
+      
+      // 确保 prefix_suffix_editable 字段被加载到 sessionData 中
+      if (!_sessionData.containsKey('prefix_suffix_editable')) {
+        _sessionData['prefix_suffix_editable'] = data['prefix_suffix_editable'] ?? false;
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
