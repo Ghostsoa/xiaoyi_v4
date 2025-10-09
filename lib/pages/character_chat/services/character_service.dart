@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 class CharacterService {
   final HttpClient _httpClient = HttpClient();
 
+///ceshi
   /// 创建角色卡会话
   Future<Map<String, dynamic>> createCharacterSession(
     int characterId,
