@@ -97,7 +97,7 @@ class CharacterChatStreamService {
         'X-App-Version': appVersion,
       });
       sseRequest.body = jsonEncode({'input': input});
-
+//wwww
       // 启动轮询（每3秒）
       final pollingUri = Uri.parse('$baseUrl/polling');
       pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
