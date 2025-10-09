@@ -89,6 +89,110 @@ class _CreateCenterPageState extends State<CreateCenterPage> {
 
   // 切换访问保护开关
   Future<void> _toggleAccessProtection(bool value) async {
+    // 如果是要启用保护，先弹窗提示
+    if (value) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppTheme.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.security,
+                color: AppTheme.primaryColor,
+                size: 24.sp,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                '启用作品访问保护',
+                style: TextStyle(
+                  fontSize: AppTheme.bodySize,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '一旦开启，所有的角色卡都会被系统保护，任何用户使用时，不会放行系统白名单和自定义白名单内的第三方接口。',
+                style: TextStyle(
+                  fontSize: AppTheme.captionSize,
+                  color: AppTheme.textPrimary,
+                  height: 1.5,
+                ),
+              ),
+              SizedBox(height: 12.h),
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8.r),
+                  border: Border.all(
+                    color: AppTheme.primaryColor.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: AppTheme.primaryColor,
+                      size: 16.sp,
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Text(
+                        '如果需要放行某个IP或域名地址，请添加白名单',
+                        style: TextStyle(
+                          fontSize: AppTheme.smallSize,
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                '取消',
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: AppTheme.bodySize,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                '确定启用',
+                style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontSize: AppTheme.bodySize,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      // 如果用户取消，直接返回
+      if (confirmed != true) {
+        return;
+      }
+    }
+    
     setState(() => _isLoadingAccessProtection = true);
     
     try {
