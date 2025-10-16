@@ -170,20 +170,32 @@ class SessionDataService {
   Future<SessionListResponse> getLocalCharacterSessions({
     int page = 1,
     int pageSize = 10,
+    String? searchName,
   }) async {
     await initDatabase();
     
     final offset = (page - 1) * pageSize;
     
+    // 🔥 构建WHERE条件
+    String? whereClause;
+    List<dynamic>? whereArgs;
+    if (searchName != null && searchName.isNotEmpty) {
+      whereClause = 'name LIKE ?';
+      whereArgs = ['%$searchName%'];
+    }
+    
     // 获取总数
     final countResult = await _database!.rawQuery(
-      'SELECT COUNT(*) as count FROM character_sessions'
+      'SELECT COUNT(*) as count FROM character_sessions${whereClause != null ? ' WHERE $whereClause' : ''}',
+      whereArgs,
     );
     final total = countResult.first['count'] as int;
 
     // 🔥 获取分页数据，置顶会话优先显示，置顶内按消息时间排序（微信方式）
     final result = await _database!.query(
       'character_sessions',
+      where: whereClause,
+      whereArgs: whereArgs,
       orderBy: 'is_pinned DESC, updated_at DESC, id DESC',
       limit: pageSize,
       offset: offset,
@@ -204,20 +216,32 @@ class SessionDataService {
   Future<SessionListResponse> getLocalNovelSessions({
     int page = 1,
     int pageSize = 10,
+    String? searchName,
   }) async {
     await initDatabase();
     
     final offset = (page - 1) * pageSize;
     
+    // 🔥 构建WHERE条件
+    String? whereClause;
+    List<dynamic>? whereArgs;
+    if (searchName != null && searchName.isNotEmpty) {
+      whereClause = 'name LIKE ?';
+      whereArgs = ['%$searchName%'];
+    }
+    
     // 获取总数
     final countResult = await _database!.rawQuery(
-      'SELECT COUNT(*) as count FROM novel_sessions'
+      'SELECT COUNT(*) as count FROM novel_sessions${whereClause != null ? ' WHERE $whereClause' : ''}',
+      whereArgs,
     );
     final total = countResult.first['count'] as int;
 
     // 🔥 获取分页数据，置顶会话优先显示，置顶内按消息时间排序（微信方式）
     final result = await _database!.query(
       'novel_sessions',
+      where: whereClause,
+      whereArgs: whereArgs,
       orderBy: 'is_pinned DESC, updated_at DESC, id DESC',
       limit: pageSize,
       offset: offset,
@@ -700,20 +724,32 @@ class SessionDataService {
   Future<SessionListResponse> getLocalGroupChatSessions({
     int page = 1,
     int pageSize = 10,
+    String? searchName,
   }) async {
     await initDatabase();
     
     final offset = (page - 1) * pageSize;
     
+    // 🔥 构建WHERE条件
+    String? whereClause;
+    List<dynamic>? whereArgs;
+    if (searchName != null && searchName.isNotEmpty) {
+      whereClause = 'name LIKE ?';
+      whereArgs = ['%$searchName%'];
+    }
+    
     // 获取总数
     final countResult = await _database!.rawQuery(
-      'SELECT COUNT(*) as count FROM group_chat_sessions'
+      'SELECT COUNT(*) as count FROM group_chat_sessions${whereClause != null ? ' WHERE $whereClause' : ''}',
+      whereArgs,
     );
     final total = countResult.first['count'] as int;
 
     // 🔥 获取分页数据，置顶会话优先显示，置顶内按消息时间排序（微信方式）
     final result = await _database!.query(
       'group_chat_sessions',
+      where: whereClause,
+      whereArgs: whereArgs,
       orderBy: 'is_pinned DESC, updated_at DESC, id DESC',
       limit: pageSize,
       offset: offset,

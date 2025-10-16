@@ -38,6 +38,7 @@ class CharacterSessionListState extends State<CharacterSessionList> {
   final FileService _fileService = FileService();
   final SessionDataService _sessionDataService = SessionDataService();
   final RefreshController _refreshController = RefreshController();
+  final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = false;
   List<Map<String, dynamic>> _sessions = [];
@@ -45,6 +46,10 @@ class CharacterSessionListState extends State<CharacterSessionList> {
   bool _hasMore = true;
   final Map<String, Uint8List> _avatarCache = {};
   StreamSubscription? _sessionStreamSubscription;
+  
+  // 🔥 搜索相关
+  String _searchKeyword = '';
+  Timer? _searchDebounceTimer;
 
   @override
   void initState() {
@@ -57,6 +62,8 @@ class CharacterSessionListState extends State<CharacterSessionList> {
   void dispose() {
     _sessionStreamSubscription?.cancel();
     _refreshController.dispose();
+    _searchController.dispose();
+    _searchDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -78,16 +85,20 @@ class CharacterSessionListState extends State<CharacterSessionList> {
     });
 
     try {
-      // 🔥 步骤1: 先从本地缓存快速显示（只读第一页）
+      // 🔥 步骤1: 先从本地缓存快速显示（读取第一页）
       final localResult = await _messageService.getCharacterSessions(
         page: 1,
         pageSize: 10,
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
       );
 
       if (mounted && localResult['list'] is List) {
         final localSessions = List<Map<String, dynamic>>.from(localResult['list']);
+        final int localTotal = localResult['total'] ?? 0;
+        
         setState(() {
           _sessions = localSessions;
+          _hasMore = localTotal > 10; // 基于本地数据判断是否有更多
           _isLoading = false;
         });
 
@@ -100,9 +111,10 @@ class CharacterSessionListState extends State<CharacterSessionList> {
       // 🔥 步骤2: 后台异步请求API静默更新
       print('========================================');
       print('[CharacterSessionList] >>> 开始API异步更新第一页...');
-      final apiResult = await _messageService.syncCharacterSessionsFromApi(
+      await _messageService.syncCharacterSessionsFromApi(
         page: 1,
         pageSize: 10,
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
       );
 
       print('[CharacterSessionList] <<< API更新完成，当前页码: $_currentPage');
@@ -113,15 +125,16 @@ class CharacterSessionListState extends State<CharacterSessionList> {
         final updatedResult = await _messageService.getCharacterSessions(
           page: 1,
           pageSize: 10,
+          searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
         );
 
         if (updatedResult['list'] is List) {
           final updatedSessions = List<Map<String, dynamic>>.from(updatedResult['list']);
-          final int total = apiResult['total'] is int ? apiResult['total'] : 0;
+          final int localTotal = updatedResult['total'] ?? 0;
           
           setState(() {
             _sessions = updatedSessions;
-            _hasMore = total > 10;
+            _hasMore = localTotal > 10; // 🔥 基于本地total判断
           });
 
           // 预加载新头像
@@ -130,11 +143,16 @@ class CharacterSessionListState extends State<CharacterSessionList> {
           }
         }
       } else if (mounted) {
-        // 如果已经加载了更多页，只更新 _hasMore 状态
+        // 如果已经加载了更多页，重新计算hasMore
         print('[CharacterSessionList] [!] 第一页API更新完成，但当前已在第$_currentPage页，跳过UI更新');
-        final int total = apiResult['total'] is int ? apiResult['total'] : 0;
+        final updatedResult = await _messageService.getCharacterSessions(
+          page: 1,
+          pageSize: _currentPage * 10, // 获取到当前页的所有数据
+          searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
+        );
+        final int localTotal = updatedResult['total'] ?? 0;
         setState(() {
-          _hasMore = _currentPage * 10 < total;
+          _hasMore = _currentPage * 10 < localTotal;
         });
       }
       print('========================================');
@@ -157,12 +175,14 @@ class CharacterSessionListState extends State<CharacterSessionList> {
       final apiResult = await _messageService.syncCharacterSessionsFromApi(
         page: 1,
         pageSize: 10,
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
       );
 
       // 从本地读取（包含置顶排序）
       final result = await _messageService.getCharacterSessions(
         page: 1,
         pageSize: 10,
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
       );
 
       if (mounted) {
@@ -202,72 +222,145 @@ class CharacterSessionListState extends State<CharacterSessionList> {
       print('========================================');
       print('[CharacterSessionList] >>> 加载更多：第$nextPage页');
 
-      // 🔥 直接从API请求数据（不走本地缓存，不同步到本地数据库）
-      final apiResult = await _messageService.syncCharacterSessionsFromApi(
+      // 🔥 步骤1: 先从本地数据库加载下一页
+      final localResult = await _messageService.getCharacterSessions(
         page: nextPage,
         pageSize: 10,
-        syncToLocal: false, // 🔥 第二页及以后不同步到本地
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
       );
 
-      if (mounted && apiResult['list'] is List) {
-        // 🔥 直接使用API返回的数据，不要从本地数据库读取（避免排序不一致）
-        final apiSessions = (apiResult['list'] as List).cast<Map<String, dynamic>>();
-        
-        // 🔥 获取当前已有的所有会话ID（包括置顶的）
-        final existingIds = _sessions.map((s) => s['id'] as int).toSet();
+      if (mounted && localResult['list'] is List) {
+        final localSessions = List<Map<String, dynamic>>.from(localResult['list']);
+        final int localTotal = localResult['total'] ?? 0;
 
-        print('[CharacterSessionList] 当前已有ID: $existingIds');
-        print('[CharacterSessionList] API返回ID: ${apiSessions.map((s) => s['id']).toList()}');
+        print('[CharacterSessionList] 本地数据库返回${localSessions.length}条');
 
-        // 🔥 过滤掉已存在的会话（避免置顶会话重复）
-        final newSessions = apiSessions
-            .where((session) => !existingIds.contains(session['id'] as int))
-            .toList();
-
-        final int total = apiResult['total'] is int ? apiResult['total'] : 0;
-
-        print('[CharacterSessionList] API返回${apiSessions.length}条，去重后${newSessions.length}条');
-
-        if (newSessions.isNotEmpty) {
+        if (localSessions.isNotEmpty) {
+          // 本地有数据，直接使用
           final oldLength = _sessions.length;
           setState(() {
-            _sessions.addAll(newSessions);
+            _sessions.addAll(localSessions);
             _currentPage = nextPage;
-            _hasMore = _currentPage * 10 < total;
+            _hasMore = _currentPage * 10 < localTotal;
           });
 
-          print('[CharacterSessionList] [SUCCESS] 数据累加：从$oldLength条增加到${_sessions.length}条');
-          print('[CharacterSessionList] [STATE] page=$_currentPage, total=$total, hasMore=$_hasMore');
+          print('[CharacterSessionList] [SUCCESS] 从本地加载：从$oldLength条增加到${_sessions.length}条');
+          print('[CharacterSessionList] [STATE] page=$_currentPage, localTotal=$localTotal, hasMore=$_hasMore');
 
-          for (var session in newSessions) {
+          for (var session in localSessions) {
+            _loadAvatar(session['cover_uri']);
+          }
+
+          _refreshController.loadComplete();
+
+          // 🔥 后台异步从API加载该页数据并同步到本地
+          _syncPageFromApiInBackground(nextPage);
+        } else {
+          // 本地没有更多数据，从API加载
+          print('[CharacterSessionList] 本地无更多数据，从API加载...');
+          await _loadMoreFromApi(nextPage);
+        }
+      } else {
+        // 本地读取失败，从API加载
+        await _loadMoreFromApi(nextPage);
+      }
+      
+      print('========================================');
+    } catch (e) {
+      print('[CharacterSessionList] [ERROR] 加载失败: $e');
+      _refreshController.loadFailed();
+    }
+  }
+
+  /// 🔥 从API加载更多数据
+  Future<void> _loadMoreFromApi(int page) async {
+    final apiResult = await _messageService.syncCharacterSessionsFromApi(
+      page: page,
+      pageSize: 10,
+      syncToLocal: true, // 🔥 同步到本地数据库
+      searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
+    );
+
+    if (mounted && apiResult['list'] is List) {
+      // 重新从本地读取该页数据（包含置顶排序）
+      final localResult = await _messageService.getCharacterSessions(
+        page: page,
+        pageSize: 10,
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
+      );
+
+      if (localResult['list'] is List) {
+        final localSessions = List<Map<String, dynamic>>.from(localResult['list']);
+        final int localTotal = localResult['total'] ?? 0;
+
+        if (localSessions.isNotEmpty) {
+          final oldLength = _sessions.length;
+          setState(() {
+            _sessions.addAll(localSessions);
+            _currentPage = page;
+            _hasMore = _currentPage * 10 < localTotal;
+          });
+
+          print('[CharacterSessionList] [SUCCESS] 从API加载：从$oldLength条增加到${_sessions.length}条');
+
+          for (var session in localSessions) {
             _loadAvatar(session['cover_uri']);
           }
 
           _refreshController.loadComplete();
         } else {
-          // 去重后没有新数据，可能都是置顶的，尝试加载下一页
-          print('[CharacterSessionList] [WARNING] 去重后无新数据，尝试继续...');
           setState(() {
-            _currentPage = nextPage;
-            _hasMore = nextPage * 10 < total;
+            _currentPage = page;
+            _hasMore = false;
           });
-
-          if (_hasMore) {
-            _refreshController.loadComplete();
-            // 递归加载下一页
-            await _onLoading();
-          } else {
-            _refreshController.loadNoData();
-          }
+          _refreshController.loadNoData();
         }
-        
-        print('========================================');
-      } else {
-        _refreshController.loadComplete();
       }
+    } else {
+      _refreshController.loadComplete();
+    }
+  }
+
+  /// 🔥 后台异步从API同步指定页数据
+  Future<void> _syncPageFromApiInBackground(int page) async {
+    try {
+      await _messageService.syncCharacterSessionsFromApi(
+        page: page,
+        pageSize: 10,
+        syncToLocal: true, // 同步到本地
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
+      );
+      print('[CharacterSessionList] [BACKGROUND] 后台同步第$page页完成');
     } catch (e) {
-      print('[CharacterSessionList] [ERROR] 加载失败: $e');
-      _refreshController.loadFailed();
+      print('[CharacterSessionList] [BACKGROUND] 后台同步第$page页失败: $e');
+    }
+  }
+
+  /// 🔥 处理搜索输入
+  void _onSearchChanged(String value) {
+    // 取消之前的防抖Timer
+    _searchDebounceTimer?.cancel();
+    
+    // 设置新的防抖Timer（500ms）
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (_searchKeyword != value) {
+        setState(() {
+          _searchKeyword = value;
+        });
+        // 重新加载数据
+        _loadSessions();
+      }
+    });
+  }
+
+  /// 🔥 清除搜索
+  void _clearSearch() {
+    _searchController.clear();
+    if (_searchKeyword.isNotEmpty) {
+      setState(() {
+        _searchKeyword = '';
+      });
+      _loadSessions();
     }
   }
 
@@ -444,51 +537,139 @@ class CharacterSessionListState extends State<CharacterSessionList> {
     );
 
     if (_isLoading && _sessions.isEmpty) {
-      return ListView.builder(
-        padding: EdgeInsets.symmetric(horizontal: 20.w),
-        itemCount: 10,
-        itemBuilder: (context, index) => _buildSkeletonItem(),
+      return Column(
+        children: [
+          _buildSearchBar(),
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              itemCount: 10,
+              itemBuilder: (context, index) => _buildSkeletonItem(),
+            ),
+          ),
+        ],
       );
     }
 
-    return SmartRefresher(
-      controller: _refreshController,
-      enablePullDown: true,
-      enablePullUp: true,
-      header: customHeader,
-      footer: customFooter,
-      onRefresh: onRefresh,
-      onLoading: _onLoading,
-      child: _sessions.isEmpty
-          ? _buildEmptyView()
-          : ListView.builder(
-              key: const PageStorageKey('message_list'),
-              itemCount: _sessions.length,
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
-              itemBuilder: (context, index) {
-                try {
-                  final session = _sessions[index];
-                  return _buildSessionItem(
-                    context,
-                    session,
-                  );
-                } catch (e) {
-                  debugPrint('构建消息项失败 index=$index: $e');
-                  return SizedBox(
-                    height: 60.h,
-                    child: Center(
-                      child: Text(
-                        '加载失败',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 14.sp,
-                        ),
-                      ),
-                    ),
-                  );
-                }
-              },
+    return Column(
+      children: [
+        // 🔥 搜索栏
+        _buildSearchBar(),
+        // 列表
+        Expanded(
+          child: SmartRefresher(
+            controller: _refreshController,
+            enablePullDown: true,
+            enablePullUp: true,
+            header: customHeader,
+            footer: customFooter,
+            onRefresh: onRefresh,
+            onLoading: _onLoading,
+            child: _sessions.isEmpty
+                ? _buildEmptyView()
+                : ListView.builder(
+                    key: const PageStorageKey('message_list'),
+                    itemCount: _sessions.length,
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    itemBuilder: (context, index) {
+                      try {
+                        final session = _sessions[index];
+                        return _buildSessionItem(
+                          context,
+                          session,
+                        );
+                      } catch (e) {
+                        debugPrint('构建消息项失败 index=$index: $e');
+                        return SizedBox(
+                          height: 60.h,
+                          child: Center(
+                            child: Text(
+                              '加载失败',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14.sp,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 🔥 构建搜索栏
+  Widget _buildSearchBar() {
+    return Container(
+      margin: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      height: 44.h,
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(
+          color: AppTheme.border.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.search,
+            color: AppTheme.textSecondary.withOpacity(0.6),
+            size: 20.sp,
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 14.sp,
+              ),
+              decoration: InputDecoration(
+                hintText: '搜索会话',
+                hintStyle: TextStyle(
+                  color: AppTheme.textSecondary.withOpacity(0.5),
+                  fontSize: 14.sp,
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                filled: false,
+                fillColor: Colors.transparent,
+              ),
+              onChanged: _onSearchChanged,
             ),
+          ),
+          // 清除按钮（有内容时显示）
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _searchController,
+            builder: (context, value, child) {
+              if (value.text.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return GestureDetector(
+                onTap: _clearSearch,
+                child: Container(
+                  padding: EdgeInsets.all(4.r),
+                  child: Icon(
+                    Icons.cancel,
+                    color: AppTheme.textSecondary.withOpacity(0.6),
+                    size: 18.sp,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -946,13 +1127,8 @@ class CharacterSessionListState extends State<CharacterSessionList> {
       await messageService.pinCharacterSession(sessionId);
 
       if (mounted) {
-        // 静默更新本地数据
-        setState(() {
-          final index = _sessions.indexWhere((s) => s['id'] == sessionId);
-          if (index != -1) {
-            _sessions[index]['is_pinned'] = 1;
-          }
-        });
+        // 🔥 重新从本地数据库加载当前所有已加载的页数
+        await _reloadCurrentSessions();
       }
     } catch (e) {
       if (mounted) {
@@ -972,13 +1148,8 @@ class CharacterSessionListState extends State<CharacterSessionList> {
       await messageService.unpinCharacterSession(sessionId);
 
       if (mounted) {
-        // 静默更新本地数据
-        setState(() {
-          final index = _sessions.indexWhere((s) => s['id'] == sessionId);
-          if (index != -1) {
-            _sessions[index]['is_pinned'] = 0;
-          }
-        });
+        // 🔥 重新从本地数据库加载当前所有已加载的页数
+        await _reloadCurrentSessions();
       }
     } catch (e) {
       if (mounted) {
@@ -988,6 +1159,38 @@ class CharacterSessionListState extends State<CharacterSessionList> {
           type: ToastType.error,
         );
       }
+    }
+  }
+
+  /// 🔥 重新加载当前所有已加载的会话（保持滚动位置）
+  Future<void> _reloadCurrentSessions() async {
+    try {
+      // 一次性从本地读取当前所有已加载的页数
+      final totalPageSize = _currentPage * 10;
+      final result = await _messageService.getCharacterSessions(
+        page: 1,
+        pageSize: totalPageSize,
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
+      );
+
+      if (mounted && result['list'] is List) {
+        final sessions = List<Map<String, dynamic>>.from(result['list']);
+        final int localTotal = result['total'] ?? 0;
+        
+        setState(() {
+          _sessions = sessions;
+          _hasMore = totalPageSize < localTotal;
+        });
+
+        // 预加载头像
+        for (var session in sessions) {
+          _loadAvatar(session['cover_uri']);
+        }
+
+        print('[CharacterSessionList] [RELOAD] 重新加载完成：$totalPageSize条数据，hasMore=$_hasMore');
+      }
+    } catch (e) {
+      debugPrint('[CharacterSessionList] 重新加载失败: $e');
     }
   }
 

@@ -38,6 +38,7 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
   final FileService _fileService = FileService();
   final SessionDataService _sessionDataService = SessionDataService();
   final RefreshController _refreshController = RefreshController();
+  final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = false;
   List<Map<String, dynamic>> _sessions = [];
@@ -45,6 +46,10 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
   bool _hasMore = true;
   final Map<String, Uint8List> _avatarCache = {};
   StreamSubscription? _sessionStreamSubscription;
+  
+  // 🔥 搜索相关
+  String _searchKeyword = '';
+  Timer? _searchDebounceTimer;
 
   @override
   void initState() {
@@ -57,6 +62,8 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
   void dispose() {
     _sessionStreamSubscription?.cancel();
     _refreshController.dispose();
+    _searchController.dispose();
+    _searchDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -78,16 +85,20 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
     });
 
     try {
-      // 🔥 步骤1: 先从本地缓存快速显示（只读第一页）
+      // 🔥 步骤1: 先从本地缓存快速显示（读取第一页）
       final localResult = await _messageService.getGroupChatSessionsFromLocal(
         page: 1,
         pageSize: 10,
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
       );
 
       if (mounted && localResult['list'] is List) {
         final localSessions = List<Map<String, dynamic>>.from(localResult['list']);
+        final int localTotal = localResult['total'] ?? 0;
+        
         setState(() {
           _sessions = localSessions;
+          _hasMore = localTotal > 10; // 基于本地数据判断是否有更多
           _isLoading = false;
         });
 
@@ -100,53 +111,52 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
       // 🔥 步骤2: 后台异步请求API静默更新
       print('========================================');
       print('[GroupChatSessionList] >>> 开始API异步更新第一页...');
-      final apiResponse = await _messageService.getGroupChatSessions(
+      await _messageService.syncGroupChatSessionsFromApi(
         page: 1,
         pageSize: 10,
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
       );
 
-      if (apiResponse['success'] == true && mounted) {
-        final apiData = apiResponse['data'] as Map<String, dynamic>;
-        final int total = apiData['total'] ?? 0;
+      print('[GroupChatSessionList] <<< API更新完成，当前页码: $_currentPage');
 
-        // 同步第一页数据到本地
-        await _messageService.syncGroupChatSessionsFromApi(
+      // 🔥 只有还在第一页时才更新
+      if (mounted && _currentPage == 1) {
+        print('[GroupChatSessionList] [✓] 更新第一页数据到UI');
+        // 重新从本地读取（包含置顶排序）
+        final updatedResult = await _messageService.getGroupChatSessionsFromLocal(
           page: 1,
           pageSize: 10,
+          searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
         );
 
-        print('[GroupChatSessionList] <<< API更新完成，当前页码: $_currentPage');
-
-        // 🔥 只有还在第一页时才更新
-        if (mounted && _currentPage == 1) {
-          print('[GroupChatSessionList] [✓] 更新第一页数据到UI');
-          // 重新从本地读取（包含置顶排序）
-          final updatedResult = await _messageService.getGroupChatSessionsFromLocal(
-            page: 1,
-            pageSize: 10,
-          );
-
-          if (updatedResult['list'] is List) {
-            final updatedSessions = List<Map<String, dynamic>>.from(updatedResult['list']);
-            setState(() {
-              _sessions = updatedSessions;
-              _hasMore = total > 10;
-            });
-
-            // 预加载新头像
-            for (var session in updatedSessions) {
-              _loadAvatar(session['cover_uri']);
-            }
-          }
-        } else if (mounted) {
-          // 如果已经加载了更多页，只更新 _hasMore 状态
-          print('[GroupChatSessionList] [!] 第一页API更新完成，但当前已在第$_currentPage页，跳过UI更新');
+        if (updatedResult['list'] is List) {
+          final updatedSessions = List<Map<String, dynamic>>.from(updatedResult['list']);
+          final int localTotal = updatedResult['total'] ?? 0;
+          
           setState(() {
-            _hasMore = _currentPage * 10 < total;
+            _sessions = updatedSessions;
+            _hasMore = localTotal > 10; // 🔥 基于本地total判断
           });
+
+          // 预加载新头像
+          for (var session in updatedSessions) {
+            _loadAvatar(session['cover_uri']);
+          }
         }
-        print('========================================');
+      } else if (mounted) {
+        // 如果已经加载了更多页，重新计算hasMore
+        print('[GroupChatSessionList] [!] 第一页API更新完成，但当前已在第$_currentPage页，跳过UI更新');
+        final updatedResult = await _messageService.getGroupChatSessionsFromLocal(
+          page: 1,
+          pageSize: _currentPage * 10, // 获取到当前页的所有数据
+          searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
+        );
+        final int localTotal = updatedResult['total'] ?? 0;
+        setState(() {
+          _hasMore = _currentPage * 10 < localTotal;
+        });
       }
+      print('========================================');
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -184,28 +194,23 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
   Future<void> onRefresh() async {
     _currentPage = 1;
     try {
-      // 🔥 直接从API请求第一页数据
-      final apiResponse = await _messageService.getGroupChatSessions(
+      // 🔥 直接从API同步第一页数据
+      final apiResult = await _messageService.syncGroupChatSessionsFromApi(
         page: 1,
         pageSize: 10,
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
+      );
+
+      // 从本地读取（包含置顶排序）
+      final result = await _messageService.getGroupChatSessionsFromLocal(
+        page: 1,
+        pageSize: 10,
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
       );
 
       if (mounted) {
-        if (apiResponse['success'] == true) {
-          final apiData = apiResponse['data'] as Map<String, dynamic>;
-          final int total = apiData['total'] ?? 0;
-
-          // 同步到本地缓存
-          await _messageService.syncGroupChatSessionsFromApi(
-            page: 1,
-            pageSize: 10,
-          );
-
-          // 从本地读取（包含置顶排序）
-          final result = await _messageService.getGroupChatSessionsFromLocal(
-            page: 1,
-            pageSize: 10,
-          );
+        if (result['list'] is List) {
+          final int total = apiResult['total'] is int ? apiResult['total'] : 0;
 
           if (result['list'] is List) {
             setState(() {
@@ -242,71 +247,145 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
       print('========================================');
       print('[GroupChatSessionList] >>> 加载更多：第$nextPage页');
 
-      // 🔥 直接从API请求数据（不走本地缓存，不同步到本地数据库）
-      final apiResult = await _messageService.syncGroupChatSessionsFromApi(
+      // 🔥 步骤1: 先从本地数据库加载下一页
+      final localResult = await _messageService.getGroupChatSessionsFromLocal(
         page: nextPage,
         pageSize: 10,
-        syncToLocal: false, // 🔥 第二页及以后不同步到本地
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
       );
 
-      if (mounted) {
-        final List<dynamic> items = apiResult['items'] ?? [];
-        final int total = apiResult['total'] ?? 0;
+      if (mounted && localResult['list'] is List) {
+        final localSessions = List<Map<String, dynamic>>.from(localResult['list']);
+        final int localTotal = localResult['total'] ?? 0;
 
-        // 🔥 直接使用API返回的数据
-        final apiSessions = items.cast<Map<String, dynamic>>();
-        
-        // 🔥 获取当前已有的所有会话ID（包括置顶的）
-        final existingIds = _sessions.map((s) => s['id'] as int).toSet();
+        print('[GroupChatSessionList] 本地数据库返回${localSessions.length}条');
 
-        print('[GroupChatSessionList] 当前已有ID: $existingIds');
-        print('[GroupChatSessionList] API返回ID: ${apiSessions.map((s) => s['id']).toList()}');
-
-        // 🔥 过滤掉已存在的会话（避免置顶会话重复）
-        final newSessions = apiSessions
-            .where((session) => !existingIds.contains(session['id'] as int))
-            .toList();
-
-        print('[GroupChatSessionList] API返回${apiSessions.length}条，去重后${newSessions.length}条');
-
-        if (newSessions.isNotEmpty) {
+        if (localSessions.isNotEmpty) {
+          // 本地有数据，直接使用
           final oldLength = _sessions.length;
           setState(() {
-            _sessions.addAll(newSessions);
+            _sessions.addAll(localSessions);
             _currentPage = nextPage;
-            _hasMore = _currentPage * 10 < total;
+            _hasMore = _currentPage * 10 < localTotal;
           });
 
-          print('[GroupChatSessionList] [SUCCESS] 数据累加：从$oldLength条增加到${_sessions.length}条');
-          print('[GroupChatSessionList] [STATE] page=$_currentPage, total=$total, hasMore=$_hasMore');
+          print('[GroupChatSessionList] [SUCCESS] 从本地加载：从$oldLength条增加到${_sessions.length}条');
+          print('[GroupChatSessionList] [STATE] page=$_currentPage, localTotal=$localTotal, hasMore=$_hasMore');
 
-          for (var session in newSessions) {
+          for (var session in localSessions) {
+            _loadAvatar(session['cover_uri']);
+          }
+
+          _refreshController.loadComplete();
+
+          // 🔥 后台异步从API加载该页数据并同步到本地
+          _syncPageFromApiInBackground(nextPage);
+        } else {
+          // 本地没有更多数据，从API加载
+          print('[GroupChatSessionList] 本地无更多数据，从API加载...');
+          await _loadMoreFromApi(nextPage);
+        }
+      } else {
+        // 本地读取失败，从API加载
+        await _loadMoreFromApi(nextPage);
+      }
+      
+      print('========================================');
+    } catch (e) {
+      print('[GroupChatSessionList] [ERROR] 加载失败: $e');
+      _refreshController.loadFailed();
+    }
+  }
+
+  /// 🔥 从API加载更多数据
+  Future<void> _loadMoreFromApi(int page) async {
+    await _messageService.syncGroupChatSessionsFromApi(
+      page: page,
+      pageSize: 10,
+      syncToLocal: true, // 🔥 同步到本地数据库
+      searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
+    );
+
+    if (mounted) {
+      // 重新从本地读取该页数据（包含置顶排序）
+      final localResult = await _messageService.getGroupChatSessionsFromLocal(
+        page: page,
+        pageSize: 10,
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
+      );
+
+      if (localResult['list'] is List) {
+        final localSessions = List<Map<String, dynamic>>.from(localResult['list']);
+        final int localTotal = localResult['total'] ?? 0;
+
+        if (localSessions.isNotEmpty) {
+          final oldLength = _sessions.length;
+          setState(() {
+            _sessions.addAll(localSessions);
+            _currentPage = page;
+            _hasMore = _currentPage * 10 < localTotal;
+          });
+
+          print('[GroupChatSessionList] [SUCCESS] 从API加载：从$oldLength条增加到${_sessions.length}条');
+
+          for (var session in localSessions) {
             _loadAvatar(session['cover_uri']);
           }
 
           _refreshController.loadComplete();
         } else {
-          // 去重后没有新数据，可能都是置顶的，尝试加载下一页
-          print('[GroupChatSessionList] [WARNING] 去重后无新数据，尝试继续...');
           setState(() {
-            _currentPage = nextPage;
-            _hasMore = nextPage * 10 < total;
+            _currentPage = page;
+            _hasMore = false;
           });
-
-          if (_hasMore) {
-            _refreshController.loadComplete();
-            // 递归加载下一页
-            await _onLoadMore();
-          } else {
-            _refreshController.loadNoData();
-          }
+          _refreshController.loadNoData();
         }
-        
-        print('========================================');
       }
+    } else {
+      _refreshController.loadComplete();
+    }
+  }
+
+  /// 🔥 后台异步从API同步指定页数据
+  Future<void> _syncPageFromApiInBackground(int page) async {
+    try {
+      await _messageService.syncGroupChatSessionsFromApi(
+        page: page,
+        pageSize: 10,
+        syncToLocal: true, // 同步到本地
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
+      );
+      print('[GroupChatSessionList] [BACKGROUND] 后台同步第$page页完成');
     } catch (e) {
-      print('[GroupChatSessionList] [ERROR] 加载失败: $e');
-      _refreshController.loadFailed();
+      print('[GroupChatSessionList] [BACKGROUND] 后台同步第$page页失败: $e');
+    }
+  }
+
+  /// 🔥 处理搜索输入
+  void _onSearchChanged(String value) {
+    // 取消之前的防抖Timer
+    _searchDebounceTimer?.cancel();
+    
+    // 设置新的防抖Timer（500ms）
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (_searchKeyword != value) {
+        setState(() {
+          _searchKeyword = value;
+        });
+        // 重新加载数据
+        _loadSessions();
+      }
+    });
+  }
+
+  /// 🔥 清除搜索
+  void _clearSearch() {
+    _searchController.clear();
+    if (_searchKeyword.isNotEmpty) {
+      setState(() {
+        _searchKeyword = '';
+      });
+      _loadSessions();
     }
   }
 
@@ -377,28 +456,114 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
     );
 
     if (_isLoading && _sessions.isEmpty) {
-      return _buildLoadingState();
+      return Column(
+        children: [
+          _buildSearchBar(),
+          Expanded(child: _buildLoadingState()),
+        ],
+      );
     }
 
-    return SmartRefresher(
-      controller: _refreshController,
-      enablePullDown: true,
-      enablePullUp: true,
-      header: customHeader,
-      footer: customFooter,
-      onRefresh: onRefresh,
-      onLoading: _onLoadMore,
-      child: _sessions.isEmpty
-          ? _buildEmptyState()
-          : ListView.builder(
-              key: const PageStorageKey('group_chat_list'),
-              itemCount: _sessions.length,
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
-              itemBuilder: (context, index) {
-                final session = _sessions[index];
-                return _buildSessionItem(session, index);
-              },
+    return Column(
+      children: [
+        // 🔥 搜索栏
+        _buildSearchBar(),
+        // 列表
+        Expanded(
+          child: SmartRefresher(
+            controller: _refreshController,
+            enablePullDown: true,
+            enablePullUp: true,
+            header: customHeader,
+            footer: customFooter,
+            onRefresh: onRefresh,
+            onLoading: _onLoadMore,
+            child: _sessions.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    key: const PageStorageKey('group_chat_list'),
+                    itemCount: _sessions.length,
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    itemBuilder: (context, index) {
+                      final session = _sessions[index];
+                      return _buildSessionItem(session, index);
+                    },
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 🔥 构建搜索栏
+  Widget _buildSearchBar() {
+    return Container(
+      margin: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      height: 44.h,
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(
+          color: AppTheme.border.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.search,
+            color: AppTheme.textSecondary.withOpacity(0.6),
+            size: 20.sp,
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 14.sp,
+              ),
+              decoration: InputDecoration(
+                hintText: '搜索群聊',
+                hintStyle: TextStyle(
+                  color: AppTheme.textSecondary.withOpacity(0.5),
+                  fontSize: 14.sp,
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                filled: false,
+                fillColor: Colors.transparent,
+              ),
+              onChanged: _onSearchChanged,
             ),
+          ),
+          // 清除按钮（有内容时显示）
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _searchController,
+            builder: (context, value, child) {
+              if (value.text.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return GestureDetector(
+                onTap: _clearSearch,
+                child: Container(
+                  padding: EdgeInsets.all(4.r),
+                  child: Icon(
+                    Icons.cancel,
+                    color: AppTheme.textSecondary.withOpacity(0.6),
+                    size: 18.sp,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -1046,13 +1211,8 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
       await _messageService.pinGroupChatSession(sessionId);
 
       if (mounted) {
-        // 静默更新本地数据
-        setState(() {
-          final index = _sessions.indexWhere((s) => s['id'] == sessionId);
-          if (index != -1) {
-            _sessions[index]['is_pinned'] = 1;
-          }
-        });
+        // 🔥 重新从本地数据库加载当前所有已加载的页数
+        await _reloadCurrentSessions();
       }
     } catch (e) {
       if (mounted) {
@@ -1071,13 +1231,8 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
       await _messageService.unpinGroupChatSession(sessionId);
 
       if (mounted) {
-        // 静默更新本地数据
-        setState(() {
-          final index = _sessions.indexWhere((s) => s['id'] == sessionId);
-          if (index != -1) {
-            _sessions[index]['is_pinned'] = 0;
-          }
-        });
+        // 🔥 重新从本地数据库加载当前所有已加载的页数
+        await _reloadCurrentSessions();
       }
     } catch (e) {
       if (mounted) {
@@ -1087,6 +1242,38 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
           type: ToastType.error,
         );
       }
+    }
+  }
+
+  /// 🔥 重新加载当前所有已加载的会话（保持滚动位置）
+  Future<void> _reloadCurrentSessions() async {
+    try {
+      // 一次性从本地读取当前所有已加载的页数
+      final totalPageSize = _currentPage * 10;
+      final result = await _messageService.getGroupChatSessionsFromLocal(
+        page: 1,
+        pageSize: totalPageSize,
+        searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
+      );
+
+      if (mounted && result['list'] is List) {
+        final sessions = List<Map<String, dynamic>>.from(result['list']);
+        final int localTotal = result['total'] ?? 0;
+        
+        setState(() {
+          _sessions = sessions;
+          _hasMore = totalPageSize < localTotal;
+        });
+
+        // 预加载头像
+        for (var session in sessions) {
+          _loadAvatar(session['cover_uri']);
+        }
+
+        print('[GroupChatSessionList] [RELOAD] 重新加载完成：$totalPageSize条数据，hasMore=$_hasMore');
+      }
+    } catch (e) {
+      debugPrint('[GroupChatSessionList] 重新加载失败: $e');
     }
   }
 }

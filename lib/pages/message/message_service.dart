@@ -12,11 +12,13 @@ class MessageService {
   Future<Map<String, dynamic>> getCharacterSessions({
     int page = 1,
     int pageSize = 10,
+    String? searchName,
   }) async {
     try {
       final response = await _sessionDataService.getLocalCharacterSessions(
         page: page,
         pageSize: pageSize,
+        searchName: searchName,
       );
 
       // 转换为原有的API格式，保持兼容性
@@ -37,14 +39,20 @@ class MessageService {
     int page = 1,
     int pageSize = 10,
     bool syncToLocal = true, // 🔥 是否同步到本地数据库
+    String? searchName,
   }) async {
     try {
+      final queryParams = <String, dynamic>{
+        'page': page,
+        'pageSize': pageSize,
+      };
+      if (searchName != null && searchName.isNotEmpty) {
+        queryParams['searchName'] = searchName;
+      }
+      
       final response = await _httpClient.get(
         '/sessions/character',
-        queryParameters: {
-          'page': page,
-          'pageSize': pageSize,
-        },
+        queryParameters: queryParams,
       );
 
       if (response.data['code'] == 0) {
@@ -88,11 +96,13 @@ class MessageService {
   Future<Map<String, dynamic>> getNovelSessions({
     int page = 1,
     int pageSize = 10,
+    String? searchName,
   }) async {
     try {
       final response = await _sessionDataService.getLocalNovelSessions(
         page: page,
         pageSize: pageSize,
+        searchName: searchName,
       );
 
       // 转换为原有的API格式，保持兼容性
@@ -113,14 +123,20 @@ class MessageService {
     int page = 1,
     int pageSize = 10,
     bool syncToLocal = true, // 🔥 是否同步到本地数据库
+    String? searchName,
   }) async {
     try {
+      final queryParams = <String, dynamic>{
+        'page': page,
+        'page_size': pageSize,
+      };
+      if (searchName != null && searchName.isNotEmpty) {
+        queryParams['searchName'] = searchName;
+      }
+      
       final response = await _httpClient.get(
         '/sessions/novel',
-        queryParameters: {
-          'page': page,
-          'page_size': pageSize,
-        },
+        queryParameters: queryParams,
       );
 
       if (response.data['code'] == 0) {
@@ -371,11 +387,13 @@ class MessageService {
   Future<Map<String, dynamic>> getGroupChatSessionsFromLocal({
     int page = 1,
     int pageSize = 10,
+    String? searchName,
   }) async {
     try {
       final response = await _sessionDataService.getLocalGroupChatSessions(
         page: page,
         pageSize: pageSize,
+        searchName: searchName,
       );
 
       // 转换为原有的API格式，保持兼容性
@@ -396,14 +414,20 @@ class MessageService {
     int page = 1,
     int pageSize = 10,
     bool syncToLocal = true, // 🔥 是否同步到本地数据库
+    String? searchName,
   }) async {
     try {
+      final queryParams = <String, dynamic>{
+        'page': page,
+        'pageSize': pageSize,
+      };
+      if (searchName != null && searchName.isNotEmpty) {
+        queryParams['searchName'] = searchName;
+      }
+      
       final response = await _httpClient.get(
         '/sessions/groupchat',
-        queryParameters: {
-          'page': page,
-          'pageSize': pageSize,
-        },
+        queryParameters: queryParams,
       );
 
       if (response.data['code'] == 0) {

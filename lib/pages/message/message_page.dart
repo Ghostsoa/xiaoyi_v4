@@ -218,13 +218,6 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
                 ],
               ),
             ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(20.w, 0.h, 20.w, 16.h),
-              child: Text(
-                '最近的对话',
-                style: AppTheme.secondaryStyle,
-              ),
-            ),
             Expanded(
               child: IndexedStack(
                 index: _currentModeIndex,

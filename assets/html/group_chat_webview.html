@@ -300,15 +300,18 @@
             >
                 <!-- 角色信息（只对assistant消息显示） -->
                 <div v-if="!message.isUser && message.customRole" class="role-info">
-                    <img 
-                        v-if="message.avatarUri" 
-                        :src="message.avatarUri" 
-                        class="role-avatar"
-                        @error="handleImageError"
-                    />
-                    <div v-else class="role-avatar">
-                        {{ message.customRole.substring(0, 1) }}
-                    </div>
+                    <!-- 开场白不显示头像 -->
+                    <template v-if="message.customRole !== '开场白'">
+                        <img 
+                            v-if="message.avatarUri" 
+                            :src="message.avatarUri" 
+                            class="role-avatar"
+                            @error="handleImageError"
+                        />
+                        <div v-else class="role-avatar">
+                            {{ message.customRole.substring(0, 1) }}
+                        </div>
+                    </template>
                     <span class="role-name">{{ message.customRole }}</span>
                 </div>
 
