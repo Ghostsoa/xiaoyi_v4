@@ -221,27 +221,13 @@ class _CharacterChatPageState extends State<CharacterChatPage>
 
       debugPrint('[CharacterChatPage] 会话数据: ${widget.sessionData}');
 
-      // 先从传入的会话数据检查
-      _activeArchiveId = widget.sessionData['active_archive_id'] as String?;
-
-      // 如果传入数据没有，从数据库获取最新的会话信息
-      if (_activeArchiveId == null) {
-        try {
-          final sessionResponse = await _sessionDataService.getLocalCharacterSessions(
-            page: 1,
-            pageSize: 1000
-          );
-
-          final session = sessionResponse.sessions.firstWhere(
-            (s) => s.id == widget.sessionData['id'],
-            orElse: () => throw '会话不存在',
-          );
-
-          _activeArchiveId = session.activeArchiveId;
-          debugPrint('[CharacterChatPage] 从数据库获取激活存档ID: $_activeArchiveId');
-        } catch (e) {
-          debugPrint('[CharacterChatPage] 从数据库获取会话信息失败: $e');
-        }
+      // 🔥 直接从SharedPreferences获取最新的activeArchiveId（不依赖传入的sessionData）
+      try {
+        final sessionId = widget.sessionData['id'] as int;
+        _activeArchiveId = _sessionDataService.getCharacterArchiveId(sessionId);
+        debugPrint('[CharacterChatPage] 从SharedPreferences获取激活存档ID: $_activeArchiveId');
+      } catch (e) {
+        debugPrint('[CharacterChatPage] 从SharedPreferences获取存档ID失败: $e');
       }
 
       debugPrint('[CharacterChatPage] 最终激活存档ID: $_activeArchiveId');
@@ -2549,22 +2535,14 @@ class _CharacterChatPageState extends State<CharacterChatPage>
     }
   }
 
-  /// 存档切换后重新检查模式
+  /// 🔥 存档切换后重新检查模式（从SharedPreferences读取）
   Future<void> _recheckModeAfterArchiveChange() async {
     try {
-      // 重新获取会话数据，检查最新的激活存档ID
-      final sessionResponse = await _sessionDataService.getLocalCharacterSessions(
-        page: 1,
-        pageSize: 1000
-      );
+      // 从SharedPreferences获取最新的激活存档ID
+      final sessionId = widget.sessionData['id'] as int;
+      _activeArchiveId = _sessionDataService.getCharacterArchiveId(sessionId);
 
-      final session = sessionResponse.sessions.firstWhere(
-        (s) => s.id == widget.sessionData['id'],
-        orElse: () => throw '会话不存在',
-      );
-
-      // 更新本地的激活存档ID
-      _activeArchiveId = session.activeArchiveId;
+      debugPrint('[CharacterChatPage] 从SharedPreferences获取激活存档ID: $_activeArchiveId');
 
       if (_activeArchiveId != null && _activeArchiveId!.isNotEmpty) {
         // 检查是否有对应的缓存数据

@@ -72,24 +72,18 @@ class _ChatArchivePageState extends State<ChatArchivePage>
     await _syncActiveArchiveId();
   }
 
-  /// 获取本地的激活存档ID
+  /// 🔥 获取本地的激活存档ID（从SharedPreferences读取）
   Future<void> _getLocalActiveArchiveId() async {
     try {
       await _sessionDataService.initDatabase();
 
       final sessionId = int.parse(widget.sessionId);
-      final sessionResponse = await _sessionDataService.getLocalCharacterSessions(
-        page: 1,
-        pageSize: 200
-      );
+      
+      // 从SharedPreferences读取activeArchiveId
+      final archiveId = _sessionDataService.getCharacterArchiveId(sessionId);
 
-      final session = sessionResponse.sessions.firstWhere(
-        (s) => s.id == sessionId,
-        orElse: () => throw '会话不存在',
-      );
-
-      _initialActiveArchiveId = session.activeArchiveId;
-      _currentActiveArchiveId = session.activeArchiveId;
+      _initialActiveArchiveId = archiveId;
+      _currentActiveArchiveId = archiveId;
 
       debugPrint('[ChatArchivePage] 进入时本地激活存档ID: $_initialActiveArchiveId');
     } catch (e) {
@@ -321,31 +315,15 @@ class _ChatArchivePageState extends State<ChatArchivePage>
     }
   }
 
-  /// 更新会话的激活存档ID
+  /// 🔥 更新会话的激活存档ID（保存到SharedPreferences）
   Future<void> _updateSessionActiveArchive(String archiveId) async {
     try {
       await _sessionDataService.initDatabase();
 
       final sessionId = int.parse(widget.sessionId);
 
-      // 获取当前会话数据
-      final sessionResponse = await _sessionDataService.getLocalCharacterSessions(
-        page: 1,
-        pageSize: 200
-      );
-
-      final session = sessionResponse.sessions.firstWhere(
-        (s) => s.id == sessionId,
-        orElse: () => throw '会话不存在',
-      );
-
-      // 更新激活存档ID
-      final updatedSession = session.copyWith(
-        activeArchiveId: archiveId,
-        lastSyncTime: DateTime.now(),
-      );
-
-      await _sessionDataService.updateCharacterSession(updatedSession);
+      // 保存到SharedPreferences
+      await _sessionDataService.saveCharacterArchiveId(sessionId, archiveId);
 
       debugPrint('[ChatArchivePage] ✅ 激活存档时已更新会话激活存档ID: $archiveId');
     } catch (e) {

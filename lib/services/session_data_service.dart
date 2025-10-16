@@ -4,16 +4,20 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as path;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/session_model.dart';
 
-/// 会话数据服务
-/// 管理本地会话数据的存储、同步和更新
+/// 🔥 会话数据服务（重构版）
+/// 存储策略：
+/// 1. SQLite数据库：只存储置顶会话的完整数据
+/// 2. SharedPreferences：存储所有会话的activeArchiveId（键值对）
 class SessionDataService {
   static final SessionDataService _instance = SessionDataService._internal();
   factory SessionDataService() => _instance;
   SessionDataService._internal();
 
   Database? _database;
+  SharedPreferences? _prefs;
   final StreamController<List<SessionModel>> _characterSessionsController = 
       StreamController<List<SessionModel>>.broadcast();
   final StreamController<List<SessionModel>> _novelSessionsController = 
@@ -33,9 +37,12 @@ class SessionDataService {
   Stream<List<SessionModel>> get groupChatSessionsStream => 
       _groupChatSessionsController.stream;
 
-  /// 初始化数据库
+  /// 初始化数据库和SharedPreferences
   Future<void> initDatabase() async {
-    if (_database != null) return;
+    if (_database != null && _prefs != null) return;
+    
+    // 初始化SharedPreferences
+    _prefs ??= await SharedPreferences.getInstance();
 
     final databasesPath = await getDatabasesPath();
     final dbPath = path.join(databasesPath, 'sessions.db');
@@ -166,7 +173,29 @@ class SessionDataService {
     }
   }
 
-  /// 获取本地角色会话列表（分页）
+  /// 🔥 获取本地置顶的角色会话列表（只返回置顶）
+  Future<List<SessionModel>> getPinnedCharacterSessions() async {
+    await initDatabase();
+    
+    final result = await _database!.query(
+      'character_sessions',
+      where: 'is_pinned = 1',
+      orderBy: 'pinned_at DESC, updated_at DESC, id DESC',
+    );
+
+    final sessions = result.map((row) {
+      final data = Map<String, dynamic>.from(row);
+      if (data['extra_data'] != null) {
+        data['extra_data'] = jsonDecode(data['extra_data']);
+      }
+      return SessionModel.fromDbJson(data);
+    }).toList();
+
+    debugPrint('[SessionDataService] 获取置顶角色会话: ${sessions.length}条');
+    return sessions;
+  }
+  
+  /// 🔥 兼容旧接口：getLocalCharacterSessions（已废弃，保留用于搜索）
   Future<SessionListResponse> getLocalCharacterSessions({
     int page = 1,
     int pageSize = 10,
@@ -174,31 +203,24 @@ class SessionDataService {
   }) async {
     await initDatabase();
     
-    final offset = (page - 1) * pageSize;
-    
-    // 🔥 构建WHERE条件
-    String? whereClause;
-    List<dynamic>? whereArgs;
+    // 如果有搜索，返回空（搜索由API处理）
     if (searchName != null && searchName.isNotEmpty) {
-      whereClause = 'name LIKE ?';
-      whereArgs = ['%$searchName%'];
+      return SessionListResponse.fromLocalData([], page, pageSize, 0);
     }
     
-    // 获取总数
-    final countResult = await _database!.rawQuery(
-      'SELECT COUNT(*) as count FROM character_sessions${whereClause != null ? ' WHERE $whereClause' : ''}',
-      whereArgs,
-    );
-    final total = countResult.first['count'] as int;
+    // 只返回置顶会话
+    final pinnedSessions = await getPinnedCharacterSessions();
+    return SessionListResponse.fromLocalData(pinnedSessions, 1, pinnedSessions.length, pinnedSessions.length);
+  }
 
-    // 🔥 获取分页数据，置顶会话优先显示，置顶内按消息时间排序（微信方式）
+  /// 🔥 获取本地置顶的小说会话列表（只返回置顶）
+  Future<List<SessionModel>> getPinnedNovelSessions() async {
+    await initDatabase();
+    
     final result = await _database!.query(
-      'character_sessions',
-      where: whereClause,
-      whereArgs: whereArgs,
-      orderBy: 'is_pinned DESC, updated_at DESC, id DESC',
-      limit: pageSize,
-      offset: offset,
+      'novel_sessions',
+      where: 'is_pinned = 1',
+      orderBy: 'pinned_at DESC, updated_at DESC, id DESC',
     );
 
     final sessions = result.map((row) {
@@ -209,10 +231,11 @@ class SessionDataService {
       return SessionModel.fromDbJson(data);
     }).toList();
 
-    return SessionListResponse.fromLocalData(sessions, page, pageSize, total);
+    debugPrint('[SessionDataService] 获取置顶小说会话: ${sessions.length}条');
+    return sessions;
   }
-
-  /// 获取本地小说会话列表（分页）
+  
+  /// 🔥 兼容旧接口：getLocalNovelSessions（已废弃，保留用于搜索）
   Future<SessionListResponse> getLocalNovelSessions({
     int page = 1,
     int pageSize = 10,
@@ -220,42 +243,14 @@ class SessionDataService {
   }) async {
     await initDatabase();
     
-    final offset = (page - 1) * pageSize;
-    
-    // 🔥 构建WHERE条件
-    String? whereClause;
-    List<dynamic>? whereArgs;
+    // 如果有搜索，返回空（搜索由API处理）
     if (searchName != null && searchName.isNotEmpty) {
-      whereClause = 'name LIKE ?';
-      whereArgs = ['%$searchName%'];
+      return SessionListResponse.fromLocalData([], page, pageSize, 0);
     }
     
-    // 获取总数
-    final countResult = await _database!.rawQuery(
-      'SELECT COUNT(*) as count FROM novel_sessions${whereClause != null ? ' WHERE $whereClause' : ''}',
-      whereArgs,
-    );
-    final total = countResult.first['count'] as int;
-
-    // 🔥 获取分页数据，置顶会话优先显示，置顶内按消息时间排序（微信方式）
-    final result = await _database!.query(
-      'novel_sessions',
-      where: whereClause,
-      whereArgs: whereArgs,
-      orderBy: 'is_pinned DESC, updated_at DESC, id DESC',
-      limit: pageSize,
-      offset: offset,
-    );
-
-    final sessions = result.map((row) {
-      final data = Map<String, dynamic>.from(row);
-      if (data['extra_data'] != null) {
-        data['extra_data'] = jsonDecode(data['extra_data']);
-      }
-      return SessionModel.fromDbJson(data);
-    }).toList();
-
-    return SessionListResponse.fromLocalData(sessions, page, pageSize, total);
+    // 只返回置顶会话
+    final pinnedSessions = await getPinnedNovelSessions();
+    return SessionListResponse.fromLocalData(pinnedSessions, 1, pinnedSessions.length, pinnedSessions.length);
   }
 
   /// 批量插入或更新角色会话
@@ -549,9 +544,9 @@ class SessionDataService {
     return sessionsToUpdate;
   }
 
-  /// 基于指定页的API数据对本地角色会话进行“修正式”对齐：
-  /// - 先增量更新/插入该页返回的会话
-  /// - 再删除本地中落在同一页切片（仅限未置顶）的且不在API该页返回集合内的会话
+  /// 🔥 基于API数据同步角色会话：
+  /// 1. 保存所有会话的activeArchiveId到SharedPreferences
+  /// 2. 只把置顶的会话完整数据保存到SQLite
   Future<void> reconcileCharacterPageWithApi(
     List<SessionModel> apiSessions,
     int page,
@@ -559,55 +554,28 @@ class SessionDataService {
   ) async {
     await initDatabase();
 
-    // 1) 先更新/插入该页的会话（保留本地置顶字段）
-    if (apiSessions.isNotEmpty) {
-      await insertOrUpdateCharacterSessions(apiSessions);
+    if (apiSessions.isEmpty) return;
+
+    // 1️⃣ 保存所有会话的activeArchiveId到SharedPreferences
+    final Map<int, String?> archiveIds = {};
+    for (final session in apiSessions) {
+      archiveIds[session.id] = session.activeArchiveId;
     }
+    await batchSaveCharacterArchiveIds(archiveIds);
 
-    // 2) 仅基于未置顶会话，按服务器排序逻辑（updated_at DESC, id DESC）取出本地的同页切片
-    final int offset = (page - 1) * pageSize;
-    final List<Map<String, Object?>> localRows = await _database!.query(
-      'character_sessions',
-      columns: ['id'],
-      where: 'is_pinned = 0',
-      orderBy: 'updated_at DESC, id DESC',
-      limit: pageSize,
-      offset: offset,
-    );
-
-    if (localRows.isEmpty) {
-      return;
+    // 2️⃣ 只保存置顶的会话到SQLite
+    final pinnedSessions = apiSessions.where((s) => s.isPinned == true).toList();
+    if (pinnedSessions.isNotEmpty) {
+      await insertOrUpdateCharacterSessions(pinnedSessions);
+      debugPrint('[SessionDataService] 角色会话同步：保存${pinnedSessions.length}条置顶会话到SQLite（page=$page）');
     }
-
-    final Set<int> apiIds = apiSessions.map((e) => e.id).toSet();
-    final List<int> localPageIds = localRows
-        .map((row) => row['id'] as int)
-        .toList(growable: false);
-
-    // 3) 计算需要删除的本地会话（该页切片中但不在API返回集合中）
-    final List<int> idsToDelete = <int>[];
-    for (final int localId in localPageIds) {
-      if (!apiIds.contains(localId)) {
-        idsToDelete.add(localId);
-      }
-    }
-
-    if (idsToDelete.isNotEmpty) {
-      final batch = _database!.batch();
-      for (final id in idsToDelete) {
-        batch.delete(
-          'character_sessions',
-          where: 'id = ?',
-          whereArgs: [id],
-        );
-      }
-      await batch.commit(noResult: true);
-      _notifyCharacterSessionsUpdate();
-      debugPrint('[SessionDataService] 角色会话页面修正：删除${idsToDelete.length}条（page=$page, size=$pageSize）');
-    }
+    
+    debugPrint('[SessionDataService] 角色会话同步：保存${archiveIds.length}条activeArchiveId到SharedPreferences（page=$page）');
   }
 
-  /// 基于指定页的API数据对本地小说会话进行“修正式”对齐
+  /// 🔥 基于API数据同步小说会话：
+  /// 1. 保存所有会话的activeArchiveId到SharedPreferences
+  /// 2. 只把置顶的会话完整数据保存到SQLite
   Future<void> reconcileNovelPageWithApi(
     List<SessionModel> apiSessions,
     int page,
@@ -615,52 +583,23 @@ class SessionDataService {
   ) async {
     await initDatabase();
 
-    // 1) 先更新/插入该页的会话（保留本地置顶字段）
-    if (apiSessions.isNotEmpty) {
-      await insertOrUpdateNovelSessions(apiSessions);
+    if (apiSessions.isEmpty) return;
+
+    // 1️⃣ 保存所有会话的activeArchiveId到SharedPreferences
+    final Map<int, String?> archiveIds = {};
+    for (final session in apiSessions) {
+      archiveIds[session.id] = session.activeArchiveId;
     }
+    await batchSaveNovelArchiveIds(archiveIds);
 
-    // 2) 仅基于未置顶会话，按服务器排序逻辑（updated_at DESC, id DESC）取出本地的同页切片
-    final int offset = (page - 1) * pageSize;
-    final List<Map<String, Object?>> localRows = await _database!.query(
-      'novel_sessions',
-      columns: ['id'],
-      where: 'is_pinned = 0',
-      orderBy: 'updated_at DESC, id DESC',
-      limit: pageSize,
-      offset: offset,
-    );
-
-    if (localRows.isEmpty) {
-      return;
+    // 2️⃣ 只保存置顶的会话到SQLite
+    final pinnedSessions = apiSessions.where((s) => s.isPinned == true).toList();
+    if (pinnedSessions.isNotEmpty) {
+      await insertOrUpdateNovelSessions(pinnedSessions);
+      debugPrint('[SessionDataService] 小说会话同步：保存${pinnedSessions.length}条置顶会话到SQLite（page=$page）');
     }
-
-    final Set<int> apiIds = apiSessions.map((e) => e.id).toSet();
-    final List<int> localPageIds = localRows
-        .map((row) => row['id'] as int)
-        .toList(growable: false);
-
-    // 3) 计算需要删除的本地会话（该页切片中但不在API返回集合中）
-    final List<int> idsToDelete = <int>[];
-    for (final int localId in localPageIds) {
-      if (!apiIds.contains(localId)) {
-        idsToDelete.add(localId);
-      }
-    }
-
-    if (idsToDelete.isNotEmpty) {
-      final batch = _database!.batch();
-      for (final id in idsToDelete) {
-        batch.delete(
-          'novel_sessions',
-          where: 'id = ?',
-          whereArgs: [id],
-        );
-      }
-      await batch.commit(noResult: true);
-      _notifyNovelSessionsUpdate();
-      debugPrint('[SessionDataService] 小说会话页面修正：删除${idsToDelete.length}条（page=$page, size=$pageSize）');
-    }
+    
+    debugPrint('[SessionDataService] 小说会话同步：保存${archiveIds.length}条activeArchiveId到SharedPreferences（page=$page）');
   }
 
   /// 判断API会话是否比本地会话更新
@@ -720,39 +659,14 @@ class SessionDataService {
     debugPrint('[SessionDataService] 已清理所有会话数据');
   }
 
-  /// 获取本地群聊会话列表（分页）
-  Future<SessionListResponse> getLocalGroupChatSessions({
-    int page = 1,
-    int pageSize = 10,
-    String? searchName,
-  }) async {
+  /// 🔥 获取本地置顶的群聊会话列表（只返回置顶）
+  Future<List<SessionModel>> getPinnedGroupChatSessions() async {
     await initDatabase();
     
-    final offset = (page - 1) * pageSize;
-    
-    // 🔥 构建WHERE条件
-    String? whereClause;
-    List<dynamic>? whereArgs;
-    if (searchName != null && searchName.isNotEmpty) {
-      whereClause = 'name LIKE ?';
-      whereArgs = ['%$searchName%'];
-    }
-    
-    // 获取总数
-    final countResult = await _database!.rawQuery(
-      'SELECT COUNT(*) as count FROM group_chat_sessions${whereClause != null ? ' WHERE $whereClause' : ''}',
-      whereArgs,
-    );
-    final total = countResult.first['count'] as int;
-
-    // 🔥 获取分页数据，置顶会话优先显示，置顶内按消息时间排序（微信方式）
     final result = await _database!.query(
       'group_chat_sessions',
-      where: whereClause,
-      whereArgs: whereArgs,
-      orderBy: 'is_pinned DESC, updated_at DESC, id DESC',
-      limit: pageSize,
-      offset: offset,
+      where: 'is_pinned = 1',
+      orderBy: 'pinned_at DESC, updated_at DESC, id DESC',
     );
 
     final sessions = result.map((row) {
@@ -763,7 +677,26 @@ class SessionDataService {
       return SessionModel.fromDbJson(data);
     }).toList();
 
-    return SessionListResponse.fromLocalData(sessions, page, pageSize, total);
+    debugPrint('[SessionDataService] 获取置顶群聊会话: ${sessions.length}条');
+    return sessions;
+  }
+  
+  /// 🔥 兼容旧接口：getLocalGroupChatSessions（已废弃，保留用于搜索）
+  Future<SessionListResponse> getLocalGroupChatSessions({
+    int page = 1,
+    int pageSize = 10,
+    String? searchName,
+  }) async {
+    await initDatabase();
+    
+    // 如果有搜索，返回空（搜索由API处理）
+    if (searchName != null && searchName.isNotEmpty) {
+      return SessionListResponse.fromLocalData([], page, pageSize, 0);
+    }
+    
+    // 只返回置顶会话
+    final pinnedSessions = await getPinnedGroupChatSessions();
+    return SessionListResponse.fromLocalData(pinnedSessions, 1, pinnedSessions.length, pinnedSessions.length);
   }
 
   /// 批量插入或更新群聊会话
@@ -897,7 +830,8 @@ class SessionDataService {
     return sessionsToUpdate;
   }
 
-  /// 基于指定页的API数据对本地群聊会话进行"修正式"对齐
+  /// 🔥 基于API数据同步群聊会话：
+  /// 1. 只把置顶的会话完整数据保存到SQLite（群聊无activeArchiveId）
   Future<void> reconcileGroupChatPageWithApi(
     List<SessionModel> apiSessions,
     int page,
@@ -905,51 +839,13 @@ class SessionDataService {
   ) async {
     await initDatabase();
 
-    // 1) 先更新/插入该页的会话（保留本地置顶字段）
-    if (apiSessions.isNotEmpty) {
-      await insertOrUpdateGroupChatSessions(apiSessions);
-    }
+    if (apiSessions.isEmpty) return;
 
-    // 2) 仅基于未置顶会话，按服务器排序逻辑（updated_at DESC, id DESC）取出本地的同页切片
-    final int offset = (page - 1) * pageSize;
-    final List<Map<String, Object?>> localRows = await _database!.query(
-      'group_chat_sessions',
-      columns: ['id'],
-      where: 'is_pinned = 0',
-      orderBy: 'updated_at DESC, id DESC',
-      limit: pageSize,
-      offset: offset,
-    );
-
-    if (localRows.isEmpty) {
-      return;
-    }
-
-    final Set<int> apiIds = apiSessions.map((e) => e.id).toSet();
-    final List<int> localPageIds = localRows
-        .map((row) => row['id'] as int)
-        .toList(growable: false);
-
-    // 3) 计算需要删除的本地会话（该页切片中但不在API返回集合中）
-    final List<int> idsToDelete = <int>[];
-    for (final int localId in localPageIds) {
-      if (!apiIds.contains(localId)) {
-        idsToDelete.add(localId);
-      }
-    }
-
-    if (idsToDelete.isNotEmpty) {
-      final batch = _database!.batch();
-      for (final id in idsToDelete) {
-        batch.delete(
-          'group_chat_sessions',
-          where: 'id = ?',
-          whereArgs: [id],
-        );
-      }
-      await batch.commit(noResult: true);
-      _notifyGroupChatSessionsUpdate();
-      debugPrint('[SessionDataService] 群聊会话页面修正：删除${idsToDelete.length}条（page=$page, size=$pageSize）');
+    // 只保存置顶的会话到SQLite
+    final pinnedSessions = apiSessions.where((s) => s.isPinned == true).toList();
+    if (pinnedSessions.isNotEmpty) {
+      await insertOrUpdateGroupChatSessions(pinnedSessions);
+      debugPrint('[SessionDataService] 群聊会话同步：保存${pinnedSessions.length}条置顶会话到SQLite（page=$page）');
     }
   }
 
@@ -1162,5 +1058,57 @@ class SessionDataService {
     _groupChatSessionsController.close();
     _database?.close();
     _database = null;
+  }
+
+  // ==================== 🔥 SharedPreferences 存取 activeArchiveId ====================
+  
+  /// 保存角色会话的activeArchiveId
+  Future<void> saveCharacterArchiveId(int sessionId, String? archiveId) async {
+    await initDatabase();
+    final key = 'character_archive_$sessionId';
+    if (archiveId == null) {
+      await _prefs!.remove(key);
+    } else {
+      await _prefs!.setString(key, archiveId);
+    }
+  }
+
+  /// 获取角色会话的activeArchiveId
+  String? getCharacterArchiveId(int sessionId) {
+    final key = 'character_archive_$sessionId';
+    return _prefs?.getString(key);
+  }
+
+  /// 保存小说会话的activeArchiveId
+  Future<void> saveNovelArchiveId(int sessionId, String? archiveId) async {
+    await initDatabase();
+    final key = 'novel_archive_$sessionId';
+    if (archiveId == null) {
+      await _prefs!.remove(key);
+    } else {
+      await _prefs!.setString(key, archiveId);
+    }
+  }
+
+  /// 获取小说会话的activeArchiveId
+  String? getNovelArchiveId(int sessionId) {
+    final key = 'novel_archive_$sessionId';
+    return _prefs?.getString(key);
+  }
+
+  /// 批量保存角色会话的activeArchiveId
+  Future<void> batchSaveCharacterArchiveIds(Map<int, String?> archiveIds) async {
+    await initDatabase();
+    for (final entry in archiveIds.entries) {
+      await saveCharacterArchiveId(entry.key, entry.value);
+    }
+  }
+
+  /// 批量保存小说会话的activeArchiveId
+  Future<void> batchSaveNovelArchiveIds(Map<int, String?> archiveIds) async {
+    await initDatabase();
+    for (final entry in archiveIds.entries) {
+      await saveNovelArchiveId(entry.key, entry.value);
+    }
   }
 }

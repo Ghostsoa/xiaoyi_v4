@@ -180,31 +180,15 @@ class _CachePullDialogState extends State<CachePullDialog> {
     });
   }
 
-  /// 更新会话的激活存档ID
+  /// 🔥 更新会话的激活存档ID（保存到SharedPreferences）
   Future<void> _updateSessionActiveArchive() async {
     try {
       await _sessionDataService.initDatabase();
-
-      // 获取当前会话数据
-      final sessionResponse = await _sessionDataService.getLocalCharacterSessions(
-        page: 1,
-        pageSize: 1000
+      await _sessionDataService.saveCharacterArchiveId(
+        widget.sessionId,
+        widget.archiveId,
       );
-
-      final session = sessionResponse.sessions.firstWhere(
-        (s) => s.id == widget.sessionId,
-        orElse: () => throw '会话不存在',
-      );
-
-      // 更新激活存档ID
-      final updatedSession = session.copyWith(
-        activeArchiveId: widget.archiveId,
-        lastSyncTime: DateTime.now(),
-      );
-
-      await _sessionDataService.updateCharacterSession(updatedSession);
-
-      debugPrint('[CachePullDialog] ✅ 拉取完成，已写入存档ID: ${widget.archiveId}');
+      debugPrint('[CachePullDialog] ✅ 拉取完成，已写入存档ID到SharedPreferences: ${widget.archiveId}');
     } catch (e) {
       debugPrint('[CachePullDialog] ❌ 写入存档ID失败: $e');
     }
