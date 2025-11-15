@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生成启动文字图片</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #333;
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        #canvas {
+            border: 2px solid #666;
+            display: block;
+            margin: 20px auto;
+            background: #000;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .info {
+            background: #444;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>生成启动画面文字图片</h1>
+        
+        <div class="info">
+            <h3>使用说明：</h3>
+            <ol>
+                <li>点击"生成图片"按钮生成预览</li>
+                <li>点击"下载图片"保存为PNG文件</li>
+                <li>将下载的图片重命名为 <code>launch_text.png</code></li>
+                <li>放到 <code>android/app/src/main/res/drawable/</code> 目录下</li>
+            </ol>
+        </div>
+
+        <canvas id="canvas" width="400" height="200"></canvas>
+        
+        <div class="controls">
+            <button onclick="generateImage()">生成图片</button>
+            <button onclick="downloadImage()">下载图片</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        function generateImage() {
+            // 清空画布
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 设置文字样式
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 80px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // 绘制文字
+            ctx.fillText('小懿AI', canvas.width / 2, canvas.height / 2);
+        }
+
+        function downloadImage() {
+            // 先生成图片
+            generateImage();
+            
+            // 创建下载链接
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'launch_text.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        // 页面加载时自动生成
+        window.onload = generateImage;
+    </script>
+</body>
+</html>

@@ -741,22 +741,14 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
   Future<void> _pinSession(int sessionId) async {
     try {
       if (_currentModeIndex == 0) {
-        await _messageService.pinCharacterSession(sessionId);
+        // 角色会话：调用子组件的方法（带乐观更新）
+        await _characterListKey.currentState?.pinSession(sessionId);
       } else if (_currentModeIndex == 1) {
-        await _messageService.pinNovelSession(sessionId);
+        // 小说会话：调用子组件的方法（带乐观更新）
+        await _novelListKey.currentState?.pinSession(sessionId);
       } else {
-        await _messageService.pinGroupChatSession(sessionId);
-      }
-
-      if (mounted) {
-        // 刷新列表
-        if (_currentModeIndex == 0) {
-          _characterListKey.currentState?.onRefresh();
-        } else if (_currentModeIndex == 1) {
-          _novelListKey.currentState?.onRefresh();
-        } else {
-          _groupChatListKey.currentState?.onRefresh();
-        }
+        // 群聊会话：调用子组件的方法（带乐观更新）
+        await _groupChatListKey.currentState?.pinSession(sessionId);
       }
     } catch (e) {
       if (mounted) {
@@ -769,22 +761,14 @@ class MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
   Future<void> _unpinSession(int sessionId) async {
     try {
       if (_currentModeIndex == 0) {
-        await _messageService.unpinCharacterSession(sessionId);
+        // 角色会话：调用子组件的方法（带乐观更新）
+        await _characterListKey.currentState?.unpinSession(sessionId);
       } else if (_currentModeIndex == 1) {
-        await _messageService.unpinNovelSession(sessionId);
+        // 小说会话：调用子组件的方法（带乐观更新）
+        await _novelListKey.currentState?.unpinSession(sessionId);
       } else {
-        await _messageService.unpinGroupChatSession(sessionId);
-      }
-
-      if (mounted) {
-        // 刷新列表
-        if (_currentModeIndex == 0) {
-          _characterListKey.currentState?.onRefresh();
-        } else if (_currentModeIndex == 1) {
-          _novelListKey.currentState?.onRefresh();
-        } else {
-          _groupChatListKey.currentState?.onRefresh();
-        }
+        // 群聊会话：调用子组件的方法（带乐观更新）
+        await _groupChatListKey.currentState?.unpinSession(sessionId);
       }
     } catch (e) {
       if (mounted) {

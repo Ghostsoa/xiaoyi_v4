@@ -121,8 +121,8 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
       searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
     );
     
-    if (mounted && apiResult['list'] is List) {
-      final List<Map<String, dynamic>> apiList = List<Map<String, dynamic>>.from(apiResult['list']);
+    if (mounted && apiResult['items'] is List) {
+      final List<Map<String, dynamic>> apiList = List<Map<String, dynamic>>.from(apiResult['items']);
       final int total = apiResult['total'] is int ? apiResult['total'] : 0;
       
       print('[GroupChatSessionList] 步骤2: API返回 ${apiList.length}条, total=$total');
@@ -210,8 +210,8 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
         searchName: _searchKeyword.isEmpty ? null : _searchKeyword,
       );
 
-      if (mounted && apiResult['list'] is List) {
-        final List<Map<String, dynamic>> apiList = List<Map<String, dynamic>>.from(apiResult['list']);
+      if (mounted && apiResult['items'] is List) {
+        final List<Map<String, dynamic>> apiList = List<Map<String, dynamic>>.from(apiResult['items']);
         final int total = apiResult['total'] is int ? apiResult['total'] : 0;
 
         // 获取当前置顶会话的ID集合（重新加载以防有变化）
@@ -505,21 +505,22 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
     final isSelected = widget.selectedIds.contains(sessionId);
     final coverUri = session['cover_uri'] as String?;
 
-    return Slidable(
-      key: ValueKey(sessionId),
-      enabled: !widget.isMultiSelectMode,
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      child: Slidable(
+        key: ValueKey(sessionId),
+        enabled: !widget.isMultiSelectMode,
       startActionPane: ActionPane(
         motion: const DrawerMotion(),
         extentRatio: 0.25,
         children: [
           CustomSlidableAction(
-            borderRadius: BorderRadius.circular(12.r),
             onPressed: (context) {
               final bool isPinned = (session['is_pinned'] as int? ?? 0) == 1;
               if (isPinned) {
-                _unpinSession(sessionId);
+                unpinSession(sessionId);
               } else {
-                _pinSession(sessionId);
+                pinSession(sessionId);
               }
               Slidable.of(context)?.close();
             },
@@ -537,7 +538,6 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
         extentRatio: 0.5,
         children: [
           CustomSlidableAction(
-            borderRadius: BorderRadius.circular(12.r),
             onPressed: (context) {
               _showRenameDialog(session);
               Slidable.of(context)?.close();
@@ -550,7 +550,6 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
             labelStyle: TextStyle(fontSize: 12.sp, color: Colors.white, fontWeight: FontWeight.w500),
           ),
           CustomSlidableAction(
-            borderRadius: BorderRadius.circular(12.r),
             onPressed: (context) {
               _deleteSession(session);
               Slidable.of(context)?.close();
@@ -571,7 +570,6 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
             : (details) => _handleSessionLongPress(session, details.globalPosition),
         child: Container(
           height: 64.h,
-          margin: EdgeInsets.only(bottom: 8.h),
           decoration: BoxDecoration(
             color: AppTheme.cardBackground,
             border: isSelected 
@@ -729,6 +727,7 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -1088,8 +1087,8 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
     }
   }
 
-  /// 🔥 置顶群聊会话（本地UI调整，无需重新加载）
-  Future<void> _pinSession(int sessionId) async {
+  /// 🔥 公共方法：置顶群聊会话（供父组件调用，带乐观更新）
+  Future<void> pinSession(int sessionId) async {
     try {
       // 先在UI上立即更新（乐观更新）
       if (mounted) {
@@ -1117,8 +1116,8 @@ class GroupChatSessionListState extends State<GroupChatSessionList> {
     }
   }
 
-  /// 🔥 取消置顶群聊会话（本地UI调整，无需重新加载）
-  Future<void> _unpinSession(int sessionId) async {
+  /// 🔥 公共方法：取消置顶群聊会话（供父组件调用，带乐观更新）
+  Future<void> unpinSession(int sessionId) async {
     try {
       // 先在UI上立即更新（乐观更新）
       if (mounted) {
@@ -1181,6 +1180,7 @@ class CustomSlidableAction extends StatelessWidget {
       child: GestureDetector(
         onTap: () => onPressed(context),
         child: Container(
+          height: 64.h, // 与群聊卡片高度一致
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: borderRadius,

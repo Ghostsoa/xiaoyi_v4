@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 import 'dart:typed_data';
 import 'dart:async';
 
@@ -11,7 +10,7 @@ import '../../novel/pages/novel_reading_page.dart';
 import '../message_service.dart';
 import '../../../services/file_service.dart';
 import '../../../services/session_data_service.dart';
-import '../../../widgets/custom_toast.dart';
+import '../../../models/session_model.dart';
 
 class NovelSessionList extends StatefulWidget {
   const NovelSessionList({
@@ -439,8 +438,14 @@ class NovelSessionListState extends State<NovelSessionList> {
         children: [
           _buildSearchBar(),
           Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
+            child: GridView.builder(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12.h,
+                crossAxisSpacing: 12.w,
+                childAspectRatio: 0.65,
+              ),
               itemCount: 10,
               itemBuilder: (context, index) => _buildNovelSkeletonItem(),
             ),
@@ -492,10 +497,16 @@ class NovelSessionListState extends State<NovelSessionList> {
                   footer: customFooter,
                   onRefresh: onRefresh,
                   onLoading: _onLoading,
-                  child: ListView.builder(
+                  child: GridView.builder(
                     key: const PageStorageKey('novel_list'),
+                    padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 12.h,
+                      crossAxisSpacing: 12.w,
+                      childAspectRatio: 0.65, // 宽高比，使卡片呈竖向长方形
+                    ),
                     itemCount: _sessions.length,
-                    padding: EdgeInsets.symmetric(horizontal: 20.w),
                     itemBuilder: (context, index) {
                       try {
                         final session = _sessions[index];
@@ -505,8 +516,10 @@ class NovelSessionListState extends State<NovelSessionList> {
                         );
                       } catch (e) {
                         debugPrint('构建小说项失败 index=$index: $e');
-                        return SizedBox(
-                          height: 60.h,
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.cardBackground.withOpacity(0.3),
+                          ),
                           child: Center(
                             child: Text(
                               '加载失败',
@@ -632,70 +645,7 @@ class NovelSessionListState extends State<NovelSessionList> {
     final bool isDebugVersion = parsedTitle['prefix']!.isNotEmpty;
     final String displayTitle = parsedTitle['title']!;
 
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6.h),
-      child: Slidable(
-        enabled: !widget.isMultiSelectMode,
-        startActionPane: ActionPane(
-          motion: const DrawerMotion(),
-          extentRatio: 0.25,
-          children: [
-            CustomSlidableAction(
-              borderRadius: BorderRadius.circular(12.r),
-              onPressed: (context) {
-                final bool isPinned = (session['is_pinned'] as int? ?? 0) == 1;
-                if (isPinned) {
-                  _unpinSession(sessionId);
-                } else {
-                  _pinSession(sessionId);
-                }
-                // 关闭滑动状态
-                Slidable.of(context)?.close();
-              },
-              backgroundColor: (session['is_pinned'] as int? ?? 0) == 1 ? const Color(0xFF8E8E93) : const Color(0xFFFF9500),
-              foregroundColor: Colors.white,
-              icon: (session['is_pinned'] as int? ?? 0) == 1 ? Icons.push_pin_outlined : Icons.push_pin,
-              label: (session['is_pinned'] as int? ?? 0) == 1 ? '取消置顶' : '置顶',
-              iconSize: 16.sp,
-              labelStyle: TextStyle(fontSize: 12.sp, color: Colors.white, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-        endActionPane: ActionPane(
-          motion: const DrawerMotion(),
-          extentRatio: 0.5,
-          children: [
-            CustomSlidableAction(
-              borderRadius: BorderRadius.circular(12.r),
-              onPressed: (context) {
-                _showRenameDialog(sessionId, session['title'] ?? '未命名小说');
-                // 关闭滑动状态
-                Slidable.of(context)?.close();
-              },
-              backgroundColor: const Color(0xFF007AFF),
-              foregroundColor: Colors.white,
-              icon: Icons.edit,
-              label: '重命名',
-              iconSize: 16.sp,
-              labelStyle: TextStyle(fontSize: 12.sp, color: Colors.white, fontWeight: FontWeight.w500),
-            ),
-            CustomSlidableAction(
-              borderRadius: BorderRadius.circular(12.r),
-              onPressed: (context) {
-                _showDeleteConfirmDialog(sessionId);
-                // 关闭滑动状态
-                Slidable.of(context)?.close();
-              },
-              backgroundColor: const Color(0xFFFF3B30),
-              foregroundColor: Colors.white,
-              icon: Icons.delete,
-              label: '删除',
-              iconSize: 16.sp,
-              labelStyle: TextStyle(fontSize: 12.sp, color: Colors.white, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-        child: GestureDetector(
+    return GestureDetector(
           onTap: () {
             if (widget.isMultiSelectMode) {
               widget.onSelectionChanged(sessionId);
@@ -720,15 +670,19 @@ class NovelSessionListState extends State<NovelSessionList> {
           onLongPressStart: widget.isMultiSelectMode
               ? null
               : (LongPressStartDetails details) {
-                  // 🔥 修复：使用LongPressStartDetails获取准确的触摸位置
                   final Offset globalPosition = details.globalPosition;
                   widget.onShowMenu(context, session, globalPosition);
                 },
         child: Container(
-          height: 60.h,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
             color: AppTheme.cardBackground.withOpacity(0.2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
           clipBehavior: Clip.antiAlias,
           child: Stack(
@@ -805,6 +759,7 @@ class NovelSessionListState extends State<NovelSessionList> {
                         color: AppTheme.cardBackground,
                       ),
               ),
+              // 黑色渐变遮罩
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
@@ -812,221 +767,204 @@ class NovelSessionListState extends State<NovelSessionList> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withOpacity(0.1),
-                        Colors.black.withOpacity(0.6),
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.3),
+                        Colors.black.withOpacity(0.8),
                       ],
+                      stops: [0.0, 0.5, 1.0],
                     ),
                   ),
                 ),
               ),
+              // 多选模式选择框
               if (widget.isMultiSelectMode)
                 Positioned(
-                  left: 12.w,
-                  top: 0,
-                  bottom: 0,
-                  child: Center(
-                    child: Container(
-                      width: 24.w,
-                      height: 24.w,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color:
-                              isSelected ? AppTheme.primaryColor : Colors.white,
-                          width: 2,
-                        ),
-                        color: isSelected
-                            ? AppTheme.primaryColor
-                            : Colors.transparent,
+                  right: 8.w,
+                  top: 8.h,
+                  child: Container(
+                    width: 24.w,
+                    height: 24.w,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected ? AppTheme.primaryColor : Colors.white,
+                        width: 2,
                       ),
-                      child: isSelected
-                          ? Icon(
-                              Icons.check,
-                              size: 16.sp,
-                              color: Colors.white,
-                            )
-                          : null,
+                      color: isSelected
+                          ? AppTheme.primaryColor
+                          : Colors.black.withOpacity(0.3),
                     ),
+                    child: isSelected
+                        ? Icon(
+                            Icons.check,
+                            size: 14.sp,
+                            color: Colors.white,
+                          )
+                        : null,
                   ),
                 ),
+              // 底部信息区域
               Positioned(
-                left: widget.isMultiSelectMode ? 48.w : 16.w,
-                right: 16.w,
+                left: 8.w,
+                right: 8.w,
                 bottom: 8.h,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  displayTitle,
-                                  style: TextStyle(
-                                    fontSize: 15.sp,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white,
-                                    shadows: [
-                                      Shadow(
-                                        offset: Offset(0, 1),
-                                        blurRadius: 3.0,
-                                        color: Colors.black.withOpacity(0.5),
-                                      ),
-                                    ],
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                ),
-                              ),
-                              // 🔥 调试版标签
-                              if (isDebugVersion) ...[
-                                SizedBox(width: 4.w),
-                                _buildDebugTag(),
-                              ],
-                              // 🔥 置顶图标
-                              if ((session['is_pinned'] as int? ?? 0) == 1) ...[
-                                SizedBox(width: 4.w),
-                                Icon(
-                                  Icons.push_pin,
-                                  size: 12.sp,
-                                  color: Colors.orange,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        Text(
-                          _formatTime(_safeGet(session, 'updated_at', '')),
-                          style: TextStyle(
-                            fontSize: 13.sp,
-                            color: Colors.white.withOpacity(0.8),
-                            shadows: [
-                              Shadow(
-                                offset: Offset(0, 1),
-                                blurRadius: 2.0,
-                                color: Colors.black.withOpacity(0.5),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (session['tags'] is List &&
-                        (session['tags'] as List).isNotEmpty)
+                    // 置顶标签
+                    if ((session['is_pinned'] as int? ?? 0) == 1)
                       Padding(
-                        padding: EdgeInsets.only(top: 6.h),
-                        child: Wrap(
-                          spacing: 6.w,
-                          runSpacing: 4.h,
-                          children: (session['tags'] as List)
-                              .take(2)
-                              .map((tag) => Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 6.w,
-                                      vertical: 2.h,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.4),
-                                      borderRadius: BorderRadius.circular(4.r),
-                                    ),
-                                    child: Text(
-                                      tag.toString(),
-                                      style: TextStyle(
-                                        fontSize: 10.sp,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ))
-                              .toList(),
+                        padding: EdgeInsets.only(bottom: 4.h),
+                        child: Icon(
+                          Icons.push_pin,
+                          size: 14.sp,
+                          color: Colors.orange,
                         ),
                       ),
+                    // 标题行
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            displayTitle,
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              height: 1.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // 调试版标签
+                        if (isDebugVersion) ...[
+                          SizedBox(width: 4.w),
+                          _buildDebugTag(),
+                        ],
+                      ],
+                    ),
+                    SizedBox(height: 4.h),
+                    // 时间
+                    Text(
+                      _formatTime(_safeGet(session, 'updated_at', '')),
+                      style: TextStyle(
+                        fontSize: 11.sp,
+                        color: Colors.white.withOpacity(0.7),
+                      ),
+                    ),
+                    // 标签
+                    if (session['tags'] is List && (session['tags'] as List).isNotEmpty) ...[
+                      SizedBox(height: 4.h),
+                      Wrap(
+                        spacing: 4.w,
+                        runSpacing: 4.h,
+                        children: (session['tags'] as List)
+                            .take(2)
+                            .map((tag) => Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 6.w,
+                                    vertical: 2.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.3),
+                                      width: 0.5,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    tag.toString(),
+                                    style: TextStyle(
+                                      fontSize: 9.sp,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ))
+                            .toList(),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
         ),
-          ),
-        ),
-    );
+      );
   }
 
   Widget _buildNovelSkeletonItem() {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6.h),
-      child: Shimmer.fromColors(
-        baseColor: AppTheme.cardBackground,
-        highlightColor: AppTheme.cardBackground.withOpacity(0.5),
-        child: Container(
-          height: 60.h,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-            color: AppTheme.cardBackground,
-          ),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      width: 120.w,
-                      height: 16.h,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4.r),
-                        color: Colors.white.withOpacity(0.5),
-                      ),
-                    ),
-                    Container(
-                      width: 40.w,
-                      height: 12.h,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4.r),
-                        color: Colors.white.withOpacity(0.5),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8.h),
-                Row(
-                  children: [
-                    Container(
-                      width: 40.w,
-                      height: 16.h,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4.r),
-                        color: Colors.white.withOpacity(0.5),
-                      ),
-                    ),
-                    SizedBox(width: 8.w),
-                    Container(
-                      width: 40.w,
-                      height: 16.h,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4.r),
-                        color: Colors.white.withOpacity(0.5),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+    return Shimmer.fromColors(
+      baseColor: AppTheme.cardBackground,
+      highlightColor: AppTheme.cardBackground.withOpacity(0.5),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.cardBackground,
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Container(
+                color: AppTheme.cardBackground,
+              ),
             ),
-          ),
+            Positioned(
+              left: 8.w,
+              right: 8.w,
+              bottom: 8.h,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 16.h,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.3),
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Container(
+                    width: 60.w,
+                    height: 12.h,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.3),
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Row(
+                    children: [
+                      Container(
+                        width: 40.w,
+                        height: 16.h,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+                      ),
+                      SizedBox(width: 4.w),
+                      Container(
+                        width: 40.w,
+                        height: 16.h,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  /// 🔥 置顶会话（本地UI调整，无需重新加载）
-  Future<void> _pinSession(int sessionId) async {
+  /// 🔥 公共方法：置顶会话（供父组件调用，带乐观更新）
+  Future<void> pinSession(int sessionId) async {
+    Map<String, dynamic>? sessionData;
+    
     try {
       // 先在UI上立即更新（乐观更新）
       if (mounted) {
@@ -1037,26 +975,32 @@ class NovelSessionListState extends State<NovelSessionList> {
             session['is_pinned'] = 1;
             session['pinned_at'] = DateTime.now().toIso8601String();
             _sessions.insert(0, session);
+            sessionData = session; // 保存会话数据
           }
         });
       }
 
-      // 后台调用API
-      final MessageService messageService = MessageService();
-      await messageService.pinNovelSession(sessionId);
+      // 先确保会话在本地数据库中存在
+      if (sessionData != null) {
+        final sessionModel = SessionModel.fromApiJson(sessionData!);
+        await _sessionDataService.insertOrUpdateNovelSessions([sessionModel]);
+      }
+      
+      // 然后调用置顶API（会更新本地数据库的is_pinned字段）
+      await _messageService.pinNovelSession(sessionId);
     } catch (e) {
+      debugPrint('[NovelSessionList] 置顶失败: $e');
+      // 如果API失败，重新加载以恢复正确状态
       if (mounted) {
-        CustomToast.show(
-          context,
-          message: '置顶失败: $e',
-          type: ToastType.error,
-        );
+        _loadSessions();
       }
     }
   }
 
-  /// 🔥 取消置顶会话（本地UI调整，无需重新加载）
-  Future<void> _unpinSession(int sessionId) async {
+  /// 🔥 公共方法：取消置顶会话（供父组件调用，带乐观更新）
+  Future<void> unpinSession(int sessionId) async {
+    Map<String, dynamic>? sessionData;
+    
     try {
       // 先在UI上立即更新（乐观更新）
       if (mounted) {
@@ -1072,202 +1016,25 @@ class NovelSessionListState extends State<NovelSessionList> {
             } else {
               _sessions.add(session);
             }
+            sessionData = session; // 保存会话数据
           }
         });
       }
 
-      // 后台调用API
-      final MessageService messageService = MessageService();
-      await messageService.unpinNovelSession(sessionId);
+      // 先确保会话在本地数据库中存在
+      if (sessionData != null) {
+        final sessionModel = SessionModel.fromApiJson(sessionData!);
+        await _sessionDataService.insertOrUpdateNovelSessions([sessionModel]);
+      }
+      
+      // 然后调用API（会更新本地数据库的is_pinned字段）
+      await _messageService.unpinNovelSession(sessionId);
     } catch (e) {
+      debugPrint('[NovelSessionList] 取消置顶失败: $e');
+      // 如果API失败，重新加载以恢复正确状态
       if (mounted) {
-        CustomToast.show(
-          context,
-          message: '取消置顶失败: $e',
-          type: ToastType.error,
-        );
-      }
-    }
-  }
-
-  /// 显示重命名对话框
-  void _showRenameDialog(int sessionId, String currentName) {
-    final TextEditingController controller = TextEditingController(text: currentName);
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('重命名小说'),
-          content: TextField(
-            controller: controller,
-            decoration: InputDecoration(
-              hintText: '请输入新名称',
-            ),
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('取消'),
-            ),
-            TextButton(
-              onPressed: () {
-                final newName = controller.text.trim();
-                if (newName.isNotEmpty) {
-                  _renameSession(sessionId, newName);
-                }
-                Navigator.of(context).pop();
-              },
-              child: Text('确定'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  /// 重命名会话
-  Future<void> _renameSession(int sessionId, String newName) async {
-    try {
-      final result = await _messageService.renameNovelSession(sessionId, newName);
-
-      if (result['success'] == true) {
-        if (mounted) {
-          CustomToast.show(
-            context,
-            message: '重命名成功',
-            type: ToastType.success,
-          );
-          _loadSessions();
-        }
-      } else {
-        if (mounted) {
-          CustomToast.show(
-            context,
-            message: result['msg'] ?? '重命名失败',
-            type: ToastType.error,
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        CustomToast.show(
-          context,
-          message: '重命名失败: $e',
-          type: ToastType.error,
-        );
-      }
-    }
-  }
-
-  /// 显示删除确认对话框
-  Future<void> _showDeleteConfirmDialog(int sessionId) async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('确认删除'),
-          content: Text('确定要删除这个小说会话吗？此操作不可恢复。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text('取消', style: TextStyle(decoration: TextDecoration.none)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text('删除', style: TextStyle(color: Colors.red, decoration: TextDecoration.none)),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed == true) {
-      _deleteSingleSession(sessionId);
-    }
-  }
-
-  /// 删除单个会话
-  Future<void> _deleteSingleSession(int sessionId) async {
-    try {
-      final Map<String, dynamic> result = await _messageService.batchDeleteNovelSessions([sessionId]);
-
-      if (mounted) {
-        CustomToast.show(
-          context,
-          message: result['msg'] ?? '删除完成',
-          type: result['success'] ? ToastType.success : ToastType.error,
-        );
         _loadSessions();
       }
-    } catch (e) {
-      if (mounted) {
-        CustomToast.show(
-          context,
-          message: '删除失败: $e',
-          type: ToastType.error,
-        );
-      }
     }
-  }
-}
-
-/// 自定义滑动按钮，支持调整图标和文字大小
-class CustomSlidableAction extends StatelessWidget {
-  const CustomSlidableAction({
-    super.key,
-    required this.onPressed,
-    required this.backgroundColor,
-    required this.foregroundColor,
-    required this.icon,
-    required this.label,
-    this.borderRadius,
-    this.iconSize,
-    this.labelStyle,
-  });
-
-  final void Function(BuildContext) onPressed;
-  final Color backgroundColor;
-  final Color foregroundColor;
-  final IconData icon;
-  final String label;
-  final BorderRadius? borderRadius;
-  final double? iconSize;
-  final TextStyle? labelStyle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => onPressed(context),
-        child: Container(
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: borderRadius,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                color: foregroundColor,
-                size: iconSize ?? 20.sp,
-              ),
-              SizedBox(height: 2.h),
-              Text(
-                label,
-                style: labelStyle ?? TextStyle(
-                  color: foregroundColor,
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

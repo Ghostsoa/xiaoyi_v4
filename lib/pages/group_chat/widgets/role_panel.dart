@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:typed_data';
 import '../../../theme/app_theme.dart';
 import '../../../services/file_service.dart';
+import '../../../widgets/custom_toast.dart';
 
 class RolePanel extends StatefulWidget {
   final List<dynamic> roles;
@@ -259,8 +260,10 @@ class _RolePanelState extends State<RolePanel> {
                                child: InkWell(
                                  onTap: () {
                                    // TODO: 实现发言功能
-                                   ScaffoldMessenger.of(context).showSnackBar(
-                                     SnackBar(content: Text('发言功能待实现')),
+                                   CustomToast.show(
+                                     context,
+                                     message: '发言功能待实现',
+                                     type: ToastType.info,
                                    );
                                  },
                                  borderRadius: BorderRadius.circular(12.r),
@@ -323,8 +326,10 @@ class _RolePanelState extends State<RolePanel> {
                                child: InkWell(
                                  onTap: () {
                                    // TODO: 实现发言功能
-                                   ScaffoldMessenger.of(context).showSnackBar(
-                                     SnackBar(content: Text('发言功能待实现')),
+                                   CustomToast.show(
+                                     context,
+                                     message: '发言功能待实现',
+                                     type: ToastType.info,
                                    );
                                  },
                                  borderRadius: BorderRadius.circular(12.r),

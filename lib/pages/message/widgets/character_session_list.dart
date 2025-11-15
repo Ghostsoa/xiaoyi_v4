@@ -1210,6 +1210,65 @@ class CharacterSessionListState extends State<CharacterSessionList> {
       }
     }
   }
+
+  /// 🔥 公共方法：置顶会话（供父组件调用，带乐观更新）
+  Future<void> pinSession(int sessionId) async {
+    try {
+      // 先在UI上立即更新（乐观更新）
+      if (mounted) {
+        setState(() {
+          final index = _sessions.indexWhere((s) => s['id'] == sessionId);
+          if (index != -1) {
+            final session = _sessions.removeAt(index);
+            session['is_pinned'] = 1;
+            session['pinned_at'] = DateTime.now().toIso8601String();
+            _sessions.insert(0, session);
+          }
+        });
+      }
+
+      // 后台调用API
+      await _messageService.pinCharacterSession(sessionId);
+    } catch (e) {
+      debugPrint('[CharacterSessionList] 置顶失败: $e');
+      // 如果API失败，重新加载以恢复正确状态
+      if (mounted) {
+        _loadSessions();
+      }
+    }
+  }
+
+  /// 🔥 公共方法：取消置顶会话（供父组件调用，带乐观更新）
+  Future<void> unpinSession(int sessionId) async {
+    try {
+      // 先在UI上立即更新（乐观更新）
+      if (mounted) {
+        setState(() {
+          final index = _sessions.indexWhere((s) => s['id'] == sessionId);
+          if (index != -1) {
+            final session = _sessions.removeAt(index);
+            session['is_pinned'] = 0;
+            session['pinned_at'] = null;
+            final firstUnpinnedIndex = _sessions.indexWhere((s) => (s['is_pinned'] as int? ?? 0) == 0);
+            if (firstUnpinnedIndex != -1) {
+              _sessions.insert(firstUnpinnedIndex, session);
+            } else {
+              _sessions.add(session);
+            }
+          }
+        });
+      }
+
+      // 后台调用API
+      await _messageService.unpinCharacterSession(sessionId);
+    } catch (e) {
+      debugPrint('[CharacterSessionList] 取消置顶失败: $e');
+      // 如果API失败，重新加载以恢复正确状态
+      if (mounted) {
+        _loadSessions();
+      }
+    }
+  }
 }
 
 /// 自定义滑动按钮，支持调整图标和文字大小

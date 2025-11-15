@@ -49,7 +49,8 @@ class EndpointInfo {
 class NetworkMonitorService {
   /// 默认API节点列表
   static final List<EndpointInfo> defaultEndpoints = [
-    EndpointInfo(url: 'https://de.xiaoyi.ink', name: '主线路', isDefault: true),
+    EndpointInfo(url: 'https://de.xiaoyi.ink', name: '主线路1', isDefault: true),
+    EndpointInfo(url: 'https://cdn.xiaoyi.ink', name: '主线路2', isDefault: true),
     EndpointInfo(url: 'https://hk.xiaoyi.ink', name: '香港线路（备）', isDefault: true),
     EndpointInfo(url: 'https://jp2.xiaoyi.icu', name: '日本线路（备）', isDefault: true),
   ];
@@ -285,7 +286,12 @@ class NetworkMonitorService {
 
     // 根据节点类型生成智能延迟
     if (endpoint.contains('de.xiaoyi.ink')) {
-      // 德国主节点：50-150ms
+      // 主线路1：50-150ms
+      final baseLatency = 50 + random.nextInt(101); // 50-150
+      final randomOffset = random.nextInt(10) - 5; // -5到+4的随机偏移
+      return (baseLatency + randomOffset).clamp(45, 155);
+    } else if (endpoint.contains('cdn.xiaoyi.ink')) {
+      // 主线路2：50-150ms
       final baseLatency = 50 + random.nextInt(101); // 50-150
       final randomOffset = random.nextInt(10) - 5; // -5到+4的随机偏移
       return (baseLatency + randomOffset).clamp(45, 155);

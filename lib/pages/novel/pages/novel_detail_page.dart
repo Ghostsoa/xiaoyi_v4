@@ -29,6 +29,7 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
 
   // 编辑状态
   bool _isEditing = false;
+  bool _isCustomModelMode = false;
 
   // 编辑值
   final TextEditingController _modelNameController = TextEditingController();
@@ -266,45 +267,112 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
             ),
             SizedBox(width: 8.w),
             Expanded(
-              child: InkWell(
-                onTap: _selectModel,
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    vertical: 12.h,
-                    horizontal: 12.w,
-                  ),
-                  decoration: BoxDecoration(
-                    color: widget.backgroundColor.computeLuminance() > 0.5
-                        ? Colors.black.withOpacity(0.05)
-                        : Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(4.r),
-                    border: Border.all(
-                      color: widget.textColor.withOpacity(0.2),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _modelNameController.text.isEmpty
-                            ? '请选择模型'
-                            : _modelNameController.text,
-                        style: TextStyle(
+              child: _isCustomModelMode
+                  ? TextField(
+                      controller: _modelNameController,
+                      style: TextStyle(
+                        fontSize: 16.sp,
+                        color: widget.textColor,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '输入自定义模型名称',
+                        hintStyle: TextStyle(
                           fontSize: 16.sp,
-                          color: _modelNameController.text.isEmpty
-                              ? widget.textColor.withOpacity(0.5)
-                              : widget.textColor,
+                          color: widget.textColor.withOpacity(0.5),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4.r),
+                          borderSide: BorderSide(
+                            color: widget.textColor.withOpacity(0.2),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4.r),
+                          borderSide: BorderSide(
+                            color: AppTheme.primaryColor,
+                            width: 2,
+                          ),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                          vertical: 12.h,
+                          horizontal: 12.w,
                         ),
                       ),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16.sp,
-                        color: widget.textColor.withOpacity(0.7),
+                      onSubmitted: (value) {
+                        if (value.trim().isNotEmpty) {
+                          setState(() {
+                            _isCustomModelMode = false;
+                          });
+                        }
+                      },
+                    )
+                  : InkWell(
+                      onTap: _selectModel,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          vertical: 12.h,
+                          horizontal: 12.w,
+                        ),
+                        decoration: BoxDecoration(
+                          color: widget.backgroundColor.computeLuminance() > 0.5
+                              ? Colors.black.withOpacity(0.05)
+                              : Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(4.r),
+                          border: Border.all(
+                            color: widget.textColor.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _modelNameController.text.isEmpty
+                                    ? '请选择模型'
+                                    : _modelNameController.text,
+                                style: TextStyle(
+                                  fontSize: 16.sp,
+                                  color: _modelNameController.text.isEmpty
+                                      ? widget.textColor.withOpacity(0.5)
+                                      : widget.textColor,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16.sp,
+                              color: widget.textColor.withOpacity(0.7),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+            ),
+            SizedBox(width: 8.w),
+            // 编辑按钮
+            IconButton(
+              icon: Icon(
+                _isCustomModelMode ? Icons.check : Icons.edit,
+                size: 20.sp,
+                color: _isCustomModelMode ? Colors.green : widget.textColor,
               ),
+              onPressed: () {
+                if (_isCustomModelMode) {
+                  // 确认自定义输入
+                  if (_modelNameController.text.trim().isNotEmpty) {
+                    setState(() {
+                      _isCustomModelMode = false;
+                    });
+                  }
+                } else {
+                  // 进入编辑模式
+                  setState(() {
+                    _isCustomModelMode = true;
+                  });
+                }
+              },
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints(),
             ),
           ],
         ),
@@ -483,6 +551,7 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
   void _cancelEditing() {
     setState(() {
       _isEditing = false;
+      _isCustomModelMode = false;
       // 恢复原始值
       _modelNameController.text = _novelDetail['model_name'] ?? '';
       _protagonistSetController.text = _novelDetail['protagonist_set'] ?? '';
